@@ -1,0 +1,16 @@
+﻿import api from './axios'
+
+export const listSupportTickets = (params) => api.get('/super-admin/support/tickets', { params }).then((r) => r.data)
+export const createSupportTicket = (payload) => api.post('/super-admin/support/tickets', payload).then((r) => r.data)
+export const updateSupportTicket = (id, payload) => api.put(`/super-admin/support/tickets/${id}`, payload).then((r) => r.data)
+export const assignSupportTicket = (id, assignedAgent) => api.patch(`/super-admin/support/tickets/${id}/assign`, { assignedAgent }).then((r) => r.data)
+export const updateTicketPriority = (id, priority) => api.patch(`/super-admin/support/tickets/${id}/priority`, { priority }).then((r) => r.data)
+export const updateTicketSla = (id, slaDueAt) => api.patch(`/super-admin/support/tickets/${id}/sla`, { slaDueAt }).then((r) => r.data)
+export const resolveSupportTicket = (id, resolution) => api.patch(`/super-admin/support/tickets/${id}/resolve`, { resolution }).then((r) => r.data)
+export const listTicketMessages = (id) => api.get(`/super-admin/support/tickets/${id}/messages`).then((r) => r.data)
+export const addTicketMessage = (id, payload) => api.post(`/super-admin/support/tickets/${id}/messages`, payload).then((r) => r.data)
+export const addInternalNote = (id, note, by = 'Super Admin') => api.post(`/super-admin/support/tickets/${id}/internal-notes`, { note, by }).then((r) => r.data)
+export const listTicketCategories = () => api.get('/super-admin/support/categories').then((r) => r.data)
+export const createTicketCategory = (payload) => api.post('/super-admin/support/categories', payload).then((r) => r.data)
+export const listSupportAgents = () => api.get('/super-admin/support/agents').then((r) => r.data)
+export const createSupportAgent = (payload) => api.post('/super-admin/support/agents', payload).then((r) => r.data)

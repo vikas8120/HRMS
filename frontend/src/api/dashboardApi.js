@@ -1,0 +1,15 @@
+import api from './axios'
+
+export const getDashboardStats = () => api.get('/super-admin/dashboard/stats').then((r) => r.data)
+export const getOverview = () => api.get('/super-admin/dashboard/overview').then((r) => r.data)
+export const globalSearch = (q) => api.get('/super-admin/search', { params: { q } }).then((r) => r.data)
+export const getTotalCompanies = (params) => api.get('/super-admin/dashboard/total-companies', { params }).then((r) => r.data)
+export const getActiveUsers = (params) => api.get('/super-admin/dashboard/active-users', { params }).then((r) => r.data)
+export const getActiveSubscriptions = (params) => api.get('/super-admin/dashboard/active-subscriptions', { params }).then((r) => r.data)
+export const getMonthlyRevenue = (params) => api.get('/super-admin/dashboard/monthly-revenue', { params }).then((r) => r.data)
+export const getSupportTicketSummary = (params) => api.get('/super-admin/dashboard/support-ticket-summary', { params }).then((r) => r.data)
+export const getSystemHealth = () => api.get('/super-admin/dashboard/system-health').then((r) => r.data)
+export const runHealthCheck = () => api.post('/super-admin/dashboard/system-health/run-check').then((r) => r.data)
+export const listActivities = (params) => api.get('/super-admin/dashboard/recent-activities', { params }).then((r) => r.data)
+export const updateActivity = (id, payload) => api.put(`/super-admin/dashboard/recent-activities/${id}`, payload).then((r) => r.data)
+export const deleteActivity = (id) => api.delete(`/super-admin/dashboard/recent-activities/${id}`).then((r) => r.data)

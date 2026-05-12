@@ -1,0 +1,1303 @@
+[
+  {
+    "rowId": "9e728d21-4941-4345-abe5-99fa59d6d312",
+    "model": "SuperAdmin",
+    "docId": "10b613621b6c4504853dfea2c24a554a",
+    "data": {
+      "_id": "10b613621b6c4504853dfea2c24a554a",
+      "name": "Super Admin",
+      "email": "superadmin@hrms.com",
+      "password": "$2a$10$NyWmPNiCZ0ovE/KIIcZ4u.mu8UgB2MUrVt4/AII6MWxV7ifP5QbES",
+      "role": "SUPER_ADMIN",
+      "status": "active",
+      "createdAt": "2026-05-08T11:27:25.431Z",
+      "updatedAt": "2026-05-08T11:49:45.099Z",
+      "lastLogin": "2026-05-08T11:49:45.099Z"
+    }
+  },
+  {
+    "rowId": "f0e8a87f-9059-4810-bcac-2bbbb8a287e9",
+    "model": "TenantCompany",
+    "docId": "87795396884347e285687e198c2310fa",
+    "data": {
+      "companyName": "Smoke 1778239661826",
+      "companyCode": "SM1778239661826",
+      "industry": "IT",
+      "email": "smoke1778239661826@x.com",
+      "phone": "9999999999",
+      "plan": "Starter",
+      "_id": "87795396884347e285687e198c2310fa",
+      "createdAt": "2026-05-08T11:27:41.844Z",
+      "updatedAt": "2026-05-08T11:27:41.850Z",
+      "address": "",
+      "city": "",
+      "state": "",
+      "country": "",
+      "timezone": "",
+      "currency": "",
+      "gst": "",
+      "pan": "",
+      "employeeLimit": 50,
+      "employees": 0,
+      "storageLimit": 5,
+      "status": "active",
+      "branding": {
+        "logoUrl": "",
+        "primaryColor": "#0f766e",
+        "secondaryColor": "#115e59",
+        "customDomain": "",
+        "loginPageBranding": ""
+      },
+      "domainSetup": {
+        "customDomain": "",
+        "verified": false,
+        "sslStatus": "pending"
+      },
+      "storageUsage": {
+        "usedStorage": 0,
+        "documentsCount": 0,
+        "backupSize": 0
+      },
+      "branches": [],
+      "configuration": {
+        "allowSelfOnboarding": false,
+        "allowGeoTracking": false,
+        "autoBackup": true
+      },
+      "suspensionReason": "",
+      "activityLogs": [
+        {
+          "action": "CREATE_COMPANY",
+          "description": "Company Smoke 1778239661826 created",
+          "performedBy": "10b613621b6c4504853dfea2c24a554a"
+        }
+      ],
+      "name": "Smoke 1778239661826"
+    }
+  },
+  {
+    "rowId": "d6f2cc5e-5ab1-490c-9d92-ce225bd46dea",
+    "model": "SubscriptionPlan",
+    "docId": "d41e9140f84c44b1a7232060098e0cac",
+    "data": {
+      "name": "SmokePlan-1778239661826",
+      "type": "standard",
+      "monthlyPrice": 10,
+      "yearlyPrice": 100,
+      "userLimit": 10,
+      "storageLimit": 5,
+      "_id": "d41e9140f84c44b1a7232060098e0cac",
+      "createdAt": "2026-05-08T11:27:41.865Z",
+      "updatedAt": "2026-05-08T11:27:41.865Z",
+      "features": [],
+      "autoRenewalEnabled": true,
+      "status": "active"
+    }
+  },
+  {
+    "rowId": "a7d399e7-0f0c-4a1d-8e5b-681d4ea08f75",
+    "model": "Subscription",
+    "docId": "34e080efae61425cb2cf2e5e1d30aade",
+    "data": {
+      "company": "87795396884347e285687e198c2310fa",
+      "plan": "d41e9140f84c44b1a7232060098e0cac",
+      "billingCycle": "monthly",
+      "status": "active",
+      "_id": "34e080efae61425cb2cf2e5e1d30aade",
+      "createdAt": "2026-05-08T11:27:41.878Z",
+      "updatedAt": "2026-05-08T11:27:41.878Z",
+      "startDate": "2026-05-08T11:27:41.878Z",
+      "autoRenewal": true
+    }
+  },
+  {
+    "rowId": "832b23b0-7162-431e-8b92-a070f272825a",
+    "model": "GlobalUser",
+    "docId": "ad54df8540c74576842b7112a7f8a70b",
+    "data": {
+      "name": "Smoke User",
+      "email": "user1778239661826@x.com",
+      "company": "87795396884347e285687e198c2310fa",
+      "status": "active",
+      "_id": "ad54df8540c74576842b7112a7f8a70b",
+      "createdAt": "2026-05-08T11:27:41.896Z",
+      "updatedAt": "2026-05-08T11:27:41.896Z",
+      "phone": "",
+      "role": "EMPLOYEE",
+      "lastLogin": null
+    }
+  },
+  {
+    "rowId": "0196a74a-88d0-4b5e-8600-70d9cee374f9",
+    "model": "TicketCategory",
+    "docId": "bc1379c3d82c47f1a05e33c5ed14278d",
+    "data": {
+      "name": "Payroll",
+      "description": "Payroll issues",
+      "slaHours": 24,
+      "_id": "bc1379c3d82c47f1a05e33c5ed14278d",
+      "createdAt": "2026-05-08T11:27:41.911Z",
+      "updatedAt": "2026-05-08T11:27:41.911Z"
+    }
+  },
+  {
+    "rowId": "430047e5-8fb5-4956-ac43-383d3639fb82",
+    "model": "TicketCategory",
+    "docId": "9f25b881b04e4ac8a525dff1ffe19eeb",
+    "data": {
+      "name": "Attendance",
+      "description": "Attendance issues",
+      "slaHours": 12,
+      "_id": "9f25b881b04e4ac8a525dff1ffe19eeb",
+      "createdAt": "2026-05-08T11:27:41.913Z",
+      "updatedAt": "2026-05-08T11:27:41.913Z"
+    }
+  },
+  {
+    "rowId": "996b6ff8-0246-4143-a6b8-d850ccfea0c7",
+    "model": "TicketCategory",
+    "docId": "95ca688c785c42349c4bb5c33c4f8c7f",
+    "data": {
+      "name": "Access",
+      "description": "Login and access",
+      "slaHours": 6,
+      "_id": "95ca688c785c42349c4bb5c33c4f8c7f",
+      "createdAt": "2026-05-08T11:27:41.916Z",
+      "updatedAt": "2026-05-08T11:27:41.916Z"
+    }
+  },
+  {
+    "rowId": "3d121d19-7d91-4076-a85e-c8122134cc09",
+    "model": "IntegrationSetting",
+    "docId": "dd27cd917cbe42a7ac25f1b020debaa5",
+    "data": {
+      "name": "Biometric Devices",
+      "category": "integration",
+      "_id": "dd27cd917cbe42a7ac25f1b020debaa5",
+      "createdAt": "2026-05-08T11:27:41.927Z",
+      "updatedAt": "2026-05-08T11:27:41.927Z",
+      "connected": false,
+      "status": "disconnected",
+      "config": {},
+      "lastTestAt": null,
+      "lastTestStatus": "not_tested"
+    }
+  },
+  {
+    "rowId": "d468a402-4774-4ebe-b239-a1111af2a85d",
+    "model": "IntegrationSetting",
+    "docId": "2a0c4b8cbda942c097260f065d231bfc",
+    "data": {
+      "name": "Google Workspace",
+      "category": "integration",
+      "_id": "2a0c4b8cbda942c097260f065d231bfc",
+      "createdAt": "2026-05-08T11:27:41.930Z",
+      "updatedAt": "2026-05-08T11:27:41.930Z",
+      "connected": false,
+      "status": "disconnected",
+      "config": {},
+      "lastTestAt": null,
+      "lastTestStatus": "not_tested"
+    }
+  },
+  {
+    "rowId": "5f74e3b6-355e-4d47-8693-7ba6e4594cbd",
+    "model": "IntegrationSetting",
+    "docId": "20c14ba4f5e7455d9a344945b97f6b00",
+    "data": {
+      "name": "Microsoft 365",
+      "category": "integration",
+      "_id": "20c14ba4f5e7455d9a344945b97f6b00",
+      "createdAt": "2026-05-08T11:27:41.933Z",
+      "updatedAt": "2026-05-08T11:27:41.933Z",
+      "connected": false,
+      "status": "disconnected",
+      "config": {},
+      "lastTestAt": null,
+      "lastTestStatus": "not_tested"
+    }
+  },
+  {
+    "rowId": "e5134397-e25b-4179-9c81-624552b71092",
+    "model": "IntegrationSetting",
+    "docId": "98acd061dc864a75b1e663d338a25453",
+    "data": {
+      "name": "Slack",
+      "category": "integration",
+      "_id": "98acd061dc864a75b1e663d338a25453",
+      "createdAt": "2026-05-08T11:27:41.937Z",
+      "updatedAt": "2026-05-08T11:27:41.937Z",
+      "connected": false,
+      "status": "disconnected",
+      "config": {},
+      "lastTestAt": null,
+      "lastTestStatus": "not_tested"
+    }
+  },
+  {
+    "rowId": "957654ae-7e2d-4005-b04c-d49f4cea5057",
+    "model": "IntegrationSetting",
+    "docId": "6eefa2a3a09d4c8886199d05d54cb6f2",
+    "data": {
+      "name": "Zoom",
+      "category": "integration",
+      "_id": "6eefa2a3a09d4c8886199d05d54cb6f2",
+      "createdAt": "2026-05-08T11:27:41.940Z",
+      "updatedAt": "2026-05-08T11:27:41.940Z",
+      "connected": false,
+      "status": "disconnected",
+      "config": {},
+      "lastTestAt": null,
+      "lastTestStatus": "not_tested"
+    }
+  },
+  {
+    "rowId": "29e98fa2-7bf4-4993-b7f6-f70d1eaaea3a",
+    "model": "IntegrationSetting",
+    "docId": "95eadf9c12e74632a3e088540561007c",
+    "data": {
+      "name": "Teams",
+      "category": "integration",
+      "_id": "95eadf9c12e74632a3e088540561007c",
+      "createdAt": "2026-05-08T11:27:41.943Z",
+      "updatedAt": "2026-05-08T11:27:41.943Z",
+      "connected": false,
+      "status": "disconnected",
+      "config": {},
+      "lastTestAt": null,
+      "lastTestStatus": "not_tested"
+    }
+  },
+  {
+    "rowId": "0abfbbb7-2140-4a70-8e19-0a1051196e1c",
+    "model": "IntegrationSetting",
+    "docId": "60926df8a11b4139afbf1fc9d0839573",
+    "data": {
+      "name": "Payment Gateway",
+      "category": "integration",
+      "_id": "60926df8a11b4139afbf1fc9d0839573",
+      "createdAt": "2026-05-08T11:27:41.946Z",
+      "updatedAt": "2026-05-08T11:27:41.946Z",
+      "connected": false,
+      "status": "disconnected",
+      "config": {},
+      "lastTestAt": null,
+      "lastTestStatus": "not_tested"
+    }
+  },
+  {
+    "rowId": "5603d2ab-d292-4b68-bce1-4c3c1e6aa946",
+    "model": "IntegrationSetting",
+    "docId": "bc6f4f3b5f634cb7b9b51f067a442f21",
+    "data": {
+      "name": "Accounting Software",
+      "category": "integration",
+      "_id": "bc6f4f3b5f634cb7b9b51f067a442f21",
+      "createdAt": "2026-05-08T11:27:41.950Z",
+      "updatedAt": "2026-05-08T11:27:41.950Z",
+      "connected": false,
+      "status": "disconnected",
+      "config": {},
+      "lastTestAt": null,
+      "lastTestStatus": "not_tested"
+    }
+  },
+  {
+    "rowId": "7b8a39d6-02bd-45a9-ae5c-face52e85fbe",
+    "model": "IntegrationSetting",
+    "docId": "a086303c0256438c9fe352d804af4df0",
+    "data": {
+      "name": "Email Integration",
+      "category": "integration",
+      "_id": "a086303c0256438c9fe352d804af4df0",
+      "createdAt": "2026-05-08T11:27:41.953Z",
+      "updatedAt": "2026-05-08T11:27:41.953Z",
+      "connected": false,
+      "status": "disconnected",
+      "config": {},
+      "lastTestAt": null,
+      "lastTestStatus": "not_tested"
+    }
+  },
+  {
+    "rowId": "0a11a518-f44b-41c7-b56f-a0e90c9e0d26",
+    "model": "IntegrationSetting",
+    "docId": "e526935037cf40e793ae24792c8b7f6f",
+    "data": {
+      "name": "SMS Gateway",
+      "category": "integration",
+      "_id": "e526935037cf40e793ae24792c8b7f6f",
+      "createdAt": "2026-05-08T11:27:41.956Z",
+      "updatedAt": "2026-05-08T11:27:41.956Z",
+      "connected": false,
+      "status": "disconnected",
+      "config": {},
+      "lastTestAt": null,
+      "lastTestStatus": "not_tested"
+    }
+  },
+  {
+    "rowId": "fd93b812-4475-4b97-86b9-d26789da6364",
+    "model": "IntegrationSetting",
+    "docId": "c6c07f5628fb4584b08f39085500b2bc",
+    "data": {
+      "name": "WhatsApp API",
+      "category": "integration",
+      "_id": "c6c07f5628fb4584b08f39085500b2bc",
+      "createdAt": "2026-05-08T11:27:41.959Z",
+      "updatedAt": "2026-05-08T11:27:41.959Z",
+      "connected": false,
+      "status": "disconnected",
+      "config": {},
+      "lastTestAt": null,
+      "lastTestStatus": "not_tested"
+    }
+  },
+  {
+    "rowId": "77ed70ba-08c8-441e-9dd2-1966879c0fe0",
+    "model": "IntegrationSetting",
+    "docId": "1cebf6c21d6348d391bf75c71b119e39",
+    "data": {
+      "name": "Maps API",
+      "category": "integration",
+      "_id": "1cebf6c21d6348d391bf75c71b119e39",
+      "createdAt": "2026-05-08T11:27:41.962Z",
+      "updatedAt": "2026-05-08T11:27:41.962Z",
+      "connected": false,
+      "status": "disconnected",
+      "config": {},
+      "lastTestAt": null,
+      "lastTestStatus": "not_tested"
+    }
+  },
+  {
+    "rowId": "2b82f2c3-5421-4a41-89e7-14db9be77af9",
+    "model": "IntegrationSetting",
+    "docId": "ce235a8ea5b1462d80389e88b3f38e9c",
+    "data": {
+      "name": "Webhooks",
+      "category": "integration",
+      "_id": "ce235a8ea5b1462d80389e88b3f38e9c",
+      "createdAt": "2026-05-08T11:27:41.964Z",
+      "updatedAt": "2026-05-08T11:27:41.964Z",
+      "connected": false,
+      "status": "disconnected",
+      "config": {},
+      "lastTestAt": null,
+      "lastTestStatus": "not_tested"
+    }
+  },
+  {
+    "rowId": "a79ad49a-c608-489c-85e2-627dc1fd1ec1",
+    "model": "IntegrationSetting",
+    "docId": "c2fe6199f6524f9586990b79da8656ab",
+    "data": {
+      "name": "Third-party Marketplace",
+      "category": "integration",
+      "_id": "c2fe6199f6524f9586990b79da8656ab",
+      "createdAt": "2026-05-08T11:27:41.966Z",
+      "updatedAt": "2026-05-08T11:27:41.966Z",
+      "connected": false,
+      "status": "disconnected",
+      "config": {},
+      "lastTestAt": null,
+      "lastTestStatus": "not_tested"
+    }
+  },
+  {
+    "rowId": "67c8becf-2937-41f2-aa60-ae155fdc8dab",
+    "model": "TenantCompany",
+    "docId": "58f810000b4a43c8acbfe451d29f706f",
+    "data": {
+      "companyName": "Smoke 1778239683679",
+      "companyCode": "SM1778239683679",
+      "industry": "IT",
+      "email": "smoke1778239683679@x.com",
+      "phone": "9999999999",
+      "plan": "Starter",
+      "_id": "58f810000b4a43c8acbfe451d29f706f",
+      "createdAt": "2026-05-08T11:28:03.688Z",
+      "updatedAt": "2026-05-08T11:28:03.694Z",
+      "address": "",
+      "city": "",
+      "state": "",
+      "country": "",
+      "timezone": "",
+      "currency": "",
+      "gst": "",
+      "pan": "",
+      "employeeLimit": 50,
+      "employees": 0,
+      "storageLimit": 5,
+      "status": "active",
+      "branding": {
+        "logoUrl": "",
+        "primaryColor": "#0f766e",
+        "secondaryColor": "#115e59",
+        "customDomain": "",
+        "loginPageBranding": ""
+      },
+      "domainSetup": {
+        "customDomain": "",
+        "verified": false,
+        "sslStatus": "pending"
+      },
+      "storageUsage": {
+        "usedStorage": 0,
+        "documentsCount": 0,
+        "backupSize": 0
+      },
+      "branches": [],
+      "configuration": {
+        "allowSelfOnboarding": false,
+        "allowGeoTracking": false,
+        "autoBackup": true
+      },
+      "suspensionReason": "",
+      "activityLogs": [
+        {
+          "action": "CREATE_COMPANY",
+          "description": "Company Smoke 1778239683679 created",
+          "performedBy": "10b613621b6c4504853dfea2c24a554a"
+        }
+      ],
+      "name": "Smoke 1778239683679"
+    }
+  },
+  {
+    "rowId": "f592603b-1843-473d-be4d-344f41e27c70",
+    "model": "SubscriptionPlan",
+    "docId": "e62708cbc03e4efead0e5e387048fed9",
+    "data": {
+      "name": "SmokePlan-1778239683679",
+      "type": "standard",
+      "monthlyPrice": 10,
+      "yearlyPrice": 100,
+      "userLimit": 10,
+      "storageLimit": 5,
+      "_id": "e62708cbc03e4efead0e5e387048fed9",
+      "createdAt": "2026-05-08T11:28:03.707Z",
+      "updatedAt": "2026-05-08T11:28:03.707Z",
+      "features": [],
+      "autoRenewalEnabled": true,
+      "status": "active"
+    }
+  },
+  {
+    "rowId": "8c9b0c1f-0ef3-43f7-b120-217a9b94710b",
+    "model": "Subscription",
+    "docId": "5cce36127ef34ad293638b284a0f7123",
+    "data": {
+      "company": "58f810000b4a43c8acbfe451d29f706f",
+      "plan": "e62708cbc03e4efead0e5e387048fed9",
+      "billingCycle": "monthly",
+      "status": "active",
+      "_id": "5cce36127ef34ad293638b284a0f7123",
+      "createdAt": "2026-05-08T11:28:03.721Z",
+      "updatedAt": "2026-05-08T11:28:03.721Z",
+      "startDate": "2026-05-08T11:28:03.722Z",
+      "autoRenewal": true
+    }
+  },
+  {
+    "rowId": "27d2674c-26dc-4209-b2c6-636af2e068b2",
+    "model": "GlobalUser",
+    "docId": "3a8a68f9a0064c118ba9b5a373447140",
+    "data": {
+      "name": "Smoke User",
+      "email": "user1778239683679@x.com",
+      "company": "58f810000b4a43c8acbfe451d29f706f",
+      "status": "active",
+      "_id": "3a8a68f9a0064c118ba9b5a373447140",
+      "createdAt": "2026-05-08T11:28:03.736Z",
+      "updatedAt": "2026-05-08T11:28:03.736Z",
+      "phone": "",
+      "role": "EMPLOYEE",
+      "lastLogin": null
+    }
+  },
+  {
+    "rowId": "580cd03d-06e4-47f4-b27e-ff31919dc1cf",
+    "model": "TenantCompany",
+    "docId": "1c099ffad71b4a6f82e9511c05359069",
+    "data": {
+      "companyName": "Smoke 1778239695940",
+      "companyCode": "SM1778239695940",
+      "industry": "IT",
+      "email": "smoke1778239695940@x.com",
+      "phone": "9999999999",
+      "plan": "Starter",
+      "_id": "1c099ffad71b4a6f82e9511c05359069",
+      "createdAt": "2026-05-08T11:28:15.947Z",
+      "updatedAt": "2026-05-08T11:28:15.949Z",
+      "address": "",
+      "city": "",
+      "state": "",
+      "country": "",
+      "timezone": "",
+      "currency": "",
+      "gst": "",
+      "pan": "",
+      "employeeLimit": 50,
+      "employees": 0,
+      "storageLimit": 5,
+      "status": "active",
+      "branding": {
+        "logoUrl": "",
+        "primaryColor": "#0f766e",
+        "secondaryColor": "#115e59",
+        "customDomain": "",
+        "loginPageBranding": ""
+      },
+      "domainSetup": {
+        "customDomain": "",
+        "verified": false,
+        "sslStatus": "pending"
+      },
+      "storageUsage": {
+        "usedStorage": 0,
+        "documentsCount": 0,
+        "backupSize": 0
+      },
+      "branches": [],
+      "configuration": {
+        "allowSelfOnboarding": false,
+        "allowGeoTracking": false,
+        "autoBackup": true
+      },
+      "suspensionReason": "",
+      "activityLogs": [
+        {
+          "action": "CREATE_COMPANY",
+          "description": "Company Smoke 1778239695940 created",
+          "performedBy": "10b613621b6c4504853dfea2c24a554a"
+        }
+      ],
+      "name": "Smoke 1778239695940"
+    }
+  },
+  {
+    "rowId": "9c7d4d13-33ca-4d69-84cb-ab64dd859eac",
+    "model": "SubscriptionPlan",
+    "docId": "c9157b633e3e41aab8efaeb919f113cf",
+    "data": {
+      "name": "SmokePlan-1778239695940",
+      "type": "standard",
+      "monthlyPrice": 10,
+      "yearlyPrice": 100,
+      "userLimit": 10,
+      "storageLimit": 5,
+      "_id": "c9157b633e3e41aab8efaeb919f113cf",
+      "createdAt": "2026-05-08T11:28:15.958Z",
+      "updatedAt": "2026-05-08T11:28:15.958Z",
+      "features": [],
+      "autoRenewalEnabled": true,
+      "status": "active"
+    }
+  },
+  {
+    "rowId": "2d77a2a6-ab04-4784-976f-7d5374df26f8",
+    "model": "Subscription",
+    "docId": "62c62b189e824b49ab5f2b8db8066044",
+    "data": {
+      "company": "1c099ffad71b4a6f82e9511c05359069",
+      "plan": "c9157b633e3e41aab8efaeb919f113cf",
+      "billingCycle": "monthly",
+      "status": "active",
+      "_id": "62c62b189e824b49ab5f2b8db8066044",
+      "createdAt": "2026-05-08T11:28:15.966Z",
+      "updatedAt": "2026-05-08T11:28:15.966Z",
+      "startDate": "2026-05-08T11:28:15.966Z",
+      "autoRenewal": true
+    }
+  },
+  {
+    "rowId": "855e298a-fe24-499d-b7c6-9cc6d89ed8c8",
+    "model": "GlobalUser",
+    "docId": "4f136d79d7344b00b8cabcc3530ffc6c",
+    "data": {
+      "name": "Smoke User",
+      "email": "user1778239695940@x.com",
+      "company": "1c099ffad71b4a6f82e9511c05359069",
+      "status": "active",
+      "_id": "4f136d79d7344b00b8cabcc3530ffc6c",
+      "createdAt": "2026-05-08T11:28:15.975Z",
+      "updatedAt": "2026-05-08T11:28:15.975Z",
+      "phone": "",
+      "role": "EMPLOYEE",
+      "lastLogin": null
+    }
+  },
+  {
+    "rowId": "b62ee1a0-f0e3-4a52-91e9-b7bd74b58688",
+    "model": "TenantCompany",
+    "docId": "5e631d099ee846d7b9e422cc3da79602",
+    "data": {
+      "companyName": "Smoke 1778239857466",
+      "companyCode": "SM1778239857466",
+      "industry": "IT",
+      "email": "smoke1778239857466@x.com",
+      "phone": "9999999999",
+      "plan": "Starter",
+      "_id": "5e631d099ee846d7b9e422cc3da79602",
+      "createdAt": "2026-05-08T11:30:57.484Z",
+      "updatedAt": "2026-05-08T11:30:57.488Z",
+      "address": "",
+      "city": "",
+      "state": "",
+      "country": "",
+      "timezone": "",
+      "currency": "",
+      "gst": "",
+      "pan": "",
+      "employeeLimit": 50,
+      "employees": 0,
+      "storageLimit": 5,
+      "status": "active",
+      "branding": {
+        "logoUrl": "",
+        "primaryColor": "#0f766e",
+        "secondaryColor": "#115e59",
+        "customDomain": "",
+        "loginPageBranding": ""
+      },
+      "domainSetup": {
+        "customDomain": "",
+        "verified": false,
+        "sslStatus": "pending"
+      },
+      "storageUsage": {
+        "usedStorage": 0,
+        "documentsCount": 0,
+        "backupSize": 0
+      },
+      "branches": [],
+      "configuration": {
+        "allowSelfOnboarding": false,
+        "allowGeoTracking": false,
+        "autoBackup": true
+      },
+      "suspensionReason": "",
+      "activityLogs": [
+        {
+          "action": "CREATE_COMPANY",
+          "description": "Company Smoke 1778239857466 created",
+          "performedBy": "10b613621b6c4504853dfea2c24a554a"
+        }
+      ],
+      "name": "Smoke 1778239857466"
+    }
+  },
+  {
+    "rowId": "622c3687-90ab-4690-92f6-027592e86069",
+    "model": "SubscriptionPlan",
+    "docId": "8255321b809747688ef3e014cdbf8186",
+    "data": {
+      "name": "SmokePlan-1778239857466",
+      "type": "standard",
+      "monthlyPrice": 10,
+      "yearlyPrice": 100,
+      "userLimit": 10,
+      "storageLimit": 5,
+      "_id": "8255321b809747688ef3e014cdbf8186",
+      "createdAt": "2026-05-08T11:30:57.502Z",
+      "updatedAt": "2026-05-08T11:30:57.502Z",
+      "features": [],
+      "autoRenewalEnabled": true,
+      "status": "active"
+    }
+  },
+  {
+    "rowId": "ea6f4abd-7794-4ad7-9887-8e62948807b7",
+    "model": "Subscription",
+    "docId": "e27bd622ce8b4851a47c1f82e95683ff",
+    "data": {
+      "company": "5e631d099ee846d7b9e422cc3da79602",
+      "plan": "8255321b809747688ef3e014cdbf8186",
+      "billingCycle": "monthly",
+      "status": "active",
+      "_id": "e27bd622ce8b4851a47c1f82e95683ff",
+      "createdAt": "2026-05-08T11:30:57.513Z",
+      "updatedAt": "2026-05-08T11:30:57.513Z",
+      "startDate": "2026-05-08T11:30:57.513Z",
+      "autoRenewal": true
+    }
+  },
+  {
+    "rowId": "9ba08119-ac5b-475f-a895-47aa645daa78",
+    "model": "GlobalUser",
+    "docId": "6f70177987ad4a55bf6830658d414cc6",
+    "data": {
+      "name": "Smoke User",
+      "email": "user1778239857466@x.com",
+      "company": "5e631d099ee846d7b9e422cc3da79602",
+      "status": "active",
+      "_id": "6f70177987ad4a55bf6830658d414cc6",
+      "createdAt": "2026-05-08T11:30:57.526Z",
+      "updatedAt": "2026-05-08T11:30:57.526Z",
+      "phone": "",
+      "role": "EMPLOYEE",
+      "lastLogin": null
+    }
+  },
+  {
+    "rowId": "68504d65-530c-4c21-ad06-7b0adadbbea3",
+    "model": "TenantCompany",
+    "docId": "1ba09e480afd48459ef14b0642a75849",
+    "data": {
+      "companyName": "Smoke 1778240552334",
+      "companyCode": "SM1778240552334",
+      "industry": "IT",
+      "email": "smoke1778240552334@x.com",
+      "phone": "9999999999",
+      "plan": "Starter",
+      "_id": "1ba09e480afd48459ef14b0642a75849",
+      "createdAt": "2026-05-08T11:42:32.345Z",
+      "updatedAt": "2026-05-08T11:42:32.347Z",
+      "address": "",
+      "city": "",
+      "state": "",
+      "country": "",
+      "timezone": "",
+      "currency": "",
+      "gst": "",
+      "pan": "",
+      "employeeLimit": 50,
+      "employees": 0,
+      "storageLimit": 5,
+      "status": "active",
+      "branding": {
+        "logoUrl": "",
+        "primaryColor": "#0f766e",
+        "secondaryColor": "#115e59",
+        "customDomain": "",
+        "loginPageBranding": ""
+      },
+      "domainSetup": {
+        "customDomain": "",
+        "verified": false,
+        "sslStatus": "pending"
+      },
+      "storageUsage": {
+        "usedStorage": 0,
+        "documentsCount": 0,
+        "backupSize": 0
+      },
+      "branches": [],
+      "configuration": {
+        "allowSelfOnboarding": false,
+        "allowGeoTracking": false,
+        "autoBackup": true
+      },
+      "suspensionReason": "",
+      "activityLogs": [
+        {
+          "action": "CREATE_COMPANY",
+          "description": "Company Smoke 1778240552334 created",
+          "performedBy": "10b613621b6c4504853dfea2c24a554a"
+        }
+      ],
+      "name": "Smoke 1778240552334"
+    }
+  },
+  {
+    "rowId": "29f49054-631d-4cc1-9c78-820d50a8f965",
+    "model": "SubscriptionPlan",
+    "docId": "bc2417074911497a92ef3adef9c6e884",
+    "data": {
+      "name": "SmokePlan-1778240552334",
+      "type": "standard",
+      "monthlyPrice": 10,
+      "yearlyPrice": 100,
+      "userLimit": 10,
+      "storageLimit": 5,
+      "_id": "bc2417074911497a92ef3adef9c6e884",
+      "createdAt": "2026-05-08T11:42:32.358Z",
+      "updatedAt": "2026-05-08T11:42:32.358Z",
+      "features": [],
+      "autoRenewalEnabled": true,
+      "status": "active"
+    }
+  },
+  {
+    "rowId": "02521819-be04-4014-9ef1-b705dfc0f373",
+    "model": "Subscription",
+    "docId": "62d809d23bd04661b4e851c4b540a8b9",
+    "data": {
+      "company": "1ba09e480afd48459ef14b0642a75849",
+      "plan": "bc2417074911497a92ef3adef9c6e884",
+      "billingCycle": "monthly",
+      "status": "active",
+      "_id": "62d809d23bd04661b4e851c4b540a8b9",
+      "createdAt": "2026-05-08T11:42:32.366Z",
+      "updatedAt": "2026-05-08T11:42:32.366Z",
+      "startDate": "2026-05-08T11:42:32.366Z",
+      "autoRenewal": true
+    }
+  },
+  {
+    "rowId": "3b73e800-0783-42c9-9f21-9d3b3134c3da",
+    "model": "GlobalUser",
+    "docId": "c4000c6840da4d05a13ba0806864522a",
+    "data": {
+      "name": "Smoke User",
+      "email": "user1778240552334@x.com",
+      "company": "1ba09e480afd48459ef14b0642a75849",
+      "status": "active",
+      "_id": "c4000c6840da4d05a13ba0806864522a",
+      "createdAt": "2026-05-08T11:42:32.375Z",
+      "updatedAt": "2026-05-08T11:42:32.375Z",
+      "phone": "",
+      "role": "EMPLOYEE",
+      "lastLogin": null
+    }
+  },
+  {
+    "rowId": "396b1623-0cab-468e-9eb7-86d1dcf3f88c",
+    "model": "TenantCompany",
+    "docId": "bbb63910f3154a0db98e772bc81c09a5",
+    "data": {
+      "companyName": "Smoke 1778240647396",
+      "companyCode": "SM1778240647396",
+      "industry": "IT",
+      "email": "smoke1778240647396@x.com",
+      "phone": "9999999999",
+      "plan": "Starter",
+      "_id": "bbb63910f3154a0db98e772bc81c09a5",
+      "createdAt": "2026-05-08T11:44:07.404Z",
+      "updatedAt": "2026-05-08T11:44:07.407Z",
+      "address": "",
+      "city": "",
+      "state": "",
+      "country": "",
+      "timezone": "",
+      "currency": "",
+      "gst": "",
+      "pan": "",
+      "employeeLimit": 50,
+      "employees": 0,
+      "storageLimit": 5,
+      "status": "active",
+      "branding": {
+        "logoUrl": "",
+        "primaryColor": "#0f766e",
+        "secondaryColor": "#115e59",
+        "customDomain": "",
+        "loginPageBranding": ""
+      },
+      "domainSetup": {
+        "customDomain": "",
+        "verified": false,
+        "sslStatus": "pending"
+      },
+      "storageUsage": {
+        "usedStorage": 0,
+        "documentsCount": 0,
+        "backupSize": 0
+      },
+      "branches": [],
+      "configuration": {
+        "allowSelfOnboarding": false,
+        "allowGeoTracking": false,
+        "autoBackup": true
+      },
+      "suspensionReason": "",
+      "activityLogs": [
+        {
+          "action": "CREATE_COMPANY",
+          "description": "Company Smoke 1778240647396 created",
+          "performedBy": "10b613621b6c4504853dfea2c24a554a"
+        }
+      ],
+      "name": "Smoke 1778240647396"
+    }
+  },
+  {
+    "rowId": "ab907fcd-4821-4c97-851a-9e54907136d7",
+    "model": "SubscriptionPlan",
+    "docId": "4bdcf9cd985a4f6bb1013f49dddcb7df",
+    "data": {
+      "name": "SmokePlan-1778240647396",
+      "type": "standard",
+      "monthlyPrice": 10,
+      "yearlyPrice": 100,
+      "userLimit": 10,
+      "storageLimit": 5,
+      "_id": "4bdcf9cd985a4f6bb1013f49dddcb7df",
+      "createdAt": "2026-05-08T11:44:07.421Z",
+      "updatedAt": "2026-05-08T11:44:07.421Z",
+      "features": [],
+      "autoRenewalEnabled": true,
+      "status": "active"
+    }
+  },
+  {
+    "rowId": "7aa4fcd4-5a90-4b24-9a0f-30195fcaba93",
+    "model": "Subscription",
+    "docId": "c9236732feb342e5b17acf7a341e1092",
+    "data": {
+      "company": "bbb63910f3154a0db98e772bc81c09a5",
+      "plan": "4bdcf9cd985a4f6bb1013f49dddcb7df",
+      "billingCycle": "monthly",
+      "status": "active",
+      "_id": "c9236732feb342e5b17acf7a341e1092",
+      "createdAt": "2026-05-08T11:44:07.432Z",
+      "updatedAt": "2026-05-08T11:44:07.432Z",
+      "startDate": "2026-05-08T11:44:07.432Z",
+      "autoRenewal": true
+    }
+  },
+  {
+    "rowId": "eac0e454-7685-45e7-b02e-6c7f6cf11a8c",
+    "model": "GlobalUser",
+    "docId": "0030b347b0434763a3b0b6658ed74e10",
+    "data": {
+      "name": "Smoke User",
+      "email": "user1778240647396@x.com",
+      "company": "bbb63910f3154a0db98e772bc81c09a5",
+      "status": "active",
+      "_id": "0030b347b0434763a3b0b6658ed74e10",
+      "createdAt": "2026-05-08T11:44:07.441Z",
+      "updatedAt": "2026-05-08T11:44:07.441Z",
+      "phone": "",
+      "role": "EMPLOYEE",
+      "lastLogin": null
+    }
+  },
+  {
+    "rowId": "6170d95b-0e0d-4f45-8b9e-3234f786d578",
+    "model": "TenantCompany",
+    "docId": "6670e558e64b464787dc41c91cf82708",
+    "data": {
+      "companyName": "Smoke 1778240684145",
+      "companyCode": "SM1778240684145",
+      "industry": "IT",
+      "email": "smoke1778240684145@x.com",
+      "phone": "9999999999",
+      "plan": "Starter",
+      "_id": "6670e558e64b464787dc41c91cf82708",
+      "createdAt": "2026-05-08T11:44:44.152Z",
+      "updatedAt": "2026-05-08T11:44:44.154Z",
+      "address": "",
+      "city": "",
+      "state": "",
+      "country": "",
+      "timezone": "",
+      "currency": "",
+      "gst": "",
+      "pan": "",
+      "employeeLimit": 50,
+      "employees": 0,
+      "storageLimit": 5,
+      "status": "active",
+      "branding": {
+        "logoUrl": "",
+        "primaryColor": "#0f766e",
+        "secondaryColor": "#115e59",
+        "customDomain": "",
+        "loginPageBranding": ""
+      },
+      "domainSetup": {
+        "customDomain": "",
+        "verified": false,
+        "sslStatus": "pending"
+      },
+      "storageUsage": {
+        "usedStorage": 0,
+        "documentsCount": 0,
+        "backupSize": 0
+      },
+      "branches": [],
+      "configuration": {
+        "allowSelfOnboarding": false,
+        "allowGeoTracking": false,
+        "autoBackup": true
+      },
+      "suspensionReason": "",
+      "activityLogs": [
+        {
+          "action": "CREATE_COMPANY",
+          "description": "Company Smoke 1778240684145 created",
+          "performedBy": "10b613621b6c4504853dfea2c24a554a"
+        }
+      ],
+      "name": "Smoke 1778240684145"
+    }
+  },
+  {
+    "rowId": "943e3bb3-47ad-4450-ad65-fc913406126a",
+    "model": "SubscriptionPlan",
+    "docId": "5f6c7faeead1403bb2dc4f5025a352d2",
+    "data": {
+      "name": "SmokePlan-1778240684145",
+      "type": "standard",
+      "monthlyPrice": 10,
+      "yearlyPrice": 100,
+      "userLimit": 10,
+      "storageLimit": 5,
+      "_id": "5f6c7faeead1403bb2dc4f5025a352d2",
+      "createdAt": "2026-05-08T11:44:44.162Z",
+      "updatedAt": "2026-05-08T11:44:44.162Z",
+      "features": [],
+      "autoRenewalEnabled": true,
+      "status": "active"
+    }
+  },
+  {
+    "rowId": "ab749ea8-af14-43ef-98aa-51e942999c30",
+    "model": "Subscription",
+    "docId": "8c76e5594db64877b7a6c66445a283a9",
+    "data": {
+      "company": "6670e558e64b464787dc41c91cf82708",
+      "plan": "5f6c7faeead1403bb2dc4f5025a352d2",
+      "billingCycle": "monthly",
+      "status": "active",
+      "_id": "8c76e5594db64877b7a6c66445a283a9",
+      "createdAt": "2026-05-08T11:44:44.171Z",
+      "updatedAt": "2026-05-08T11:44:44.171Z",
+      "startDate": "2026-05-08T11:44:44.171Z",
+      "autoRenewal": true
+    }
+  },
+  {
+    "rowId": "7e3799dd-2f78-42d0-a974-ca95c26bdb4f",
+    "model": "GlobalUser",
+    "docId": "e1bc699e096f44bf8d15df05aa2a8a6a",
+    "data": {
+      "name": "Smoke User",
+      "email": "user1778240684145@x.com",
+      "company": "6670e558e64b464787dc41c91cf82708",
+      "status": "active",
+      "_id": "e1bc699e096f44bf8d15df05aa2a8a6a",
+      "createdAt": "2026-05-08T11:44:44.180Z",
+      "updatedAt": "2026-05-08T11:44:44.180Z",
+      "phone": "",
+      "role": "EMPLOYEE",
+      "lastLogin": null
+    }
+  },
+  {
+    "rowId": "8b75a573-899e-4d0b-87aa-207dbf62e90c",
+    "model": "TenantCompany",
+    "docId": "df4500cb03aa4fa4bc28fb5784b82870",
+    "data": {
+      "companyName": "Smoke 1778240865146",
+      "companyCode": "SM1778240865146",
+      "industry": "IT",
+      "email": "smoke1778240865146@x.com",
+      "phone": "9999999999",
+      "plan": "Starter",
+      "_id": "df4500cb03aa4fa4bc28fb5784b82870",
+      "createdAt": "2026-05-08T11:47:45.152Z",
+      "updatedAt": "2026-05-08T11:47:45.154Z",
+      "address": "",
+      "city": "",
+      "state": "",
+      "country": "",
+      "timezone": "",
+      "currency": "",
+      "gst": "",
+      "pan": "",
+      "employeeLimit": 50,
+      "employees": 0,
+      "storageLimit": 5,
+      "status": "active",
+      "branding": {
+        "logoUrl": "",
+        "primaryColor": "#0f766e",
+        "secondaryColor": "#115e59",
+        "customDomain": "",
+        "loginPageBranding": ""
+      },
+      "domainSetup": {
+        "customDomain": "",
+        "verified": false,
+        "sslStatus": "pending"
+      },
+      "storageUsage": {
+        "usedStorage": 0,
+        "documentsCount": 0,
+        "backupSize": 0
+      },
+      "branches": [],
+      "configuration": {
+        "allowSelfOnboarding": false,
+        "allowGeoTracking": false,
+        "autoBackup": true
+      },
+      "suspensionReason": "",
+      "activityLogs": [
+        {
+          "action": "CREATE_COMPANY",
+          "description": "Company Smoke 1778240865146 created",
+          "performedBy": "10b613621b6c4504853dfea2c24a554a"
+        }
+      ],
+      "name": "Smoke 1778240865146"
+    }
+  },
+  {
+    "rowId": "b771b1c5-12d3-4620-a52b-fea8d2a26f73",
+    "model": "SubscriptionPlan",
+    "docId": "f100d416d681448c9be021f5a5e73657",
+    "data": {
+      "name": "SmokePlan-1778240865146",
+      "type": "standard",
+      "monthlyPrice": 10,
+      "yearlyPrice": 100,
+      "userLimit": 10,
+      "storageLimit": 5,
+      "_id": "f100d416d681448c9be021f5a5e73657",
+      "createdAt": "2026-05-08T11:47:45.163Z",
+      "updatedAt": "2026-05-08T11:47:45.163Z",
+      "features": [],
+      "autoRenewalEnabled": true,
+      "status": "active"
+    }
+  },
+  {
+    "rowId": "90996416-660a-409d-90d7-f52cbb46d510",
+    "model": "Subscription",
+    "docId": "a32a44537f6246ceb9a2ef211a7c0f33",
+    "data": {
+      "company": "df4500cb03aa4fa4bc28fb5784b82870",
+      "plan": "f100d416d681448c9be021f5a5e73657",
+      "billingCycle": "monthly",
+      "status": "active",
+      "_id": "a32a44537f6246ceb9a2ef211a7c0f33",
+      "createdAt": "2026-05-08T11:47:45.169Z",
+      "updatedAt": "2026-05-08T11:47:45.169Z",
+      "startDate": "2026-05-08T11:47:45.169Z",
+      "autoRenewal": true
+    }
+  },
+  {
+    "rowId": "80324f0f-190a-418a-beee-5f2e6d2dc7fc",
+    "model": "GlobalUser",
+    "docId": "96e30a709ecc4a8f8bb320874b44eb07",
+    "data": {
+      "name": "Smoke User",
+      "email": "user1778240865146@x.com",
+      "company": "df4500cb03aa4fa4bc28fb5784b82870",
+      "status": "active",
+      "_id": "96e30a709ecc4a8f8bb320874b44eb07",
+      "createdAt": "2026-05-08T11:47:45.176Z",
+      "updatedAt": "2026-05-08T11:47:45.176Z",
+      "phone": "",
+      "role": "EMPLOYEE",
+      "lastLogin": null
+    }
+  },
+  {
+    "rowId": "6445f4d8-ed7e-486b-885d-fef05841745c",
+    "model": "TenantCompany",
+    "docId": "ef9c1788f5f94e9199503763d9836a36",
+    "data": {
+      "companyName": "Smoke 1778240985116",
+      "companyCode": "SM1778240985116",
+      "industry": "IT",
+      "email": "smoke1778240985116@x.com",
+      "phone": "9999999999",
+      "plan": "Starter",
+      "_id": "ef9c1788f5f94e9199503763d9836a36",
+      "createdAt": "2026-05-08T11:49:45.123Z",
+      "updatedAt": "2026-05-08T11:49:45.124Z",
+      "address": "",
+      "city": "",
+      "state": "",
+      "country": "",
+      "timezone": "",
+      "currency": "",
+      "gst": "",
+      "pan": "",
+      "employeeLimit": 50,
+      "employees": 0,
+      "storageLimit": 5,
+      "status": "active",
+      "branding": {
+        "logoUrl": "",
+        "primaryColor": "#0f766e",
+        "secondaryColor": "#115e59",
+        "customDomain": "",
+        "loginPageBranding": ""
+      },
+      "domainSetup": {
+        "customDomain": "",
+        "verified": false,
+        "sslStatus": "pending"
+      },
+      "storageUsage": {
+        "usedStorage": 0,
+        "documentsCount": 0,
+        "backupSize": 0
+      },
+      "branches": [],
+      "configuration": {
+        "allowSelfOnboarding": false,
+        "allowGeoTracking": false,
+        "autoBackup": true
+      },
+      "suspensionReason": "",
+      "activityLogs": [
+        {
+          "action": "CREATE_COMPANY",
+          "description": "Company Smoke 1778240985116 created",
+          "performedBy": "10b613621b6c4504853dfea2c24a554a"
+        }
+      ],
+      "name": "Smoke 1778240985116"
+    }
+  },
+  {
+    "rowId": "310074b6-abc9-4f3a-9e94-1f5880fb4747",
+    "model": "SubscriptionPlan",
+    "docId": "98abee7b405944b6b6b2beda87db7535",
+    "data": {
+      "name": "SmokePlan-1778240985116",
+      "type": "standard",
+      "monthlyPrice": 10,
+      "yearlyPrice": 100,
+      "userLimit": 10,
+      "storageLimit": 5,
+      "_id": "98abee7b405944b6b6b2beda87db7535",
+      "createdAt": "2026-05-08T11:49:45.133Z",
+      "updatedAt": "2026-05-08T11:49:45.133Z",
+      "features": [],
+      "autoRenewalEnabled": true,
+      "status": "active"
+    }
+  },
+  {
+    "rowId": "cb36e0ce-ce61-4ba2-8d57-6acf32e22af9",
+    "model": "Subscription",
+    "docId": "1df30d2ad19a424b92963bc846c6c647",
+    "data": {
+      "company": "ef9c1788f5f94e9199503763d9836a36",
+      "plan": "98abee7b405944b6b6b2beda87db7535",
+      "billingCycle": "monthly",
+      "status": "active",
+      "_id": "1df30d2ad19a424b92963bc846c6c647",
+      "createdAt": "2026-05-08T11:49:45.139Z",
+      "updatedAt": "2026-05-08T11:49:45.139Z",
+      "startDate": "2026-05-08T11:49:45.139Z",
+      "autoRenewal": true
+    }
+  },
+  {
+    "rowId": "e9ab4316-602f-45b7-9f4c-7a915113921c",
+    "model": "GlobalUser",
+    "docId": "f1a221e0b915444998aa3a22733f1fb5",
+    "data": {
+      "name": "Smoke User",
+      "email": "user1778240985116@x.com",
+      "company": "ef9c1788f5f94e9199503763d9836a36",
+      "status": "active",
+      "_id": "f1a221e0b915444998aa3a22733f1fb5",
+      "createdAt": "2026-05-08T11:49:45.147Z",
+      "updatedAt": "2026-05-08T11:49:45.147Z",
+      "phone": "",
+      "role": "EMPLOYEE",
+      "lastLogin": null
+    }
+  }
+]
