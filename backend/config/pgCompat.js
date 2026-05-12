@@ -217,6 +217,18 @@ const sanitizeForStorage = (obj) => {
   return out
 }
 
+const applyUpdatePayload = (doc, update = {}) => {
+  if (!update || typeof update !== 'object' || Array.isArray(update)) return doc
+
+  if (update.$set && typeof update.$set === 'object' && !Array.isArray(update.$set)) {
+    Object.assign(doc, update.$set)
+  } else {
+    Object.assign(doc, update)
+  }
+
+  return doc
+}
+
 const makeDoc = (modelName, raw, defaults = null, virtuals = null) => {
   const doc = { ...raw }
   doc._id = String(doc._id)
@@ -450,6 +462,39 @@ export const createCompatModel = (modelName, options = {}) => {
       if (!doc) return { deletedCount: 0 }
       await getDocumentRow().destroy({ where: { model: modelName, docId: String(doc._id) } })
       return { deletedCount: 1 }
+    }
+
+    static async updateMany(query = {}, update = {}) {
+      const docs = await this.find(query)
+      let modifiedCount = 0
+
+      for (const doc of docs) {
+        applyUpdatePayload(doc, update)
+        doc.updatedAt = new Date().toISOString()
+        await doc.save()
+        modifiedCount += 1
+      }
+
+      return {
+        acknowledged: true,
+        matchedCount: docs.length,
+        modifiedCount
+      }
+    }
+
+    static async deleteMany(query = {}) {
+      const docs = await this.find(query)
+      let deletedCount = 0
+
+      for (const doc of docs) {
+        await getDocumentRow().destroy({ where: { model: modelName, docId: String(doc._id) } })
+        deletedCount += 1
+      }
+
+      return {
+        acknowledged: true,
+        deletedCount
+      }
     }
   }
 }

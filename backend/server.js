@@ -16,6 +16,11 @@ if (!process.env.JWT_SECRET) {
   process.exit(1)
 }
 
+if (process.env.JWT_SECRET === 'replace_with_strong_secret' || String(process.env.JWT_SECRET).length < 32) {
+  console.error('Server startup error: JWT_SECRET is too weak. Use a strong secret with at least 32 characters.')
+  process.exit(1)
+}
+
 const app = express()
 const PORT = process.env.PORT || 5001
 

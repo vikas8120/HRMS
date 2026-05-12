@@ -20,11 +20,11 @@ cd backend
 npm install
 ```
 
-Create/update `backend/.env`:
+Create/update `backend/.env` (or copy `backend/.env.example`):
 ```env
 PORT=5001
 MONGO_URI=mongodb+srv://<username>:<password>@<cluster-host>/hrms_superadmin?retryWrites=true&w=majority
-JWT_SECRET=replace_with_strong_secret
+JWT_SECRET=use_a_strong_random_secret_at_least_32_characters
 JWT_EXPIRES_IN=1d
 ```
 

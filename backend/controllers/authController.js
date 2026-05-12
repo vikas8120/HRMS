@@ -57,7 +57,11 @@ export const login = asyncHandler(async (req, res) => {
   } else if (appUser) {
     const storedPassword = String(appUser.password || '')
     const isHashed = storedPassword.startsWith('$2')
-    const passOk = isHashed ? await bcrypt.compare(password, storedPassword) : storedPassword === String(password)
+    if (!isHashed) {
+      return res.status(500).json({ success: false, message: 'Account password is not securely configured. Contact administrator.' })
+    }
+
+    const passOk = await bcrypt.compare(password, storedPassword)
     if (!passOk) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' })
     }

@@ -16,7 +16,7 @@ const getHours = (checkIn, checkOut) => {
 
 const serializeAttendance = (item, employeeMap = {}) => ({
   id: item._id,
-  employeeI d: item.employeeId || item.userId || null,
+  employeeId: item.employeeId || item.userId || null,
   employeeName: employeeMap[String(item.employeeId || item.userId || '')]?.name || '-',
   departmentId: employeeMap[String(item.employeeId || item.userId || '')]?.departmentId || null,
   companyId: item.companyId,

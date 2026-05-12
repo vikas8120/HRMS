@@ -19,15 +19,25 @@ const singlePageModules = new Set([
   'System Settings'
 ])
 
-function Sidebar({ mobileOpen, onToggleMobile, onCloseMobile }) {
+function Sidebar({ isCollapsed, isMobileOpen, isMobile, onToggle, onClose }) {
   const [openMenus, setOpenMenus] = useState({ Dashboard: true })
   const [menuSearch, setMenuSearch] = useState('')
 
-  const sidebarClass = useMemo(() => `sidebar ${mobileOpen ? 'sidebar-open' : ''}`, [mobileOpen])
+  const isCompact = !isMobile && isCollapsed
+  const sidebarClass = useMemo(() => {
+    const classes = ['sidebar']
+    if (isMobileOpen) classes.push('sidebar-open')
+    if (isCompact) classes.push('sidebar-collapsed')
+    return classes.join(' ')
+  }, [isCompact, isMobileOpen])
 
   const normalizedSearch = menuSearch.trim().toLowerCase()
 
   const filteredItems = useMemo(() => {
+    if (isCompact) {
+      return navItems.map((item) => ({ ...item, matchedChildren: [] }))
+    }
+
     if (!normalizedSearch) {
       return navItems.map((item) => ({ ...item, matchedChildren: item.children }))
     }
@@ -40,20 +50,32 @@ function Sidebar({ mobileOpen, onToggleMobile, onCloseMobile }) {
         return { ...item, matchedChildren }
       })
       .filter(Boolean)
-  }, [normalizedSearch])
+  }, [isCompact, normalizedSearch])
 
   const toggleMenu = (label) => setOpenMenus((prev) => ({ ...prev, [label]: !prev[label] }))
 
   const handleLinkClick = () => {
-    onCloseMobile?.()
+    onClose?.()
   }
 
   return (
-    <>
-      <button className="mobile-menu-btn" onClick={onToggleMobile}><Menu size={20} /></button>
-      <aside className={sidebarClass}>
-        <h2>Super Admin</h2>
+    <aside className={sidebarClass}>
+      <div className="sidebar-header">
+        <h2 className="sidebar-title">Super Admin</h2>
+        <button
+          type="button"
+          className="sidebar-toggle-btn"
+          onClick={onToggle}
+          title={isMobile ? 'Toggle sidebar' : (isCollapsed ? 'Expand sidebar' : 'Collapse sidebar')}
+          aria-label={isMobile ? 'Toggle sidebar' : (isCollapsed ? 'Expand sidebar' : 'Collapse sidebar')}
+          aria-expanded={isMobile ? isMobileOpen : !isCollapsed}
+          aria-controls="super-admin-sidebar-nav"
+        >
+          <Menu size={18} />
+        </button>
+      </div>
 
+      {!isCompact ? (
         <div className="sidebar-search-wrap">
           <Search size={15} />
           <input
@@ -63,45 +85,59 @@ function Sidebar({ mobileOpen, onToggleMobile, onCloseMobile }) {
             placeholder="Search modules"
           />
         </div>
+      ) : null}
 
-        <nav>
-          {filteredItems.map((item) => {
-            const Icon = item.icon
-            const isOpen = openMenus[item.label]
-            const hasChildren = item.children.length > 0 && !singlePageModules.has(item.label)
-            const showSearchChildren = normalizedSearch && item.matchedChildren.length > 0
-            const shouldShowChildren = hasChildren && isOpen && !normalizedSearch
+      <nav id="super-admin-sidebar-nav">
+        {filteredItems.map((item) => {
+          const Icon = item.icon
+          const isOpen = openMenus[item.label]
+          const hasChildren = item.children.length > 0 && !singlePageModules.has(item.label) && !isCompact
+          const showSearchChildren = !isCompact && normalizedSearch && item.matchedChildren.length > 0
+          const shouldShowChildren = hasChildren && isOpen && !normalizedSearch
 
-            return (
-              <div key={item.label} className="menu-group">
-                <div className="menu-head-row">
-                  <NavLink to={item.path} className="menu-link" onClick={handleLinkClick}><Icon size={16} /> {item.label}</NavLink>
-                  {hasChildren ? (
-                    <button className="menu-drop-btn" onClick={() => toggleMenu(item.label)}><ChevronDown size={16} className={isOpen ? 'rotate' : ''} /></button>
-                  ) : null}
-                </div>
-
-                {shouldShowChildren ? (
-                  <div className="submenu">
-                    {item.children.map((child) => (
-                      <NavLink key={child.path} to={child.path} className="submenu-link" onClick={handleLinkClick}>{child.label}</NavLink>
-                    ))}
-                  </div>
-                ) : null}
-
-                {showSearchChildren ? (
-                  <div className="submenu submenu-search-results">
-                    {item.matchedChildren.map((child) => (
-                      <NavLink key={child.path} to={child.path} className="submenu-link" onClick={handleLinkClick}>{child.label}</NavLink>
-                    ))}
-                  </div>
+          return (
+            <div key={item.label} className="menu-group">
+              <div className="menu-head-row">
+                <NavLink
+                  to={item.path}
+                  className={`menu-link ${isCompact ? 'menu-link-icon-only' : ''}`}
+                  onClick={handleLinkClick}
+                  title={isCompact ? item.label : undefined}
+                >
+                  <Icon size={16} />
+                  {!isCompact ? <span>{item.label}</span> : null}
+                </NavLink>
+                {hasChildren ? (
+                  <button type="button" className="menu-drop-btn" onClick={() => toggleMenu(item.label)}>
+                    <ChevronDown size={16} className={isOpen ? 'rotate' : ''} />
+                  </button>
                 ) : null}
               </div>
-            )
-          })}
-        </nav>
-      </aside>
-    </>
+
+              {shouldShowChildren ? (
+                <div className="submenu">
+                  {item.children.map((child) => (
+                    <NavLink key={child.path} to={child.path} className="submenu-link" onClick={handleLinkClick}>
+                      {child.label}
+                    </NavLink>
+                  ))}
+                </div>
+              ) : null}
+
+              {showSearchChildren ? (
+                <div className="submenu submenu-search-results">
+                  {item.matchedChildren.map((child) => (
+                    <NavLink key={child.path} to={child.path} className="submenu-link" onClick={handleLinkClick}>
+                      {child.label}
+                    </NavLink>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          )
+        })}
+      </nav>
+    </aside>
   )
 }
 

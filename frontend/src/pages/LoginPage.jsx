@@ -8,8 +8,8 @@ import Button from '../components/ui/Button'
 function LoginPage() {
   const { user, login, authLoading } = useAuth()
   const navigate = useNavigate()
-  const [email, setEmail] = useState('admin@demo.com')
-  const [password, setPassword] = useState('Admin@123')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')

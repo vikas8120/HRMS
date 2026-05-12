@@ -7,9 +7,6 @@ import Payroll from '../models/Payroll.js'
 import ActivityLog from '../models/ActivityLog.js'
 
 export const getAdminDashboard = asyncHandler(async (req, res) => {
-  console.log('Logged user:', req.user)
-  console.log('Company ID:', req.user?.companyId)
-
   const companyId = req.user.companyId
   const today = new Date()
   const todayDate = today.toISOString().slice(0, 10)

@@ -180,10 +180,16 @@ export const adminLogin = asyncHandler(async (req, res) => {
     return res.status(401).json({ success: false, message: 'Invalid credentials' })
   }
 
+  if (String(user.status || '').toLowerCase() !== 'active') {
+    return res.status(403).json({ success: false, message: 'Account disabled' })
+  }
+
   const isHashed = String(user.password || '').startsWith('$2')
-  const isPasswordValid = isHashed
-    ? await bcrypt.compare(password, user.password)
-    : String(password) === String(user.password)
+  if (!isHashed) {
+    return res.status(500).json({ success: false, message: 'Account password is not securely configured. Contact administrator.' })
+  }
+
+  const isPasswordValid = await bcrypt.compare(password, user.password)
 
   if (!isPasswordValid) {
     return res.status(401).json({ success: false, message: 'Invalid credentials' })

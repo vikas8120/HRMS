@@ -1,8 +1,17 @@
-﻿import asyncHandler from '../utils/asyncHandler.js'
+import asyncHandler from '../utils/asyncHandler.js'
+import crypto from 'crypto'
 import SupportTicket from '../models/SupportTicket.js'
 import TicketMessage from '../models/TicketMessage.js'
 import TicketCategory from '../models/TicketCategory.js'
 import SupportAgent from '../models/SupportAgent.js'
+
+const generateTicketNo = async () => {
+  while (true) {
+    const ticketNo = `TKT-${crypto.randomUUID().replace(/-/g, '').slice(0, 10).toUpperCase()}`
+    const exists = await SupportTicket.findOne({ ticketNo })
+    if (!exists) return ticketNo
+  }
+}
 
 export const listTickets = asyncHandler(async (req, res) => {
   const { page = 1, limit = 10, search = '', status = 'all' } = req.query
@@ -20,8 +29,8 @@ export const listTickets = asyncHandler(async (req, res) => {
 export const createTicket = asyncHandler(async (req, res) => {
   const { subject } = req.body
   if (!subject) return res.status(400).json({ message: 'subject is required' })
-  const count = await SupportTicket.countDocuments()
-  const ticket = await SupportTicket.create({ ...req.body, ticketNo: `TKT-${String(count + 1).padStart(5, '0')}` })
+  const ticketNo = await generateTicketNo()
+  const ticket = await SupportTicket.create({ ...req.body, ticketNo })
   res.status(201).json({ item: ticket })
 })
 
@@ -130,3 +139,4 @@ export const createAgent = asyncHandler(async (req, res) => {
   const item = await SupportAgent.create(req.body)
   res.status(201).json({ item })
 })
+
