@@ -1,5 +1,14 @@
 const base = process.env.API_BASE || 'http://localhost:5001/api'
 
+const isBackendReachable = async () => {
+  try {
+    const res = await fetch(`${base}/health`, { method: 'GET' })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
 const request = async (method, path, token, body) => {
   const res = await fetch(base + path, {
     method,
@@ -15,6 +24,19 @@ const request = async (method, path, token, body) => {
 }
 
 const run = async () => {
+  const reachable = await isBackendReachable()
+  if (!reachable) {
+    throw new Error(
+      [
+        `Backend is not reachable at ${base}.`,
+        'Action:',
+        '1) Start backend: npm run dev (or npm start) in backend directory.',
+        '2) If using another port, set API_BASE, e.g. API_BASE=http://localhost:5002/api npm run smoke.',
+        '3) Verify health endpoint: GET /api/health.'
+      ].join('\n')
+    )
+  }
+
   const loginRes = await fetch(base + '/super-admin/auth/login', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -86,6 +108,6 @@ const run = async () => {
 }
 
 run().catch((e) => {
-  console.error(e.message)
+  console.error(`Smoke check failed:\n${e.message}`)
   process.exit(1)
 })

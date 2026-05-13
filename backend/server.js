@@ -1,6 +1,7 @@
 import cors from 'cors'
 import dotenv from 'dotenv'
 import express from 'express'
+import net from 'net'
 import connectDB from './config/db.js'
 import { errorHandler, notFound } from './middleware/errorMiddleware.js'
 import superAdminAuthRoutes from './routes/superAdminAuthRoutes.js'
@@ -23,6 +24,22 @@ if (process.env.JWT_SECRET === 'replace_with_strong_secret' || String(process.en
 
 const app = express()
 const PORT = process.env.PORT || 5001
+
+const checkPortInUse = (port) =>
+  new Promise((resolve) => {
+    const tester = net
+      .createServer()
+      .once('error', (error) => {
+        if (error.code === 'EADDRINUSE') return resolve(true)
+        return resolve(false)
+      })
+      .once('listening', () => {
+        tester
+          .once('close', () => resolve(false))
+          .close()
+      })
+      .listen(port)
+  })
 
 app.use(
   cors({
@@ -56,9 +73,26 @@ app.use(notFound)
 app.use(errorHandler)
 
 const startServer = async () => {
+  const inUse = await checkPortInUse(PORT)
+  if (inUse) {
+    console.error(`Server startup error: port ${PORT} is already in use.`)
+    console.error(`Action: stop the existing process using port ${PORT}, or run with a different port (example: PORT=5002 npm run dev).`)
+    process.exit(1)
+  }
+
   await connectDB()
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`)
+  })
+
+  server.on('error', (error) => {
+    if (error?.code === 'EADDRINUSE') {
+      console.error(`Server runtime error: port ${PORT} became unavailable.`)
+      console.error(`Action: stop the conflicting process or change PORT, then restart backend.`)
+      process.exit(1)
+    }
+    console.error(`Server runtime error: ${error.message}`)
+    process.exit(1)
   })
 }
 
