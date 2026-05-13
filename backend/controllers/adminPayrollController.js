@@ -2,6 +2,8 @@ import asyncHandler from '../utils/asyncHandler.js'
 import Payroll from '../models/Payroll.js'
 import User from '../models/User.js'
 import ActivityLog from '../models/ActivityLog.js'
+import Attendance from '../models/Attendance.js'
+import CompanySettings from '../models/CompanySettings.js'
 
 const ALLOWED_STATUS = new Set(['generated', 'paid', 'pending'])
 
@@ -12,6 +14,27 @@ const num = (value, fallback = 0) => {
 
 const computeNet = ({ basicSalary, hra, allowances, bonus, deductions, tax }) =>
   num(basicSalary) + num(hra) + num(allowances) + num(bonus) - num(deductions) - num(tax)
+
+const isValidMonth = (month) => /^\d{2}$/.test(String(month)) && Number(month) >= 1 && Number(month) <= 12
+const isValidYear = (year) => Number.isFinite(Number(year)) && Number(year) >= 2000 && Number(year) <= 2100
+
+const getMonthBounds = (year, month) => {
+  const y = Number(year)
+  const m = Number(month)
+  const start = new Date(Date.UTC(y, m - 1, 1))
+  const end = new Date(Date.UTC(y, m, 0))
+  return { start, end, daysInMonth: end.getUTCDate() }
+}
+
+const getAttendanceSummary = (rows = []) => {
+  const summary = { present: 0, absent: 0, late: 0, halfDay: 0, leave: 0 }
+  for (const row of rows) {
+    const key = String(row.status || '').toLowerCase()
+    if (key === 'half-day') summary.halfDay += 1
+    else if (Object.prototype.hasOwnProperty.call(summary, key)) summary[key] += 1
+  }
+  return summary
+}
 
 const serializePayroll = (item, employeeMap = {}) => ({
   id: item._id,
@@ -28,6 +51,9 @@ const serializePayroll = (item, employeeMap = {}) => ({
   deductions: num(item.deductions),
   tax: num(item.tax),
   netSalary: num(item.netSalary),
+  workingDays: Number(item.workingDays || 0),
+  attendanceDays: Number(item.attendanceDays || 0),
+  attendanceDeduction: num(item.attendanceDeduction),
   status: item.status || 'generated',
   generatedBy: item.generatedBy || null,
   createdAt: item.createdAt || null,
@@ -78,11 +104,15 @@ export const generatePayroll = asyncHandler(async (req, res) => {
     bonus = 0,
     deductions = 0,
     tax = 0,
-    status = 'generated'
+    status = 'generated',
+    updateExisting = true
   } = req.body
 
   if (!month || !year) {
     return res.status(400).json({ success: false, message: 'month and year are required' })
+  }
+  if (!isValidMonth(month) || !isValidYear(year)) {
+    return res.status(400).json({ success: false, message: 'Invalid month/year' })
   }
 
   const normalizedStatus = String(status).toLowerCase()
@@ -109,23 +139,74 @@ export const generatePayroll = asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: 'No active employees found for payroll generation' })
   }
 
+  let settings = await CompanySettings.findOne({ companyId })
+  if (!settings) settings = await CompanySettings.create({ companyId })
+  const payrollSettings = settings.payrollSettings || settings.payrollPolicy || {}
+  const attendancePolicy = settings.attendanceRules || settings.attendancePolicy || {}
+  const {
+    pfEnabled = false,
+    pfPercent = 0,
+    esiEnabled = false,
+    esiPercent = 0
+  } = payrollSettings
+  const { absentDeductionPerDay = 1, halfDayWeight = 0.5 } = attendancePolicy
+  const safeAbsentDeductionPerDay = Math.max(0, num(absentDeductionPerDay, 1))
+  const safeHalfDayWeight = Math.max(0, Math.min(1, num(halfDayWeight, 0.5)))
+  const safePfPercent = Math.max(0, num(pfPercent))
+  const safeEsiPercent = Math.max(0, num(esiPercent))
+  const { start, end, daysInMonth } = getMonthBounds(year, month)
+
+  const allMonthAttendance = await Attendance.find({
+    companyId,
+    date: { $gte: start.toISOString().slice(0, 10), $lte: end.toISOString().slice(0, 10) }
+  }).select('employeeId userId status date')
+  const attendanceMap = {}
+  for (const row of allMonthAttendance) {
+    const key = String(row.employeeId || row.userId || '')
+    if (!attendanceMap[key]) attendanceMap[key] = []
+    attendanceMap[key].push(row)
+  }
+
   const generated = []
+  let createdCount = 0
+  let updatedCount = 0
+  const canUpdateExisting = updateExisting !== false
   for (const empId of targetEmployeeIds) {
     const basicSalary = num(employeeMap[empId]?.salary)
+    const attendanceRows = attendanceMap[empId] || []
+    const attSummary = getAttendanceSummary(attendanceRows)
+    const attendanceDays = attSummary.present + attSummary.late + attSummary.leave + (attSummary.halfDay * safeHalfDayWeight)
+    const absentEquivalentDays = attSummary.absent + (attSummary.halfDay * (1 - safeHalfDayWeight))
+    const perDaySalary = daysInMonth > 0 ? basicSalary / daysInMonth : 0
+    const attendanceDeduction = perDaySalary * absentEquivalentDays * safeAbsentDeductionPerDay
+    const pfAmount = pfEnabled ? ((basicSalary * safePfPercent) / 100) : 0
+    const esiAmount = esiEnabled ? ((basicSalary * safeEsiPercent) / 100) : 0
+    const totalDeductions = num(deductions) + attendanceDeduction + pfAmount + esiAmount
 
     const existing = await Payroll.findOne({ companyId, employeeId: empId, month, year: Number(year) })
     if (existing) {
+      if (!canUpdateExisting) {
+        return res.status(409).json({
+          success: false,
+          message: `Payroll already exists for employee ${empId} (${month}-${year})`,
+          details: { employeeId: empId, month, year: Number(year) }
+        })
+      }
       existing.basicSalary = basicSalary
       existing.hra = num(hra)
       existing.allowances = num(allowances)
       existing.bonus = num(bonus)
-      existing.deductions = num(deductions)
+      existing.deductions = totalDeductions
       existing.tax = num(tax)
+      existing.workingDays = daysInMonth
+      existing.attendanceDays = Number(attendanceDays.toFixed(2))
+      existing.attendanceDeduction = Number(attendanceDeduction.toFixed(2))
       existing.netSalary = computeNet(existing)
       existing.status = normalizedStatus
       existing.generatedBy = req.user.id
       await existing.save()
       generated.push(existing)
+      updatedCount += 1
     } else {
       const item = await Payroll.create({
         companyId,
@@ -136,13 +217,17 @@ export const generatePayroll = asyncHandler(async (req, res) => {
         hra: num(hra),
         allowances: num(allowances),
         bonus: num(bonus),
-        deductions: num(deductions),
+        deductions: totalDeductions,
         tax: num(tax),
-        netSalary: computeNet({ basicSalary, hra, allowances, bonus, deductions, tax }),
+        workingDays: daysInMonth,
+        attendanceDays: Number(attendanceDays.toFixed(2)),
+        attendanceDeduction: Number(attendanceDeduction.toFixed(2)),
+        netSalary: computeNet({ basicSalary, hra, allowances, bonus, deductions: totalDeductions, tax }),
         status: normalizedStatus,
         generatedBy: req.user.id
       })
       generated.push(item)
+      createdCount += 1
     }
   }
 
@@ -151,14 +236,15 @@ export const generatePayroll = asyncHandler(async (req, res) => {
     userId: req.user.id,
     module: 'payroll',
     action: 'payroll_generated',
-    message: `Payroll generated for ${generated.length} employee(s) (${month}-${year})`,
-    metadata: { month, year, totalEmployees: generated.length }
+    message: `Payroll generated for ${generated.length} employee(s) (${month}-${year}), created ${createdCount}, updated ${updatedCount}`,
+    metadata: { month, year, totalEmployees: generated.length, createdCount, updatedCount, updateExisting: canUpdateExisting }
   })
 
   return res.status(201).json({
     success: true,
-    message: 'Payroll generated successfully',
-    data: generated.map((item) => serializePayroll(item, employeeMap))
+    message: `Payroll generated successfully (${createdCount} created, ${updatedCount} updated)`,
+    data: generated.map((item) => serializePayroll(item, employeeMap)),
+    items: generated.map((item) => serializePayroll(item, employeeMap))
   })
 })
 
@@ -181,7 +267,11 @@ export const listPayroll = asyncHandler(async (req, res) => {
   if (departmentId && departmentId !== 'all') {
     const employees = await User.find({ companyId, role: 'employee', departmentId }).select('employeeId')
     const ids = employees.map((emp) => String(emp.employeeId || emp._id))
-    query.employeeId = { $in: ids }
+    if (query.employeeId && typeof query.employeeId === 'string') {
+      query.employeeId = ids.includes(query.employeeId) ? query.employeeId : '__none__'
+    } else {
+      query.employeeId = { $in: ids }
+    }
   }
 
   const items = await Payroll.find(query).sort({ year: -1, month: -1, createdAt: -1 })
@@ -190,7 +280,8 @@ export const listPayroll = asyncHandler(async (req, res) => {
   return res.status(200).json({
     success: true,
     message: 'Payroll records fetched successfully',
-    data: items.map((item) => serializePayroll(item, employeeMap))
+    data: items.map((item) => serializePayroll(item, employeeMap)),
+    items: items.map((item) => serializePayroll(item, employeeMap))
   })
 })
 
@@ -203,7 +294,8 @@ export const getPayrollById = asyncHandler(async (req, res) => {
   return res.status(200).json({
     success: true,
     message: 'Payroll record fetched successfully',
-    data: serializePayroll(item, employeeMap)
+    data: serializePayroll(item, employeeMap),
+    item: serializePayroll(item, employeeMap)
   })
 })
 
@@ -218,7 +310,8 @@ export const getPayrollByEmployee = asyncHandler(async (req, res) => {
   return res.status(200).json({
     success: true,
     message: 'Employee payroll fetched successfully',
-    data: items.map((item) => serializePayroll(item, employeeMap))
+    data: items.map((item) => serializePayroll(item, employeeMap)),
+    items: items.map((item) => serializePayroll(item, employeeMap))
   })
 })
 
@@ -246,12 +339,22 @@ export const updatePayroll = asyncHandler(async (req, res) => {
   item.netSalary = computeNet(item)
   await item.save()
 
+  await ActivityLog.create({
+    companyId: req.user.companyId,
+    userId: req.user.id,
+    module: 'payroll',
+    action: 'payroll_updated',
+    message: `Payroll ${item._id} updated`,
+    metadata: { payrollId: item._id, employeeId: item.employeeId, month: item.month, year: item.year }
+  })
+
   const employeeMap = await getEmployeeMap(req.user.companyId)
 
   return res.status(200).json({
     success: true,
     message: 'Payroll updated successfully',
-    data: serializePayroll(item, employeeMap)
+    data: serializePayroll(item, employeeMap),
+    item: serializePayroll(item, employeeMap)
   })
 })
 
@@ -272,6 +375,9 @@ export const getPayslip = asyncHandler(async (req, res) => {
     `Bonus: ${row.bonus}`,
     `Deductions: ${row.deductions}`,
     `Tax: ${row.tax}`,
+    `Working Days: ${row.workingDays || 0}`,
+    `Attendance Days: ${row.attendanceDays || 0}`,
+    `Attendance Deduction: ${row.attendanceDeduction || 0}`,
     `Net Salary: ${row.netSalary}`,
     `Status: ${row.status}`
   ]
@@ -286,7 +392,20 @@ export const getPayslip = asyncHandler(async (req, res) => {
 // Backward compatibility aliases
 export const createPayroll = generatePayroll
 export const deletePayroll = asyncHandler(async (req, res) => {
+  const existing = await Payroll.findOne({ _id: req.params.id, companyId: req.user.companyId })
+  if (!existing) return res.status(404).json({ success: false, message: 'Payroll record not found' })
+
   const result = await Payroll.deleteOne({ _id: req.params.id, companyId: req.user.companyId })
   if (!result.deletedCount) return res.status(404).json({ success: false, message: 'Payroll record not found' })
+
+  await ActivityLog.create({
+    companyId: req.user.companyId,
+    userId: req.user.id,
+    module: 'payroll',
+    action: 'payroll_deleted',
+    message: `Payroll ${req.params.id} deleted`,
+    metadata: { payrollId: req.params.id, employeeId: existing.employeeId, month: existing.month, year: existing.year }
+  })
+
   return res.status(200).json({ success: true, message: 'Payroll deleted successfully' })
 })
