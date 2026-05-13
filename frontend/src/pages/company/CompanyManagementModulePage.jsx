@@ -299,11 +299,11 @@ function CompanyManagementModulePage({ page }) {
         </div>
 
         {profileTab === 'Overview' ? <div className="form-grid"><div><strong>Code:</strong> {profileData.companyCode}</div><div><strong>Industry:</strong> {profileData.industry}</div><div><strong>Email:</strong> {profileData.email}</div><div><strong>Phone:</strong> {profileData.phone}</div></div> : null}
-        {profileTab === 'Branches' ? <DataTable columns={branchColumns} rows={(profileData.branches || []).map((b) => ({ ...b, id: b._id }))} onView={() => {}} onEdit={() => {}} onDelete={() => {}} /> : null}
+        {profileTab === 'Branches' ? <DataTable columns={branchColumns} rows={(profileData.branches || []).map((b) => ({ ...b, id: b._id }))} showActions={false} /> : null}
         {profileTab === 'Admins' ? <p>Admins integration available via Admin Management module.</p> : null}
         {profileTab === 'Subscription' ? <div className="form-grid"><div><strong>Plan:</strong> {profileData.plan}</div><div><strong>Status:</strong> {profileData.status}</div><div><strong>Employee Limit:</strong> {profileData.employeeLimit}</div></div> : null}
         {profileTab === 'Storage' ? <div className="form-grid"><div><strong>Used Storage:</strong> {profileData.storageUsage?.usedStorage || 0} GB</div><div><strong>Storage Limit:</strong> {profileData.storageLimit} GB</div><div><strong>Documents:</strong> {profileData.storageUsage?.documentsCount || 0}</div><div><strong>Backup Size:</strong> {profileData.storageUsage?.backupSize || 0} GB</div></div> : null}
-        {profileTab === 'Activity Logs' ? <DataTable columns={logColumns} rows={activityLogs.map((l) => ({ id: l._id, action: l.action, description: l.description, dateTime: new Date(l.dateTime).toLocaleString() }))} onView={() => {}} onEdit={() => {}} onDelete={() => {}} /> : null}
+        {profileTab === 'Activity Logs' ? <DataTable columns={logColumns} rows={activityLogs.map((l) => ({ id: l._id, action: l.action, description: l.description, dateTime: new Date(l.dateTime).toLocaleString() }))} showActions={false} /> : null}
         {profileTab === 'Settings' ? <div className="form-grid"><div><strong>Timezone:</strong> {profileData.timezone}</div><div><strong>Currency:</strong> {profileData.currency}</div><div><strong>Domain:</strong> {profileData.domainSetup?.customDomain || '-'}</div></div> : null}
       </div>
     )
@@ -312,7 +312,7 @@ function CompanyManagementModulePage({ page }) {
   const renderStatus = () => (
     <div className="panel">
       <h3>Company Status</h3>
-      <DataTable columns={companyColumns.filter((c) => ['companyName', 'plan', 'status'].includes(c.key))} rows={companyRows} onView={() => {}} onEdit={(row) => setTargetCompany(row)} onDelete={() => {}} />
+      <DataTable columns={companyColumns.filter((c) => ['companyName', 'plan', 'status'].includes(c.key))} rows={companyRows} showViewAction={false} onEdit={(row) => setTargetCompany(row)} showDeleteAction={false} />
       <div className="actions-row">
         {['active', 'inactive', 'suspended', 'trial', 'expired'].map((status) => <Button key={status} variant="ghost" onClick={async () => {
           try {
@@ -395,7 +395,7 @@ function CompanyManagementModulePage({ page }) {
           }
         }}>Delete First Branch</Button>
       </div>
-      {profileData?.branches?.length ? <DataTable columns={branchColumns} rows={profileData.branches.map((b) => ({ ...b, id: b._id }))} onView={() => {}} onEdit={async (row) => {
+      {profileData?.branches?.length ? <DataTable columns={branchColumns} rows={profileData.branches.map((b) => ({ ...b, id: b._id }))} showViewAction={false} onEdit={async (row) => {
         try {
           const companyId = getEffectiveCompanyId()
           if (!companyId) return showError('Select a company first from Company List')
@@ -405,12 +405,12 @@ function CompanyManagementModulePage({ page }) {
         } catch (error) {
           showError(error?.response?.data?.message || 'Failed to update branch')
         }
-      }} onDelete={() => {}} /> : <EmptyState title="No branches yet" description="Add branch using form." />}
+      }} showDeleteAction={false} /> : <EmptyState title="No branches yet" description="Add branch using form." />}
     </div>
   )
 
   const renderStorage = () => (
-    <div className="panel"><h3>Company Storage Usage</h3><DataTable columns={companyColumns.filter((c) => ['companyName', 'plan', 'status'].includes(c.key))} rows={companyRows} onView={openProfile} onEdit={() => {}} onDelete={() => {}} /><p>Open company profile and go to Storage tab for detailed metrics: used storage, limit, documents, backup size.</p></div>
+    <div className="panel"><h3>Company Storage Usage</h3><DataTable columns={companyColumns.filter((c) => ['companyName', 'plan', 'status'].includes(c.key))} rows={companyRows} onView={openProfile} showEditAction={false} showDeleteAction={false} /><p>Open company profile and go to Storage tab for detailed metrics: used storage, limit, documents, backup size.</p></div>
   )
 
   const renderDomain = () => (
@@ -438,7 +438,7 @@ function CompanyManagementModulePage({ page }) {
   )
 
   const renderLogs = () => (
-    <div className="panel"><h3>Company Activity Logs</h3>{profileData ? <DataTable columns={logColumns} rows={activityLogs.map((l) => ({ id: l._id, action: l.action, description: l.description, dateTime: new Date(l.dateTime).toLocaleString() }))} onView={() => {}} onEdit={() => {}} onDelete={() => {}} /> : <EmptyState title="Load company profile first" description="Go to Company List and click View." />}</div>
+    <div className="panel"><h3>Company Activity Logs</h3>{profileData ? <DataTable columns={logColumns} rows={activityLogs.map((l) => ({ id: l._id, action: l.action, description: l.description, dateTime: new Date(l.dateTime).toLocaleString() }))} showActions={false} /> : <EmptyState title="Load company profile first" description="Go to Company List and click View." />}</div>
   )
 
   const renderConfig = () => <div className="panel"><h3>Company Configuration</h3><p>Use Edit Company to configure timezone, currency, limits, and status. Advanced flags are available in backend schema.</p></div>
@@ -447,7 +447,7 @@ function CompanyManagementModulePage({ page }) {
     <div className="panel">
       <h3>{mode === 'suspend' ? 'Company Suspension' : 'Company Reactivation'}</h3>
       <FormInput label="Reason" value={suspensionReason} onChange={(e) => setSuspensionReason(e.target.value)} placeholder="Add reason" />
-      <DataTable columns={companyColumns.filter((c) => ['companyName', 'status'].includes(c.key))} rows={companyRows} onView={() => {}} onEdit={(row) => setTargetCompany(row)} onDelete={() => {}} />
+      <DataTable columns={companyColumns.filter((c) => ['companyName', 'status'].includes(c.key))} rows={companyRows} showViewAction={false} onEdit={(row) => setTargetCompany(row)} showDeleteAction={false} />
       <Button variant={mode === 'suspend' ? 'danger' : 'primary'} onClick={async () => {
         try {
           const companyId = targetCompany?.id || getEffectiveCompanyId()
