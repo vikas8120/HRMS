@@ -46,7 +46,8 @@ const buildFilterMeta = (req) => ({
   dateFrom: String(req.query.dateFrom || '').trim() || null,
   dateTo: String(req.query.dateTo || '').trim() || null,
   departmentId: String(req.query.departmentId || '').trim() || null,
-  employeeId: String(req.query.employeeId || '').trim() || null
+  employeeId: String(req.query.employeeId || '').trim() || null,
+  status: String(req.query.status || '').trim().toLowerCase() || null
 })
 
 export const getEmployeeReport = asyncHandler(async (req, res) => {
@@ -55,8 +56,11 @@ export const getEmployeeReport = asyncHandler(async (req, res) => {
 
   const { employees } = await getEmployeeScope(companyId, filters.employeeId, filters.departmentId)
   const filtered = withDateRange(employees, filters.dateFrom, filters.dateTo, (item) => item.joiningDate || item.createdAt)
+  const statusFiltered = filters.status && filters.status !== 'all'
+    ? filtered.filter((item) => String(item.status || '').toLowerCase() === filters.status)
+    : filtered
 
-  const data = filtered.map((item) => ({
+  const data = statusFiltered.map((item) => ({
     id: item._id,
     employeeId: item.employeeId || null,
     name: item.name || '',
@@ -81,7 +85,8 @@ export const getEmployeeReport = asyncHandler(async (req, res) => {
       filters,
       total: data.length,
       records: data
-    }
+    },
+    items: data
   })
 })
 
@@ -96,17 +101,20 @@ export const getAttendanceReport = asyncHandler(async (req, res) => {
 
   const items = await Attendance.find(query).sort({ date: -1, createdAt: -1 })
   const filtered = withDateRange(items, filters.dateFrom, filters.dateTo, (item) => item.date || item.createdAt)
+  const statusFiltered = filters.status && filters.status !== 'all'
+    ? filtered.filter((item) => String(item.status || '').toLowerCase() === filters.status)
+    : filtered
 
   const summary = {
-    total: filtered.length,
-    present: filtered.filter((item) => item.status === 'present').length,
-    absent: filtered.filter((item) => item.status === 'absent').length,
-    halfDay: filtered.filter((item) => item.status === 'half-day').length,
-    late: filtered.filter((item) => item.status === 'late').length,
-    leave: filtered.filter((item) => item.status === 'leave').length
+    total: statusFiltered.length,
+    present: statusFiltered.filter((item) => item.status === 'present').length,
+    absent: statusFiltered.filter((item) => item.status === 'absent').length,
+    halfDay: statusFiltered.filter((item) => item.status === 'half-day').length,
+    late: statusFiltered.filter((item) => item.status === 'late').length,
+    leave: statusFiltered.filter((item) => item.status === 'leave').length
   }
 
-  const records = filtered.map((item) => ({
+  const records = statusFiltered.map((item) => ({
     id: item._id,
     employeeId: item.employeeId || item.userId || null,
     date: item.date || null,
@@ -128,7 +136,8 @@ export const getAttendanceReport = asyncHandler(async (req, res) => {
       summary,
       total: records.length,
       records
-    }
+    },
+    items: records
   })
 })
 
@@ -143,16 +152,19 @@ export const getLeaveReport = asyncHandler(async (req, res) => {
 
   const items = await Leave.find(query).sort({ createdAt: -1 })
   const filtered = withDateRange(items, filters.dateFrom, filters.dateTo, (item) => item.startDate || item.createdAt)
+  const statusFiltered = filters.status && filters.status !== 'all'
+    ? filtered.filter((item) => String(item.status || '').toLowerCase() === filters.status)
+    : filtered
 
   const summary = {
-    total: filtered.length,
-    pending: filtered.filter((item) => item.status === 'pending').length,
-    approved: filtered.filter((item) => item.status === 'approved').length,
-    rejected: filtered.filter((item) => item.status === 'rejected').length,
-    totalDays: filtered.reduce((acc, item) => acc + asNumber(item.totalDays), 0)
+    total: statusFiltered.length,
+    pending: statusFiltered.filter((item) => item.status === 'pending').length,
+    approved: statusFiltered.filter((item) => item.status === 'approved').length,
+    rejected: statusFiltered.filter((item) => item.status === 'rejected').length,
+    totalDays: statusFiltered.reduce((acc, item) => acc + asNumber(item.totalDays), 0)
   }
 
-  const records = filtered.map((item) => ({
+  const records = statusFiltered.map((item) => ({
     id: item._id,
     employeeId: item.employeeId || null,
     leaveType: item.leaveType || 'casual',
@@ -176,7 +188,8 @@ export const getLeaveReport = asyncHandler(async (req, res) => {
       summary,
       total: records.length,
       records
-    }
+    },
+    items: records
   })
 })
 
@@ -191,16 +204,19 @@ export const getPayrollReport = asyncHandler(async (req, res) => {
 
   const items = await Payroll.find(query).sort({ year: -1, month: -1, createdAt: -1 })
   const filtered = withDateRange(items, filters.dateFrom, filters.dateTo, (item) => item.createdAt)
+  const statusFiltered = filters.status && filters.status !== 'all'
+    ? filtered.filter((item) => String(item.status || '').toLowerCase() === filters.status)
+    : filtered
 
   const summary = {
-    total: filtered.length,
-    generated: filtered.filter((item) => item.status === 'generated').length,
-    paid: filtered.filter((item) => item.status === 'paid').length,
-    pending: filtered.filter((item) => item.status === 'pending').length,
-    grossPayout: filtered.reduce((acc, item) => acc + asNumber(item.netSalary), 0)
+    total: statusFiltered.length,
+    generated: statusFiltered.filter((item) => item.status === 'generated').length,
+    paid: statusFiltered.filter((item) => item.status === 'paid').length,
+    pending: statusFiltered.filter((item) => item.status === 'pending').length,
+    grossPayout: statusFiltered.reduce((acc, item) => acc + asNumber(item.netSalary), 0)
   }
 
-  const records = filtered.map((item) => ({
+  const records = statusFiltered.map((item) => ({
     id: item._id,
     employeeId: item.employeeId || null,
     month: item.month || '',
@@ -227,7 +243,8 @@ export const getPayrollReport = asyncHandler(async (req, res) => {
       summary,
       total: records.length,
       records
-    }
+    },
+    items: records
   })
 })
 
@@ -257,6 +274,9 @@ export const getDepartmentReport = asyncHandler(async (req, res) => {
     employeeCount: countByDepartment[String(item._id)] || 0,
     createdAt: item.createdAt || null
   }))
+  const statusFiltered = filters.status && filters.status !== 'all'
+    ? records.filter((item) => String(item.status || '').toLowerCase() === filters.status)
+    : records
 
   return res.status(200).json({
     success: true,
@@ -265,9 +285,10 @@ export const getDepartmentReport = asyncHandler(async (req, res) => {
       companyId,
       reportType: 'departments',
       filters,
-      total: records.length,
-      records
-    }
+      total: statusFiltered.length,
+      records: statusFiltered
+    },
+    items: statusFiltered
   })
 })
 
@@ -322,7 +343,8 @@ export const getSummaryReport = asyncHandler(async (req, res) => {
   return res.status(200).json({
     success: true,
     message: 'Summary report fetched successfully',
-    data
+    data,
+    item: data
   })
 })
 

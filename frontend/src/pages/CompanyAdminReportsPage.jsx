@@ -21,6 +21,7 @@ import {
 } from '../api/adminReportsApi'
 
 const reportOptions = [
+  { value: 'summary', label: 'Summary' },
   { value: 'employees', label: 'Employees' },
   { value: 'attendance', label: 'Attendance' },
   { value: 'leaves', label: 'Leaves' },
@@ -49,6 +50,7 @@ function CompanyAdminReportsPage() {
   const [dateTo, setDateTo] = useState('')
   const [departmentId, setDepartmentId] = useState('all')
   const [employeeId, setEmployeeId] = useState('all')
+  const [status, setStatus] = useState('all')
   const [activeReport, setActiveReport] = useState('employees')
 
   const [departments, setDepartments] = useState([])
@@ -71,8 +73,9 @@ function CompanyAdminReportsPage() {
     dateFrom: dateFrom || undefined,
     dateTo: dateTo || undefined,
     departmentId: departmentId !== 'all' ? departmentId : undefined,
-    employeeId: employeeId !== 'all' ? employeeId : undefined
-  }), [dateFrom, dateTo, departmentId, employeeId])
+    employeeId: employeeId !== 'all' ? employeeId : undefined,
+    status: status !== 'all' ? status : undefined
+  }), [dateFrom, dateTo, departmentId, employeeId, status])
 
   const loadMeta = async () => {
     try {
@@ -85,10 +88,15 @@ function CompanyAdminReportsPage() {
     } catch (_err) {
       setDepartments([])
       setEmployees([])
+      setToast({ type: 'error', message: _err?.response?.data?.message || 'Failed to load report metadata' })
     }
   }
 
   const loadReports = async ({ silent = false } = {}) => {
+    if (dateFrom && dateTo && dateTo < dateFrom) {
+      setError('Date To cannot be before Date From')
+      return
+    }
     if (!silent) setLoading(true)
     setError('')
     try {
@@ -175,6 +183,24 @@ function CompanyAdminReportsPage() {
         ]
       }
     }
+    if (activeReport === 'summary') {
+      return {
+        rows: [
+          { id: 'employees', metric: 'Employees', value: summary?.employees || 0 },
+          { id: 'managers', metric: 'Managers', value: summary?.managers || 0 },
+          { id: 'hrUsers', metric: 'HR Users', value: summary?.hrUsers || 0 },
+          { id: 'departments', metric: 'Departments', value: summary?.departments || 0 },
+          { id: 'attTotal', metric: 'Attendance Total', value: summary?.attendance?.total || 0 },
+          { id: 'leaveTotal', metric: 'Leave Total', value: summary?.leaves?.total || 0 },
+          { id: 'payrollTotal', metric: 'Payroll Total', value: summary?.payroll?.total || 0 },
+          { id: 'netPayout', metric: 'Net Payout', value: summary?.payroll?.netPayout || 0 }
+        ],
+        columns: [
+          { key: 'metric', label: 'Metric' },
+          { key: 'value', label: 'Value' }
+        ]
+      }
+    }
 
     if (activeReport === 'leaves') {
       return {
@@ -230,14 +256,16 @@ function CompanyAdminReportsPage() {
 
   const exportCurrent = () => {
     const payloadByReport = {
+      summary: summary || {},
       employees: employeesReport,
       attendance: attendanceReport,
       leaves: leavesReport,
       payroll: payrollReport,
       departments: departmentsReport
     }
-    downloadJson(`admin-report-${activeReport}-${new Date().toISOString().slice(0, 10)}.json`, payloadByReport[activeReport] || [])
-    setToast({ type: 'success', message: `${activeReport} report exported` })
+    const payload = payloadByReport[activeReport]
+    downloadJson(`admin-report-${activeReport}-${new Date().toISOString().slice(0, 10)}.json`, payload || [])
+    setToast({ type: 'success', message: `${reportOptions.find((opt) => opt.value === activeReport)?.label || activeReport} report exported` })
   }
 
   const exportSummary = () => {
@@ -271,6 +299,25 @@ function CompanyAdminReportsPage() {
             value={employeeId}
             onChange={setEmployeeId}
             options={[{ value: 'all', label: 'All Employees' }, ...employees.map((e) => ({ value: String(e.employeeId || e.id || e._id), label: `${e.name} (${e.employeeId || e.id || e._id})` }))]}
+          />
+          <FilterDropdown
+            label="Status"
+            value={status}
+            onChange={setStatus}
+            options={[
+              { value: 'all', label: 'All Statuses' },
+              { value: 'active', label: 'Active' },
+              { value: 'inactive', label: 'Inactive' },
+              { value: 'present', label: 'Present' },
+              { value: 'absent', label: 'Absent' },
+              { value: 'late', label: 'Late' },
+              { value: 'half-day', label: 'Half-day' },
+              { value: 'pending', label: 'Pending' },
+              { value: 'approved', label: 'Approved' },
+              { value: 'rejected', label: 'Rejected' },
+              { value: 'generated', label: 'Generated' },
+              { value: 'paid', label: 'Paid' }
+            ]}
           />
           <FilterDropdown label="Report Type" value={activeReport} onChange={setActiveReport} options={reportOptions} />
         </div>
