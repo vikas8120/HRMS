@@ -34,7 +34,9 @@ const buildBaseFilters = (req) => {
   const companyId = req.user.companyId
   const employeeId = String(req.query.employeeId || '').trim()
   const departmentId = String(req.query.departmentId || '').trim()
-  const date = String(req.query.date || '').trim()
+  const rawDate = String(req.query.date || '').trim()
+  const date = rawDate ? toDateKey(rawDate) : ''
+  const status = String(req.query.status || '').trim().toLowerCase()
 
   const query = { companyId }
 
@@ -46,7 +48,11 @@ const buildBaseFilters = (req) => {
     query.date = date
   }
 
-  return { companyId, employeeId, departmentId, date, query }
+  if (status && ALLOWED_STATUS.has(status)) {
+    query.status = status
+  }
+
+  return { companyId, employeeId, departmentId, date, status, query }
 }
 
 const attachDepartmentFilter = async (query, companyId, departmentId) => {
@@ -54,7 +60,11 @@ const attachDepartmentFilter = async (query, companyId, departmentId) => {
 
   const employees = await User.find({ companyId, role: 'employee', departmentId }).select('_id employeeId departmentId name')
   const employeeIds = employees.map((emp) => String(emp.employeeId || emp._id))
-  query.employeeId = { $in: employeeIds }
+  if (query.employeeId && typeof query.employeeId === 'string') {
+    query.employeeId = employeeIds.includes(String(query.employeeId)) ? String(query.employeeId) : { $in: [] }
+  } else {
+    query.employeeId = { $in: employeeIds }
+  }
   return query
 }
 
@@ -87,11 +97,21 @@ export const getTodayAttendance = asyncHandler(async (req, res) => {
 
   const items = await Attendance.find(query).sort({ createdAt: -1 })
   const employeeMap = await getEmployeeMap(companyId)
+  const records = items.map((item) => serializeAttendance(item, employeeMap))
+  const summary = {
+    total: records.length,
+    present: records.filter((row) => row.status === 'present').length,
+    absent: records.filter((row) => row.status === 'absent').length,
+    halfDay: records.filter((row) => row.status === 'half-day').length,
+    late: records.filter((row) => row.status === 'late').length,
+    leave: records.filter((row) => row.status === 'leave').length
+  }
 
   return res.status(200).json({
     success: true,
     message: "Today's attendance fetched successfully",
-    data: items.map((item) => serializeAttendance(item, employeeMap))
+    data: records,
+    summary
   })
 })
 
@@ -149,8 +169,9 @@ export const markManualAttendance = asyncHandler(async (req, res) => {
   }
 
   const resolvedEmployeeId = String(employee.employeeId || employee._id)
+  const normalizedDate = toDateKey(date)
 
-  const existing = await Attendance.findOne({ companyId: req.user.companyId, employeeId: resolvedEmployeeId, date })
+  const existing = await Attendance.findOne({ companyId: req.user.companyId, employeeId: resolvedEmployeeId, date: normalizedDate })
   if (existing) {
     return res.status(409).json({ success: false, message: 'Attendance already marked for this employee on this date' })
   }
@@ -161,7 +182,7 @@ export const markManualAttendance = asyncHandler(async (req, res) => {
     companyId: req.user.companyId,
     employeeId: resolvedEmployeeId,
     userId: String(employee._id),
-    date,
+    date: normalizedDate,
     checkIn,
     checkOut,
     workingHours,
@@ -183,7 +204,18 @@ export const updateAttendance = asyncHandler(async (req, res) => {
   if (!item) return res.status(404).json({ success: false, message: 'Attendance record not found' })
 
   const { checkIn, checkOut, status, date } = req.body
-  if (date !== undefined) item.date = date
+  const nextDate = date !== undefined ? toDateKey(String(date)) : toDateKey(String(item.date))
+  const duplicate = await Attendance.findOne({
+    _id: { $ne: item._id },
+    companyId: req.user.companyId,
+    employeeId: item.employeeId,
+    date: nextDate
+  })
+  if (duplicate) {
+    return res.status(409).json({ success: false, message: 'Attendance already exists for this employee on this date' })
+  }
+
+  if (date !== undefined) item.date = nextDate
   if (checkIn !== undefined) item.checkIn = checkIn
   if (checkOut !== undefined) item.checkOut = checkOut
 

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Download, RefreshCw } from 'lucide-react'
 import PageHeader from '../components/ui/PageHeader'
-import SearchBar from '../components/ui/SearchBar'
 import FilterDropdown from '../components/ui/FilterDropdown'
 import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
@@ -54,6 +53,7 @@ function CompanyAdminAttendancePage() {
   const [employees, setEmployees] = useState([])
 
   const [summaryToday, setSummaryToday] = useState([])
+  const [todaySummaryCounts, setTodaySummaryCounts] = useState(null)
   const [summaryMonthly, setSummaryMonthly] = useState(null)
 
   const [manualOpen, setManualOpen] = useState(false)
@@ -89,14 +89,17 @@ function CompanyAdminAttendancePage() {
   const loadSummary = async () => {
     try {
       const [todayRes, monthlyRes] = await Promise.all([
-        getTodayAttendance({ departmentId: departmentFilter, employeeId: employeeFilter }),
+        getTodayAttendance({ departmentId: departmentFilter, employeeId: employeeFilter, status: statusFilter }),
         getMonthlyAttendance({ month: monthFilter, year: yearFilter, departmentId: departmentFilter, employeeId: employeeFilter })
       ])
       setSummaryToday(todayRes?.data || [])
+      setTodaySummaryCounts(todayRes?.summary || null)
       setSummaryMonthly(monthlyRes?.data?.summary || null)
-    } catch (_err) {
+    } catch (err) {
       setSummaryToday([])
+      setTodaySummaryCounts(null)
       setSummaryMonthly(null)
+      setToast({ type: 'error', message: err?.response?.data?.message || 'Failed to load attendance summary' })
     }
   }
 
@@ -108,7 +111,8 @@ function CompanyAdminAttendancePage() {
       const res = await getAttendance({
         date: dateFilter || undefined,
         departmentId: departmentFilter,
-        employeeId: employeeFilter
+        employeeId: employeeFilter,
+        status: statusFilter
       })
       setRows(res?.data || [])
     } catch (err) {
@@ -138,21 +142,22 @@ function CompanyAdminAttendancePage() {
       departmentName: deptMap[String(row.departmentId || '')] || '-'
     }))
 
-    if (statusFilter === 'all') return base
-    return base.filter((row) => String(row.status || '').toLowerCase() === statusFilter)
-  }, [rows, statusFilter, deptMap])
+    return base
+  }, [rows, deptMap])
 
   const cards = useMemo(() => {
     const monthly = summaryMonthly || { total: 0, present: 0, absent: 0, halfDay: 0, late: 0, leave: 0 }
-    const todayPresent = summaryToday.filter((item) => item.status === 'present').length
+    const today = todaySummaryCounts || { total: summaryToday.length, present: 0, absent: 0, halfDay: 0, late: 0, leave: 0 }
 
     return [
-      { title: 'Today Marked', value: String(summaryToday.length), trend: `${todayPresent} present today` },
+      { title: 'Today Marked', value: String(today.total || 0), trend: `${today.present || 0} present today` },
       { title: 'Monthly Total', value: String(monthly.total || 0), trend: `${monthFilter}/${yearFilter} records` },
-      { title: 'Monthly Present', value: String(monthly.present || 0), trend: `${monthly.late || 0} late entries` },
-      { title: 'Monthly Absent', value: String(monthly.absent || 0), trend: `${monthly.leave || 0} on leave` }
+      { title: 'Present Count', value: String(monthly.present || 0), trend: `${today.present || 0} today` },
+      { title: 'Absent Count', value: String(monthly.absent || 0), trend: `${today.absent || 0} today` },
+      { title: 'Late Count', value: String(monthly.late || 0), trend: `${today.late || 0} today` },
+      { title: 'Half-day Count', value: String(monthly.halfDay || 0), trend: `${today.halfDay || 0} today` }
     ]
-  }, [summaryToday, summaryMonthly, monthFilter, yearFilter])
+  }, [summaryToday, summaryMonthly, monthFilter, yearFilter, todaySummaryCounts])
 
   const validateForm = () => {
     const next = {}
@@ -199,7 +204,7 @@ function CompanyAdminAttendancePage() {
       const created = res?.data
       setRows((prev) => [created, ...prev])
       setManualOpen(false)
-      setToast({ type: 'success', message: 'Attendance marked successfully' })
+      setToast({ type: 'success', message: res?.message || 'Attendance marked successfully' })
       await loadSummary()
     } catch (err) {
       setToast({ type: 'error', message: err?.response?.data?.message || 'Failed to mark attendance' })
@@ -225,7 +230,7 @@ function CompanyAdminAttendancePage() {
       setRows((prev) => prev.map((item) => (item.id === updated.id ? updated : item)))
       setEditOpen(false)
       setSelected(null)
-      setToast({ type: 'success', message: 'Attendance updated successfully' })
+      setToast({ type: 'success', message: res?.message || 'Attendance updated successfully' })
       await loadSummary()
     } catch (err) {
       setToast({ type: 'error', message: err?.response?.data?.message || 'Failed to update attendance' })
@@ -239,7 +244,8 @@ function CompanyAdminAttendancePage() {
       const blob = await exportAttendance({
         date: dateFilter || undefined,
         departmentId: departmentFilter,
-        employeeId: employeeFilter
+        employeeId: employeeFilter,
+        status: statusFilter
       })
 
       const url = URL.createObjectURL(blob)
