@@ -50,11 +50,19 @@ const resolveEmployeeKey = async (companyId, providedEmployeeId) => {
 export const listLeaves = asyncHandler(async (req, res) => {
   const companyId = req.user.companyId
   const status = String(req.query.status || '').toLowerCase()
+  const employeeFilter = String(req.query.employeeId || '').trim()
   const departmentId = String(req.query.departmentId || '').trim()
   const date = String(req.query.date || '').trim()
 
   const query = { companyId }
   if (status && ALLOWED_STATUS.has(status)) query.status = status
+  if (employeeFilter && employeeFilter !== 'all') {
+    const resolved = await resolveEmployeeKey(companyId, employeeFilter)
+    if (!resolved) {
+      return res.status(200).json({ success: true, message: 'Leave requests fetched successfully', data: [] })
+    }
+    query.employeeId = resolved
+  }
 
   if (date) {
     query.startDate = { $lte: date }
@@ -64,7 +72,11 @@ export const listLeaves = asyncHandler(async (req, res) => {
   if (departmentId && departmentId !== 'all') {
     const deptEmployees = await User.find({ companyId, role: 'employee', departmentId }).select('employeeId')
     const deptEmployeeIds = deptEmployees.map((emp) => String(emp.employeeId || emp._id))
-    query.employeeId = { $in: deptEmployeeIds }
+    if (query.employeeId && typeof query.employeeId === 'string') {
+      query.employeeId = deptEmployeeIds.includes(query.employeeId) ? query.employeeId : '__none__'
+    } else {
+      query.employeeId = { $in: deptEmployeeIds }
+    }
   }
 
   const items = await Leave.find(query).sort({ createdAt: -1 })
@@ -73,7 +85,8 @@ export const listLeaves = asyncHandler(async (req, res) => {
   return res.status(200).json({
     success: true,
     message: 'Leave requests fetched successfully',
-    data: items.map((item) => serializeLeave(item, employeeMap))
+    data: items.map((item) => serializeLeave(item, employeeMap)),
+    items: items.map((item) => serializeLeave(item, employeeMap))
   })
 })
 
@@ -86,7 +99,8 @@ export const getLeaveById = asyncHandler(async (req, res) => {
   return res.status(200).json({
     success: true,
     message: 'Leave request fetched successfully',
-    data: serializeLeave(item, employeeMap)
+    data: serializeLeave(item, employeeMap),
+    item: serializeLeave(item, employeeMap)
   })
 })
 
@@ -103,6 +117,9 @@ export const createLeave = asyncHandler(async (req, res) => {
   if (!employeeId || !startDate || !endDate) {
     return res.status(400).json({ success: false, message: 'employeeId, startDate and endDate are required' })
   }
+  if (new Date(endDate) < new Date(startDate)) {
+    return res.status(400).json({ success: false, message: 'endDate cannot be before startDate' })
+  }
 
   const resolvedEmployeeId = await resolveEmployeeKey(req.user.companyId, employeeId)
   if (!resolvedEmployeeId) {
@@ -110,6 +127,9 @@ export const createLeave = asyncHandler(async (req, res) => {
   }
 
   const computedDays = Number(totalDays || 0) > 0 ? Number(totalDays) : daysBetweenInclusive(startDate, endDate)
+  if (!Number.isFinite(computedDays) || computedDays <= 0) {
+    return res.status(400).json({ success: false, message: 'Invalid leave duration' })
+  }
 
   const item = await Leave.create({
     companyId: req.user.companyId,
@@ -129,13 +149,41 @@ export const createLeave = asyncHandler(async (req, res) => {
   return res.status(201).json({
     success: true,
     message: 'Leave request created successfully',
-    data: serializeLeave(item, employeeMap)
+    data: serializeLeave(item, employeeMap),
+    item: serializeLeave(item, employeeMap)
   })
 })
 
 export const approveLeave = asyncHandler(async (req, res) => {
   const item = await Leave.findOne({ _id: req.params.id, companyId: req.user.companyId })
   if (!item) return res.status(404).json({ success: false, message: 'Leave request not found' })
+  if (String(item.status || '').toLowerCase() !== 'pending') {
+    return res.status(400).json({ success: false, message: `Only pending leave requests can be approved. Current status: ${item.status}` })
+  }
+  if (new Date(item.endDate) < new Date(item.startDate)) {
+    return res.status(400).json({ success: false, message: 'Invalid leave date range' })
+  }
+
+  let settings = await CompanySettings.findOne({ companyId: req.user.companyId })
+  if (!settings) settings = await CompanySettings.create({ companyId: req.user.companyId })
+  const policy = settings.leavePolicy || { casual: 12, sick: 12, earned: 15 }
+  const leaveKey = String(item.leaveType || '').toLowerCase()
+  const maxAllowed = Number(policy[leaveKey] || 0)
+  const approvedLeaves = await Leave.find({
+    companyId: req.user.companyId,
+    employeeId: item.employeeId,
+    status: 'approved',
+    leaveType: leaveKey,
+    _id: { $ne: item._id }
+  })
+  const used = approvedLeaves.reduce((sum, row) => sum + Number(row.totalDays || 0), 0)
+  if (used + Number(item.totalDays || 0) > maxAllowed) {
+    return res.status(400).json({
+      success: false,
+      message: `Cannot approve leave. ${leaveKey} balance exceeded`,
+      details: { policy: maxAllowed, used, requested: Number(item.totalDays || 0), available: Math.max(maxAllowed - used, 0) }
+    })
+  }
 
   item.status = 'approved'
   item.approvedBy = req.user.id
@@ -156,7 +204,8 @@ export const approveLeave = asyncHandler(async (req, res) => {
   return res.status(200).json({
     success: true,
     message: 'Leave approved successfully',
-    data: serializeLeave(item, employeeMap)
+    data: serializeLeave(item, employeeMap),
+    item: serializeLeave(item, employeeMap)
   })
 })
 
@@ -168,6 +217,9 @@ export const rejectLeave = asyncHandler(async (req, res) => {
 
   const item = await Leave.findOne({ _id: req.params.id, companyId: req.user.companyId })
   if (!item) return res.status(404).json({ success: false, message: 'Leave request not found' })
+  if (String(item.status || '').toLowerCase() !== 'pending') {
+    return res.status(400).json({ success: false, message: `Only pending leave requests can be rejected. Current status: ${item.status}` })
+  }
 
   item.status = 'rejected'
   item.approvedBy = req.user.id
@@ -179,7 +231,8 @@ export const rejectLeave = asyncHandler(async (req, res) => {
   return res.status(200).json({
     success: true,
     message: 'Leave rejected successfully',
-    data: serializeLeave(item, employeeMap)
+    data: serializeLeave(item, employeeMap),
+    item: serializeLeave(item, employeeMap)
   })
 })
 

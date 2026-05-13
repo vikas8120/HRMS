@@ -10,12 +10,14 @@ import EmptyState from '../components/ui/EmptyState'
 import StatCard from '../components/ui/StatCard'
 import {
   getLeaves,
+  createLeave,
   approveLeave,
   rejectLeave,
   getLeaveBalance,
   getLeavePolicy,
   setLeavePolicy,
-  getDepartments
+  getDepartments,
+  getEmployees
 } from '../api/adminLeaveApi'
 
 const statusOptions = [
@@ -35,13 +37,19 @@ function CompanyAdminLeavesPage() {
 
   const [statusFilter, setStatusFilter] = useState('all')
   const [departmentFilter, setDepartmentFilter] = useState('all')
+  const [employeeFilter, setEmployeeFilter] = useState('all')
   const [dateFilter, setDateFilter] = useState('')
 
   const [departments, setDepartments] = useState([])
+  const [employees, setEmployees] = useState([])
   const [policy, setPolicy] = useState(initialPolicy)
+  const [createOpen, setCreateOpen] = useState(false)
+  const [createForm, setCreateForm] = useState({ employeeId: '', leaveType: 'casual', startDate: '', endDate: '', reason: '' })
 
   const [rejectOpen, setRejectOpen] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
+  const [balanceLoading, setBalanceLoading] = useState(false)
+  const [balanceError, setBalanceError] = useState('')
   const [selected, setSelected] = useState(null)
   const [rejectionReason, setRejectionReason] = useState('')
   const [balanceData, setBalanceData] = useState(null)
@@ -56,15 +64,19 @@ function CompanyAdminLeavesPage() {
 
   const loadMeta = async () => {
     try {
-      const [deptRes, policyRes] = await Promise.all([
+      const [deptRes, empRes, policyRes] = await Promise.all([
         getDepartments({ status: 'all' }),
+        getEmployees({ status: 'all', limit: 500 }),
         getLeavePolicy()
       ])
       setDepartments(deptRes?.data || [])
+      setEmployees(empRes?.data || [])
       setPolicy(policyRes?.data || initialPolicy)
     } catch (_err) {
       setDepartments([])
+      setEmployees([])
       setPolicy(initialPolicy)
+      setToast({ type: 'error', message: 'Failed to load leave meta data' })
     }
   }
 
@@ -75,6 +87,7 @@ function CompanyAdminLeavesPage() {
     try {
       const res = await getLeaves({
         status: statusFilter,
+        employeeId: employeeFilter,
         departmentId: departmentFilter,
         date: dateFilter || undefined
       })
@@ -125,13 +138,46 @@ function CompanyAdminLeavesPage() {
     await loadLeaves()
   }
 
+  const onCreateLeave = async (event) => {
+    event.preventDefault()
+    if (!createForm.employeeId || !createForm.startDate || !createForm.endDate) {
+      setToast({ type: 'error', message: 'Employee, start date and end date are required' })
+      return
+    }
+    if (new Date(createForm.endDate) < new Date(createForm.startDate)) {
+      setToast({ type: 'error', message: 'End date cannot be before start date' })
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      const res = await createLeave({
+        employeeId: createForm.employeeId,
+        leaveType: createForm.leaveType,
+        startDate: createForm.startDate,
+        endDate: createForm.endDate,
+        reason: createForm.reason
+      })
+      const created = res?.data
+      setRows((prev) => [created, ...prev])
+      setCreateForm({ employeeId: '', leaveType: 'casual', startDate: '', endDate: '', reason: '' })
+      setCreateOpen(false)
+      setToast({ type: 'success', message: res?.message || 'Leave request created successfully' })
+      await loadLeaves({ keepLoading: true })
+    } catch (err) {
+      setToast({ type: 'error', message: err?.response?.data?.message || 'Create leave failed' })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   const onApprove = async (row) => {
     setSubmitting(true)
     try {
       const res = await approveLeave(row.id)
       const updated = res?.data
       setRows((prev) => prev.map((item) => (item.id === updated.id ? updated : item)))
-      setToast({ type: 'success', message: 'Leave approved successfully' })
+      setToast({ type: 'success', message: res?.message || 'Leave approved successfully' })
     } catch (err) {
       setToast({ type: 'error', message: err?.response?.data?.message || 'Approve failed' })
     } finally {
@@ -159,7 +205,7 @@ function CompanyAdminLeavesPage() {
       setRejectOpen(false)
       setSelected(null)
       setRejectionReason('')
-      setToast({ type: 'success', message: 'Leave rejected successfully' })
+      setToast({ type: 'success', message: res?.message || 'Leave rejected successfully' })
     } catch (err) {
       setToast({ type: 'error', message: err?.response?.data?.message || 'Reject failed' })
     } finally {
@@ -170,12 +216,17 @@ function CompanyAdminLeavesPage() {
   const openDetails = async (row) => {
     setSelected(row)
     setBalanceData(null)
+    setBalanceError('')
+    setBalanceLoading(true)
     setDetailsOpen(true)
     try {
       const res = await getLeaveBalance(row.employeeId)
       setBalanceData(res?.data || null)
-    } catch (_err) {
+    } catch (err) {
       setBalanceData(null)
+      setBalanceError(err?.response?.data?.message || 'Failed to load leave balance')
+    } finally {
+      setBalanceLoading(false)
     }
   }
 
@@ -189,7 +240,7 @@ function CompanyAdminLeavesPage() {
       }
       const res = await setLeavePolicy(payload)
       setPolicy(res?.data || payload)
-      setToast({ type: 'success', message: 'Leave policy updated successfully' })
+      setToast({ type: 'success', message: res?.message || 'Leave policy updated successfully' })
     } catch (err) {
       setToast({ type: 'error', message: err?.response?.data?.message || 'Failed to update policy' })
     } finally {
@@ -203,7 +254,8 @@ function CompanyAdminLeavesPage() {
         title="Leaves"
         description="Review leave requests, approve/reject actions, and manage company leave policy."
         breadcrumb={['Company Admin', 'Leaves']}
-        primaryActionLabel=""
+        primaryActionLabel="Create Leave"
+        onPrimaryAction={() => setCreateOpen(true)}
       />
 
       {toast ? <div className={`toast ${toast.type === 'success' ? 'toast-success' : 'toast-error'}`}>{toast.message}</div> : null}
@@ -220,6 +272,12 @@ function CompanyAdminLeavesPage() {
             value={departmentFilter}
             onChange={setDepartmentFilter}
             options={[{ value: 'all', label: 'All Departments' }, ...departments.map((d) => ({ value: String(d.id || d._id), label: d.name || 'Department' }))]}
+          />
+          <FilterDropdown
+            label="Employee"
+            value={employeeFilter}
+            onChange={setEmployeeFilter}
+            options={[{ value: 'all', label: 'All Employees' }, ...employees.map((e) => ({ value: String(e.employeeId || e.id || e._id), label: `${e.name} (${e.employeeId || e.id || e._id})` }))]}
           />
           <FormInput label="Date" type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} />
         </div>
@@ -310,7 +368,7 @@ function CompanyAdminLeavesPage() {
 
             <div className="panel" style={{ padding: 12 }}>
               <div className="panel-head"><h3>Leave Balance</h3></div>
-              {!balanceData ? <LoadingSkeleton rows={3} /> : (
+              {balanceLoading ? <LoadingSkeleton rows={3} /> : balanceError ? <EmptyState title="Unable to load leave balance" description={balanceError} /> : !balanceData ? <EmptyState title="No leave balance data" description="Balance information is unavailable for this employee." /> : (
                 <div className="dashboard-mini-grid">
                   <div className="inline-action-card"><strong>Casual:</strong> <span>{balanceData.balance?.casual ?? 0}</span></div>
                   <div className="inline-action-card"><strong>Sick:</strong> <span>{balanceData.balance?.sick ?? 0}</span></div>
@@ -320,6 +378,27 @@ function CompanyAdminLeavesPage() {
             </div>
           </div>
         )}
+      </Modal>
+
+      <Modal open={createOpen} title="Create Leave Request" onClose={() => { if (!submitting) setCreateOpen(false) }}>
+        <form className="modal-form" onSubmit={onCreateLeave}>
+          <FilterDropdown
+            label="Employee"
+            value={createForm.employeeId}
+            onChange={(value) => setCreateForm((prev) => ({ ...prev, employeeId: value }))}
+            options={[{ value: '', label: 'Select employee' }, ...employees.map((e) => ({ value: String(e.employeeId || e.id || e._id), label: `${e.name} (${e.employeeId || e.id || e._id})` }))]}
+          />
+          <FilterDropdown
+            label="Leave Type"
+            value={createForm.leaveType}
+            onChange={(value) => setCreateForm((prev) => ({ ...prev, leaveType: value }))}
+            options={[{ value: 'casual', label: 'Casual' }, { value: 'sick', label: 'Sick' }, { value: 'earned', label: 'Earned' }]}
+          />
+          <FormInput label="Start Date" type="date" value={createForm.startDate} onChange={(e) => setCreateForm((prev) => ({ ...prev, startDate: e.target.value }))} />
+          <FormInput label="End Date" type="date" value={createForm.endDate} onChange={(e) => setCreateForm((prev) => ({ ...prev, endDate: e.target.value }))} />
+          <FormInput label="Reason" value={createForm.reason} onChange={(e) => setCreateForm((prev) => ({ ...prev, reason: e.target.value }))} placeholder="Enter reason" />
+          <Button type="submit" disabled={submitting}>{submitting ? 'Creating...' : 'Create Request'}</Button>
+        </form>
       </Modal>
     </section>
   )
