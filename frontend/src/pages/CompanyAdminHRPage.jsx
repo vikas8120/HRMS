@@ -126,9 +126,9 @@ function CompanyAdminHRPage() {
         }
         const res = await updateHRApi(selected.id, payload)
         const updated = res?.data
-        if (!updated?.id) throw new Error('Database update confirmation not received')
+        if (!updated?.id) throw new Error('Update confirmation was not returned')
         setRows((prev) => prev.map((row) => (row.id === updated.id ? updated : row)))
-        setToast({ type: 'success', message: `Saved in database successfully (ID: ${updated.id})` })
+        setToast({ type: 'success', message: res?.message || 'HR updated successfully' })
       } else {
         const payload = {
           name: form.name.trim(),
@@ -140,10 +140,10 @@ function CompanyAdminHRPage() {
         }
         const res = await createHRApi(payload)
         const created = res?.data
-        if (!created?.id) throw new Error('Database save confirmation not received')
+        if (!created?.id) throw new Error('Create confirmation was not returned')
         setRows((prev) => [created, ...prev].slice(0, 10))
         setPagination((prev) => ({ ...prev, total: (prev.total || 0) + 1 }))
-        setToast({ type: 'success', message: `Saved in database successfully (ID: ${created.id})` })
+        setToast({ type: 'success', message: res?.message || 'HR created successfully' })
       }
 
       setOpen(false)
@@ -151,7 +151,7 @@ function CompanyAdminHRPage() {
       await loadHR({ pageArg: 1, keepLoading: true })
       setPage(1)
     } catch (err) {
-      setToast({ type: 'error', message: `Not saved in database: ${err?.response?.data?.message || err?.message || 'Operation failed'}` })
+      setToast({ type: 'error', message: err?.response?.data?.message || err?.message || 'Operation failed' })
     } finally {
       setSubmitting(false)
     }
@@ -162,10 +162,10 @@ function CompanyAdminHRPage() {
 
     setSubmitting(true)
     try {
-      await deleteHRApi(selected.id)
+      const res = await deleteHRApi(selected.id)
       setRows((prev) => prev.filter((row) => row.id !== selected.id))
       setPagination((prev) => ({ ...prev, total: Math.max((prev.total || 1) - 1, 0) }))
-      setToast({ type: 'success', message: 'HR deleted successfully' })
+      setToast({ type: 'success', message: res?.message || 'HR deleted successfully' })
       setConfirmOpen(false)
       setSelected(null)
       await loadHR({ pageArg: page, keepLoading: true })
@@ -182,7 +182,7 @@ function CompanyAdminHRPage() {
       const res = await updateHRStatusApi(row.id, nextStatus)
       const updated = res?.data
       setRows((prev) => prev.map((item) => (item.id === row.id ? updated : item)))
-      setToast({ type: 'success', message: `HR ${nextStatus === 'active' ? 'activated' : 'deactivated'} successfully` })
+      setToast({ type: 'success', message: res?.message || `HR ${nextStatus === 'active' ? 'activated' : 'deactivated'} successfully` })
     } catch (err) {
       setToast({ type: 'error', message: err?.response?.data?.message || 'Status update failed' })
     }

@@ -1,6 +1,7 @@
 import asyncHandler from '../utils/asyncHandler.js'
 import User from '../models/User.js'
 import bcrypt from 'bcryptjs'
+import Department from '../models/Department.js'
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const ALLOWED_STATUS = new Set(['active', 'inactive'])
@@ -48,6 +49,7 @@ export const listHR = asyncHandler(async (req, res) => {
     success: true,
     message: 'HR list fetched successfully',
     data: items.map(serializeHR),
+    items: items.map(serializeHR),
     pagination: {
       page,
       limit,
@@ -62,7 +64,7 @@ export const getHRById = asyncHandler(async (req, res) => {
   const item = await User.findOne({ _id: id, companyId: req.user.companyId, role: 'hr' })
   if (!item) return res.status(404).json({ success: false, message: 'HR record not found' })
 
-  return res.status(200).json({ success: true, message: 'HR fetched successfully', data: serializeHR(item) })
+  return res.status(200).json({ success: true, message: 'HR fetched successfully', data: serializeHR(item), item: serializeHR(item) })
 })
 
 export const createHR = asyncHandler(async (req, res) => {
@@ -76,8 +78,13 @@ export const createHR = asyncHandler(async (req, res) => {
   if (!ALLOWED_STATUS.has(String(status).toLowerCase())) {
     return res.status(400).json({ success: false, message: 'status must be active or inactive' })
   }
+  if (departmentId) {
+    const dept = await Department.findOne({ _id: departmentId, companyId: req.user.companyId })
+    if (!dept) return res.status(400).json({ success: false, message: 'Invalid department for this company' })
+  }
 
-  const exists = await User.findOne({ email: email.toLowerCase().trim() })
+  const normalizedEmail = email.toLowerCase().trim()
+  const exists = await User.findOne({ email: normalizedEmail })
   if (exists) return res.status(409).json({ success: false, message: 'Email already exists' })
 
   const hashed = await bcrypt.hash(password, 10)
@@ -85,7 +92,7 @@ export const createHR = asyncHandler(async (req, res) => {
   const item = await User.create({
     companyId: req.user.companyId,
     name: name.trim(),
-    email: email.toLowerCase().trim(),
+    email: normalizedEmail,
     password: hashed,
     phone: String(phone || '').trim(),
     departmentId,
@@ -93,7 +100,7 @@ export const createHR = asyncHandler(async (req, res) => {
     status: String(status).toLowerCase()
   })
 
-  return res.status(201).json({ success: true, message: 'HR created successfully', data: serializeHR(item) })
+  return res.status(201).json({ success: true, message: 'HR created successfully', data: serializeHR(item), item: serializeHR(item) })
 })
 
 export const updateHR = asyncHandler(async (req, res) => {
@@ -104,7 +111,13 @@ export const updateHR = asyncHandler(async (req, res) => {
   const { name, phone, departmentId, status } = req.body
   if (name) item.name = name.trim()
   if (phone != null) item.phone = String(phone).trim()
-  if (departmentId !== undefined) item.departmentId = departmentId
+  if (departmentId !== undefined) {
+    if (departmentId) {
+      const dept = await Department.findOne({ _id: departmentId, companyId: req.user.companyId })
+      if (!dept) return res.status(400).json({ success: false, message: 'Invalid department for this company' })
+    }
+    item.departmentId = departmentId
+  }
   if (status !== undefined) {
     const normalized = String(status).toLowerCase()
     if (!ALLOWED_STATUS.has(normalized)) {
@@ -114,7 +127,7 @@ export const updateHR = asyncHandler(async (req, res) => {
   }
   await item.save()
 
-  return res.status(200).json({ success: true, message: 'HR updated successfully', data: serializeHR(item) })
+  return res.status(200).json({ success: true, message: 'HR updated successfully', data: serializeHR(item), item: serializeHR(item) })
 })
 
 export const updateHRStatus = asyncHandler(async (req, res) => {
@@ -135,13 +148,26 @@ export const updateHRStatus = asyncHandler(async (req, res) => {
   return res.status(200).json({
     success: true,
     message: `HR ${normalized === 'active' ? 'activated' : 'deactivated'} successfully`,
-    data: serializeHR(item)
+    data: serializeHR(item),
+    item: serializeHR(item)
   })
 })
 
 export const deleteHR = asyncHandler(async (req, res) => {
   const { id } = req.params
-  const result = await User.deleteOne({ _id: id, companyId: req.user.companyId, role: 'hr' })
+  const item = await User.findOne({ _id: id, companyId: req.user.companyId, role: 'hr' })
+  if (!item) return res.status(404).json({ success: false, message: 'HR record not found' })
+
+  const linkedEmployees = await User.countDocuments({ companyId: req.user.companyId, role: 'employee', hrId: item._id })
+  if (linkedEmployees > 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'HR cannot be deleted because employees are linked',
+      details: { linkedEmployees }
+    })
+  }
+
+  const result = await User.deleteOne({ _id: item._id, companyId: req.user.companyId, role: 'hr' })
   if (!result.deletedCount) return res.status(404).json({ success: false, message: 'HR record not found' })
   return res.status(200).json({ success: true, message: 'HR deleted successfully' })
 })
