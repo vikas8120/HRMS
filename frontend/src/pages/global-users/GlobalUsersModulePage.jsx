@@ -47,6 +47,8 @@ function GlobalUsersModulePage({ page }) {
   const [modalOpen, setModalOpen] = useState(false)
   const [editId, setEditId] = useState('')
   const [form, setForm] = useState({ name: '', email: '', phone: '', role: 'EMPLOYEE', status: 'active' })
+  const [viewModalOpen, setViewModalOpen] = useState(false)
+  const [viewUser, setViewUser] = useState(null)
 
   const [sessions, setSessions] = useState([])
   const [attempts, setAttempts] = useState([])
@@ -133,7 +135,7 @@ function GlobalUsersModulePage({ page }) {
   const renderDirectory = () => (
     <>
       <div className="panel filters-panel"><div className="filters-row"><div className="search-wrap"><label>Search</label><SearchBar value={search} onChange={setSearch} placeholder="Search by name/email" /></div><FilterDropdown label="Status" value={statusFilter} onChange={setStatusFilter} options={[{ value: 'all', label: 'All' }, { value: 'active', label: 'Active' }, { value: 'blocked', label: 'Blocked' }, { value: 'inactive', label: 'Inactive' }]} /></div></div>
-      <div className="panel"><div className="panel-head"><h3>Users</h3><div className="actions-row"><Button onClick={() => setModalOpen(true)}>Add User</Button><Button variant="ghost" onClick={async () => { try { const data = await bulkExportUsers(); toastOk(data?.message || `Exported ${data.items?.length || 0} users`) } catch (error) { toastError(error?.response?.data?.message || 'Failed to export users') } }}>Bulk Export</Button><Button variant="ghost" onClick={() => setBulkModalOpen(true)}>Bulk Import</Button></div></div>{loading ? <LoadingSkeleton rows={6} /> : <DataTable columns={userCols} rows={userRows} onView={(row) => { const u = users.find((x) => x._id === row.id); if (!u) return; toastOk(`Viewing ${u.name}`) }} onEdit={(row) => { const u = users.find((x) => x._id === row.id); setEditId(row.id); setForm({ name: u.name, email: u.email, phone: u.phone || '', role: u.role || 'EMPLOYEE', status: u.status || 'active' }); setModalOpen(true) }} onDelete={async (row) => { try { const res = await updateGlobalUserStatus(row.id, 'blocked'); toastOk(res?.message || 'User blocked'); loadUsers() } catch (error) { toastError(error?.response?.data?.message || 'Failed to block user') } }} />}{!loading && userRows.length === 0 ? <EmptyState title="No users found" /> : null}<div className="pagination-row"><Button variant="ghost" disabled={pagination.page <= 1} onClick={() => setPagination((p) => ({ ...p, page: p.page - 1 }))}>Prev</Button><span>Page {pagination.page} of {pagination.totalPages || 1}</span><Button variant="ghost" disabled={pagination.page >= pagination.totalPages} onClick={() => setPagination((p) => ({ ...p, page: p.page + 1 }))}>Next</Button></div></div>
+      <div className="panel"><div className="panel-head"><h3>Users</h3><div className="actions-row"><Button onClick={() => setModalOpen(true)}>Add User</Button><Button variant="ghost" onClick={async () => { try { const data = await bulkExportUsers(); toastOk(data?.message || `Exported ${data.items?.length || 0} users`) } catch (error) { toastError(error?.response?.data?.message || 'Failed to export users') } }}>Bulk Export</Button><Button variant="ghost" onClick={() => setBulkModalOpen(true)}>Bulk Import</Button></div></div>{loading ? <LoadingSkeleton rows={6} /> : <DataTable columns={userCols} rows={userRows} onView={(row) => { const u = users.find((x) => x._id === row.id); if (!u) return; setViewUser(u); setViewModalOpen(true) }} onEdit={(row) => { const u = users.find((x) => x._id === row.id); setEditId(row.id); setForm({ name: u.name, email: u.email, phone: u.phone || '', role: u.role || 'EMPLOYEE', status: u.status || 'active' }); setModalOpen(true) }} onDelete={async (row) => { try { const res = await updateGlobalUserStatus(row.id, 'blocked'); toastOk(res?.message || 'User blocked'); loadUsers() } catch (error) { toastError(error?.response?.data?.message || 'Failed to block user') } }} />}{!loading && userRows.length === 0 ? <EmptyState title="No users found" /> : null}<div className="pagination-row"><Button variant="ghost" disabled={pagination.page <= 1} onClick={() => setPagination((p) => ({ ...p, page: p.page - 1 }))}>Prev</Button><span>Page {pagination.page} of {pagination.totalPages || 1}</span><Button variant="ghost" disabled={pagination.page >= pagination.totalPages} onClick={() => setPagination((p) => ({ ...p, page: p.page + 1 }))}>Next</Button></div></div>
     </>
   )
 
@@ -217,6 +219,20 @@ function GlobalUsersModulePage({ page }) {
       <Modal open={bulkModalOpen} title="Bulk Import Users" onClose={() => setBulkModalOpen(false)}>
         <label className="form-input-wrap"><span>Users JSON Array</span><textarea className="form-input" rows={8} value={bulkImportText} onChange={(e) => setBulkImportText(e.target.value)} placeholder='[{"name":"Jane","email":"jane@acme.com","role":"EMPLOYEE","status":"active"}]' /></label>
         <div className="actions-row"><Button variant="ghost" onClick={() => setBulkModalOpen(false)}>Cancel</Button><Button onClick={runBulkImport}>Import</Button></div>
+      </Modal>
+      <Modal open={viewModalOpen} title="User Details" onClose={() => setViewModalOpen(false)}>
+        {viewUser ? (
+          <div className="form-grid">
+            <FormInput label="Name" value={viewUser.name || ''} disabled />
+            <FormInput label="Email" value={viewUser.email || ''} disabled />
+            <FormInput label="Phone" value={viewUser.phone || '-'} disabled />
+            <FormInput label="Company" value={viewUser.company?.companyName || '-'} disabled />
+            <FormInput label="Role" value={viewUser.role || '-'} disabled />
+            <FormInput label="Status" value={viewUser.status || '-'} disabled />
+            <FormInput label="Last Login" value={viewUser.lastLogin ? new Date(viewUser.lastLogin).toLocaleString() : '-'} disabled />
+          </div>
+        ) : <EmptyState title="No user selected" />}
+        <div className="actions-row"><Button onClick={() => setViewModalOpen(false)}>Close</Button></div>
       </Modal>
     </section>
   )
