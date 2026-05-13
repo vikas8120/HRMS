@@ -137,6 +137,13 @@ function AdminManagementModulePage({ page }) {
     return () => clearTimeout(timer)
   }, [page])
 
+  useEffect(() => {
+    if (page === 'Add Admin') {
+      openAdd()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page])
+
   const adminColumns = [
     { key: 'name', label: 'Name' },
     { key: 'email', label: 'Email' },
@@ -157,7 +164,7 @@ function AdminManagementModulePage({ page }) {
         assignedCompany: admin.companyName || '-',
         role: admin.role,
         status: admin.status,
-        lastLogin: admin.createdAt ? new Date(admin.createdAt).toLocaleString() : '-'
+        lastLogin: admin.lastLogin ? new Date(admin.lastLogin).toLocaleString() : '-'
       })),
     [admins]
   )
@@ -307,7 +314,7 @@ function AdminManagementModulePage({ page }) {
             <DataTable
               columns={adminColumns}
               rows={adminRows}
-              onView={() => {}}
+              showViewAction={false}
               onEdit={openEdit}
               onDelete={(row) => {
                 setAdminToDelete(row)
@@ -348,7 +355,7 @@ function AdminManagementModulePage({ page }) {
               <LoadingSkeleton rows={8} />
             ) : (
               <>
-                <DataTable columns={adminColumns} rows={adminRows} onView={() => {}} showEditAction={false} showDeleteAction={false} />
+                <DataTable columns={adminColumns} rows={adminRows} showViewAction={false} showEditAction={false} showDeleteAction={false} />
                 <div className="pagination-row">
                   <Button variant="ghost" disabled={pagination.page <= 1} onClick={() => setPagination((prev) => ({ ...prev, page: prev.page - 1 }))}>Prev</Button>
                   <span>Page {pagination.page} of {pagination.totalPages || 1}</span>
@@ -390,7 +397,7 @@ function AdminManagementModulePage({ page }) {
         }
       }}>Save Assigned Companies</Button>
       <div className="spacer" />
-      <DataTable columns={adminColumns} rows={adminRows} onView={() => {}} onEdit={openEdit} onDelete={() => {}} />
+      <DataTable columns={adminColumns} rows={adminRows} showViewAction={false} onEdit={openEdit} showDeleteAction={false} />
     </div>
   )
 
@@ -449,7 +456,7 @@ function AdminManagementModulePage({ page }) {
 
     return (
       <div className="panel">
-        <DataTable columns={type === 'access' ? accessLogColumns : activityLogColumns} rows={rows} onView={() => {}} onEdit={() => {}} onDelete={() => {}} />
+        <DataTable columns={type === 'access' ? accessLogColumns : activityLogColumns} rows={rows} showViewAction={false} showEditAction={false} showDeleteAction={false} />
       </div>
     )
   }
@@ -460,7 +467,7 @@ function AdminManagementModulePage({ page }) {
       <DataTable
         columns={adminColumns}
         rows={adminRows}
-        onView={() => {}}
+        showViewAction={false}
         onEdit={() => {}}
         onDelete={() => {}}
       />
@@ -568,11 +575,11 @@ function AdminManagementModulePage({ page }) {
       case 'Admin List':
         return renderAdminManagementPage()
       case 'Add Admin':
-        return renderAdminManagementPage()
+        return renderAddEdit('Add Admin')
       case 'Edit Admin':
-        return renderAdminManagementPage()
+        return renderAddEdit('Edit Admin')
       case 'Assign Companies':
-        return renderAdminManagementPage()
+        return renderAssignCompanies()
       case 'Reset Password':
         return renderResetPassword()
       case 'Admin Access Logs':
