@@ -27,7 +27,7 @@ const defaultState = {
   workingDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
   attendanceRules: { workHoursPerDay: 8, graceMinutes: 15, halfDayHours: 4 },
   leavePolicy: { casual: 12, sick: 12, earned: 15 },
-  payrollSettings: { payDay: 30, pfEnabled: false, esiEnabled: false },
+  payrollSettings: { payDay: 30, pfEnabled: false, pfPercent: 0, esiEnabled: false, esiPercent: 0 },
   holidays: []
 }
 
@@ -93,8 +93,9 @@ function CompanyAdminSettingsPage() {
     if (!validateCompanyProfile()) return
     setSectionSaving('companyProfile', true)
     try {
-      await updateCompanyProfile(data.companyProfile)
-      setToast({ type: 'success', message: 'Company profile saved' })
+      const res = await updateCompanyProfile(data.companyProfile)
+      setData((prev) => ({ ...prev, companyProfile: { ...prev.companyProfile, ...(res?.data || {}) } }))
+      setToast({ type: 'success', message: res?.message || 'Company profile saved' })
     } catch (err) {
       setToast({ type: 'error', message: err?.response?.data?.message || 'Failed to save company profile' })
     } finally {
@@ -103,10 +104,19 @@ function CompanyAdminSettingsPage() {
   }
 
   const saveOfficeTiming = async () => {
+    if (!String(data.officeTiming.startTime || '').trim() || !String(data.officeTiming.endTime || '').trim()) {
+      setToast({ type: 'error', message: 'Start time and end time are required' })
+      return
+    }
+    if (String(data.officeTiming.endTime) <= String(data.officeTiming.startTime)) {
+      setToast({ type: 'error', message: 'End time must be after start time' })
+      return
+    }
     setSectionSaving('officeTiming', true)
     try {
-      await updateOfficeTiming(data.officeTiming)
-      setToast({ type: 'success', message: 'Office timing saved' })
+      const res = await updateOfficeTiming(data.officeTiming)
+      setData((prev) => ({ ...prev, officeTiming: { ...prev.officeTiming, ...(res?.data || {}) } }))
+      setToast({ type: 'success', message: res?.message || 'Office timing saved' })
     } catch (err) {
       setToast({ type: 'error', message: err?.response?.data?.message || 'Failed to save office timing' })
     } finally {
@@ -121,8 +131,9 @@ function CompanyAdminSettingsPage() {
     }
     setSectionSaving('workingDays', true)
     try {
-      await updateWorkingDays(data.workingDays)
-      setToast({ type: 'success', message: 'Working days saved' })
+      const res = await updateWorkingDays(data.workingDays)
+      setData((prev) => ({ ...prev, workingDays: Array.isArray(res?.data) ? res.data : prev.workingDays }))
+      setToast({ type: 'success', message: res?.message || 'Working days saved' })
     } catch (err) {
       setToast({ type: 'error', message: err?.response?.data?.message || 'Failed to save working days' })
     } finally {
@@ -133,12 +144,13 @@ function CompanyAdminSettingsPage() {
   const saveAttendanceRules = async () => {
     setSectionSaving('attendanceRules', true)
     try {
-      await updateAttendanceRules({
+      const res = await updateAttendanceRules({
         workHoursPerDay: Number(data.attendanceRules.workHoursPerDay || 0),
         graceMinutes: Number(data.attendanceRules.graceMinutes || 0),
         halfDayHours: Number(data.attendanceRules.halfDayHours || 0)
       })
-      setToast({ type: 'success', message: 'Attendance rules saved' })
+      setData((prev) => ({ ...prev, attendanceRules: { ...prev.attendanceRules, ...(res?.data || {}) } }))
+      setToast({ type: 'success', message: res?.message || 'Attendance rules saved' })
     } catch (err) {
       setToast({ type: 'error', message: err?.response?.data?.message || 'Failed to save attendance rules' })
     } finally {
@@ -149,12 +161,13 @@ function CompanyAdminSettingsPage() {
   const saveLeavePolicy = async () => {
     setSectionSaving('leavePolicy', true)
     try {
-      await updateLeavePolicy({
+      const res = await updateLeavePolicy({
         casual: Number(data.leavePolicy.casual || 0),
         sick: Number(data.leavePolicy.sick || 0),
         earned: Number(data.leavePolicy.earned || 0)
       })
-      setToast({ type: 'success', message: 'Leave policy saved' })
+      setData((prev) => ({ ...prev, leavePolicy: { ...prev.leavePolicy, ...(res?.data || {}) } }))
+      setToast({ type: 'success', message: res?.message || 'Leave policy saved' })
     } catch (err) {
       setToast({ type: 'error', message: err?.response?.data?.message || 'Failed to save leave policy' })
     } finally {
@@ -165,12 +178,15 @@ function CompanyAdminSettingsPage() {
   const savePayrollSettings = async () => {
     setSectionSaving('payrollSettings', true)
     try {
-      await updatePayrollSettings({
+      const res = await updatePayrollSettings({
         payDay: Number(data.payrollSettings.payDay || 0),
         pfEnabled: Boolean(data.payrollSettings.pfEnabled),
-        esiEnabled: Boolean(data.payrollSettings.esiEnabled)
+        pfPercent: Number(data.payrollSettings.pfPercent || 0),
+        esiEnabled: Boolean(data.payrollSettings.esiEnabled),
+        esiPercent: Number(data.payrollSettings.esiPercent || 0)
       })
-      setToast({ type: 'success', message: 'Payroll settings saved' })
+      setData((prev) => ({ ...prev, payrollSettings: { ...prev.payrollSettings, ...(res?.data || {}) } }))
+      setToast({ type: 'success', message: res?.message || 'Payroll settings saved' })
     } catch (err) {
       setToast({ type: 'error', message: err?.response?.data?.message || 'Failed to save payroll settings' })
     } finally {
@@ -189,7 +205,7 @@ function CompanyAdminSettingsPage() {
       const res = await addHoliday(holidayForm)
       setData((prev) => ({ ...prev, holidays: [res?.data, ...(prev.holidays || [])] }))
       setHolidayForm({ name: '', date: '', type: '', description: '' })
-      setToast({ type: 'success', message: 'Holiday added' })
+      setToast({ type: 'success', message: res?.message || 'Holiday added' })
     } catch (err) {
       setToast({ type: 'error', message: err?.response?.data?.message || 'Failed to add holiday' })
     } finally {
@@ -202,9 +218,9 @@ function CompanyAdminSettingsPage() {
     if (!id) return
     setSectionSaving(`holidayDelete-${id}`, true)
     try {
-      await deleteHoliday(id)
+      const res = await deleteHoliday(id)
       setData((prev) => ({ ...prev, holidays: (prev.holidays || []).filter((item) => item.id !== id) }))
-      setToast({ type: 'success', message: 'Holiday removed' })
+      setToast({ type: 'success', message: res?.message || 'Holiday removed' })
     } catch (err) {
       setToast({ type: 'error', message: err?.response?.data?.message || 'Failed to remove holiday' })
     } finally {
@@ -362,12 +378,14 @@ function CompanyAdminSettingsPage() {
             onChange={(value) => setData((p) => ({ ...p, payrollSettings: { ...p.payrollSettings, pfEnabled: value === 'true' } }))}
             options={[{ value: 'true', label: 'Yes' }, { value: 'false', label: 'No' }]}
           />
+          <FormInput label="PF Percent" type="number" value={data.payrollSettings.pfPercent ?? ''} onChange={(e) => setData((p) => ({ ...p, payrollSettings: { ...p.payrollSettings, pfPercent: e.target.value } }))} />
           <FilterDropdown
             label="ESI Enabled"
             value={String(Boolean(data.payrollSettings.esiEnabled))}
             onChange={(value) => setData((p) => ({ ...p, payrollSettings: { ...p.payrollSettings, esiEnabled: value === 'true' } }))}
             options={[{ value: 'true', label: 'Yes' }, { value: 'false', label: 'No' }]}
           />
+          <FormInput label="ESI Percent" type="number" value={data.payrollSettings.esiPercent ?? ''} onChange={(e) => setData((p) => ({ ...p, payrollSettings: { ...p.payrollSettings, esiPercent: e.target.value } }))} />
         </div>
         <div className="actions-row" style={{ marginTop: 10 }}>
           <Button onClick={savePayrollSettings} disabled={saving.payrollSettings}>{saving.payrollSettings ? 'Saving...' : 'Save Payroll Settings'}</Button>
