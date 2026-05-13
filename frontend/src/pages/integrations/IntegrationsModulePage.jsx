@@ -4,6 +4,7 @@ import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import FormInput from '../../components/ui/FormInput'
 import EmptyState from '../../components/ui/EmptyState'
+import LoadingSkeleton from '../../components/ui/LoadingSkeleton'
 import { connectIntegration, createIntegration, disconnectIntegration, listIntegrations, testIntegration, updateIntegration } from '../../api/integrationsApi'
 
 const sectionByPage = {
@@ -75,7 +76,7 @@ function IntegrationsModulePage({ page }) {
         onPrimaryAction={loadIntegrations}
       />
       {toast.message ? <div className={`toast toast-${toast.type}`}>{toast.message}</div> : null}
-      {loading ? <div className="panel">Loading integrations...</div> : null}
+      {loading ? <div className="panel"><LoadingSkeleton rows={5} /></div> : null}
 
       <div className="panel">
         <div className="panel-head"><h3>All Integration Controls In One Page</h3></div>
@@ -91,9 +92,9 @@ function IntegrationsModulePage({ page }) {
             <p style={{ color: 'var(--muted)' }}>Last Test: {item.lastTestAt ? new Date(item.lastTestAt).toLocaleString() : 'Never'} ({item.lastTestStatus})</p>
             <div className="actions-row">
               <Button onClick={() => openConfig(item)}>Configure</Button>
-              <Button variant="ghost" onClick={async () => { await connectIntegration(item._id, { placeholderKey: 'demo-value' }); toastOk(`${item.name} connected`); loadIntegrations() }}>Connect</Button>
-              <Button variant="ghost" onClick={async () => { await disconnectIntegration(item._id); toastOk(`${item.name} disconnected`); loadIntegrations() }}>Disconnect</Button>
-              <Button variant="ghost" onClick={async () => { const res = await testIntegration(item._id); toastOk(res.message || 'Test completed'); loadIntegrations() }}>Test</Button>
+              <Button variant="ghost" onClick={async () => { try { const res = await connectIntegration(item._id, item.config || {}); toastOk(res?.message || `${item.name} connected`); loadIntegrations() } catch (error) { toastError(error?.response?.data?.message || `Failed to connect ${item.name}`) } }}>Connect</Button>
+              <Button variant="ghost" onClick={async () => { try { const res = await disconnectIntegration(item._id); toastOk(res?.message || `${item.name} disconnected`); loadIntegrations() } catch (error) { toastError(error?.response?.data?.message || `Failed to disconnect ${item.name}`) } }}>Disconnect</Button>
+              <Button variant="ghost" onClick={async () => { try { const res = await testIntegration(item._id); toastOk(res.message || 'Test completed'); loadIntegrations() } catch (error) { toastError(error?.response?.data?.message || `Failed to test ${item.name}`) } }}>Test</Button>
             </div>
           </div>
         ))}
@@ -102,7 +103,7 @@ function IntegrationsModulePage({ page }) {
 
       <div className="panel">
         <h3>Create Custom Integration Entry</h3>
-        <div className="actions-row"><Button onClick={async () => { const name = `Custom Integration ${Date.now()}`; await createIntegration({ name, category: 'custom' }); toastOk('Custom integration created'); loadIntegrations() }}>Add Integration</Button></div>
+        <div className="actions-row"><Button onClick={async () => { try { const name = `Custom Integration ${Date.now()}`; const res = await createIntegration({ name, category: 'custom' }); toastOk(res?.message || 'Custom integration created'); loadIntegrations() } catch (error) { toastError(error?.response?.data?.message || 'Failed to create integration') } }}>Add Integration</Button></div>
       </div>
 
       <Modal open={modalOpen} title={`Configure ${selected?.name || 'Integration'}`} onClose={() => setModalOpen(false)}>

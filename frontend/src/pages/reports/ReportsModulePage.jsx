@@ -4,6 +4,8 @@ import DataTable from '../../components/ui/DataTable'
 import Button from '../../components/ui/Button'
 import FormInput from '../../components/ui/FormInput'
 import FilterDropdown from '../../components/ui/FilterDropdown'
+import EmptyState from '../../components/ui/EmptyState'
+import LoadingSkeleton from '../../components/ui/LoadingSkeleton'
 import { generateReport, listReports } from '../../api/reportsApi'
 
 const reportTypes = [
@@ -45,10 +47,18 @@ function ReportsModulePage({ page }) {
   const [format, setFormat] = useState('csv')
   const [filterText, setFilterText] = useState('')
   const [selectedType, setSelectedType] = useState('Tenant Reports')
+  const [loading, setLoading] = useState(false)
 
   const load = async () => {
-    const res = await listReports({ page: 1, limit: 200, reportType: 'all' })
-    setRows(res.items || [])
+    setLoading(true)
+    try {
+      const res = await listReports({ page: 1, limit: 200, reportType: 'all' })
+      setRows(res.items || [])
+    } catch (error) {
+      setToast({ type: 'error', message: error?.response?.data?.message || 'Failed to load reports' })
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { load() }, [])
@@ -76,9 +86,13 @@ function ReportsModulePage({ page }) {
 
   const runGenerate = async (fmt) => {
     if (!fromDate || !toDate) return setToast({ type: 'error', message: 'Select date range' })
-    const res = await generateReport({ reportType: selectedType, fromDate, toDate, format: fmt, filters: { query: filterText } })
-    setToast({ type: 'success', message: `${fmt.toUpperCase()} report ready (mock): ${res.downloadUrl}` })
-    load()
+    try {
+      const res = await generateReport({ reportType: selectedType, fromDate, toDate, format: fmt, filters: { query: filterText } })
+      setToast({ type: 'success', message: res?.message || `${fmt.toUpperCase()} report generated successfully: ${res.downloadUrl}` })
+      load()
+    } catch (error) {
+      setToast({ type: 'error', message: error?.response?.data?.message || 'Failed to generate report' })
+    }
   }
 
   return (
@@ -115,7 +129,8 @@ function ReportsModulePage({ page }) {
 
       <div id="reports-history-section" className="panel">
         <h3>Report History</h3>
-        <DataTable columns={cols} rows={tableRows} onView={() => {}} onEdit={() => {}} onDelete={() => {}} />
+        {loading ? <LoadingSkeleton rows={6} /> : <DataTable columns={cols} rows={tableRows} showActions={false} />}
+        {!loading && tableRows.length === 0 ? <EmptyState title="No report history found" /> : null}
       </div>
     </section>
   )

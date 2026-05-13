@@ -3,6 +3,7 @@ import PageHeader from '../../components/ui/PageHeader'
 import Button from '../../components/ui/Button'
 import FilterDropdown from '../../components/ui/FilterDropdown'
 import EmptyState from '../../components/ui/EmptyState'
+import LoadingSkeleton from '../../components/ui/LoadingSkeleton'
 import { listSystemSettings, saveSystemSetting } from '../../api/systemSettingsApi'
 
 const settingGroups = [
@@ -29,13 +30,21 @@ function SystemSettingsModulePage({ page }) {
   const [values, setValues] = useState({})
   const [toast, setToast] = useState({ type: '', message: '' })
   const [groupFilter, setGroupFilter] = useState('all')
+  const [loading, setLoading] = useState(false)
 
   const load = async () => {
-    const res = await listSystemSettings()
-    setSettings(res.items)
-    const map = {}
-    res.items.forEach((s) => { map[s.key] = JSON.stringify(s.value, null, 2) })
-    setValues(map)
+    setLoading(true)
+    try {
+      const res = await listSystemSettings()
+      setSettings(res.items || [])
+      const map = {}
+      ;(res.items || []).forEach((s) => { map[s.key] = JSON.stringify(s.value, null, 2) })
+      setValues(map)
+    } catch (error) {
+      setToast({ type: 'error', message: error?.response?.data?.message || 'Failed to load settings' })
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { load() }, [])
@@ -73,7 +82,8 @@ function SystemSettingsModulePage({ page }) {
           <FilterDropdown label="Settings Group" value={groupFilter} onChange={setGroupFilter} options={[{ value: 'all', label: 'All Groups' }, ...settingGroups.map((group) => ({ value: group, label: group }))]} />
         </div>
 
-        {filtered.length === 0 ? <EmptyState title="No setting found for selected group" /> : filtered.map((s) => (
+        {loading ? <LoadingSkeleton rows={6} /> : null}
+        {!loading && filtered.length === 0 ? <EmptyState title="No setting found for selected group" /> : filtered.map((s) => (
           <div className="panel" key={s._id} style={{ marginBottom: '10px' }}>
             <h4 style={{ marginTop: 0 }}>{s.group} / {s.key}</h4>
             <p style={{ color: 'var(--muted)' }}>{s.description || '-'}</p>
@@ -81,11 +91,12 @@ function SystemSettingsModulePage({ page }) {
             <div className="actions-row" style={{ marginTop: '8px' }}><Button onClick={async () => {
               try {
                 const parsed = JSON.parse(values[s.key] || '{}')
-                await saveSystemSetting({ key: s.key, group: s.group, value: parsed, description: s.description })
-                setToast({ type: 'success', message: `${s.key} saved` })
+                const res = await saveSystemSetting({ key: s.key, group: s.group, value: parsed, description: s.description })
+                setToast({ type: 'success', message: res?.message || `${s.key} saved` })
                 load()
-              } catch {
-                setToast({ type: 'error', message: 'Invalid JSON format' })
+              } catch (error) {
+                if (error instanceof SyntaxError) setToast({ type: 'error', message: 'Invalid JSON format' })
+                else setToast({ type: 'error', message: error?.response?.data?.message || 'Failed to save setting' })
               }
             }}>Save</Button></div>
           </div>

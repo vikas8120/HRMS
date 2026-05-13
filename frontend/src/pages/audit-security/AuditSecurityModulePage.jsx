@@ -5,6 +5,7 @@ import SearchBar from '../../components/ui/SearchBar'
 import FilterDropdown from '../../components/ui/FilterDropdown'
 import Button from '../../components/ui/Button'
 import EmptyState from '../../components/ui/EmptyState'
+import LoadingSkeleton from '../../components/ui/LoadingSkeleton'
 import { exportAuditLogs, listAuditLogs, listSecuritySettings, saveSecuritySetting, seedAuditLog } from '../../api/auditSecurityApi'
 
 const logCategories = [
@@ -121,7 +122,7 @@ function AuditSecurityModulePage({ page }) {
         onPrimaryAction={load}
       />
       {toast.message ? <div className={`toast toast-${toast.type}`}>{toast.message}</div> : null}
-      {loading ? <div className="panel">Loading...</div> : null}
+      {loading ? <div className="panel"><LoadingSkeleton rows={5} /></div> : null}
 
       <div className="panel">
         <div className="panel-head"><h3>All Audit & Security Controls In One Page</h3></div>
@@ -139,11 +140,12 @@ function AuditSecurityModulePage({ page }) {
           <div className="panel-head">
             <h3>Audit Logs</h3>
             <div className="actions-row">
-              <Button variant="ghost" onClick={async () => { await seedAuditLog({ category: categoryFilter === 'all' ? 'Security Logs' : categoryFilter, actorType: 'super_admin', actorName: 'Super Admin', module: 'Audit & Security', action: 'MANUAL_LOG', description: 'Manual log entry from unified workspace' }); toastOk('Sample log added'); load() }}>Add Sample Log</Button>
-              <Button onClick={async () => { const res = await exportAuditLogs(categoryFilter); toastOk(`Exported ${res.count} logs`) }}>Export Logs</Button>
+              <Button variant="ghost" onClick={async () => { try { await seedAuditLog({ category: categoryFilter === 'all' ? 'Security Logs' : categoryFilter, actorType: 'super_admin', actorName: 'Super Admin', module: 'Audit & Security', action: 'MANUAL_LOG', description: 'Manual log entry from unified workspace' }); toastOk('Audit log entry added'); load() } catch (error) { toastError(error?.response?.data?.message || 'Failed to add log entry') } }}>Add Audit Entry</Button>
+              <Button onClick={async () => { try { const res = await exportAuditLogs(categoryFilter); toastOk(`Exported ${res.count || 0} logs`) } catch (error) { toastError(error?.response?.data?.message || 'Failed to export logs') } }}>Export Logs</Button>
             </div>
           </div>
-          <DataTable columns={logCols} rows={logRows} onView={() => {}} onEdit={() => {}} onDelete={() => {}} />
+          {loading ? <LoadingSkeleton rows={6} /> : <DataTable columns={logCols} rows={logRows} showActions={false} />}
+          {!loading && logRows.length === 0 ? <EmptyState title="No audit logs found" /> : null}
           <div className="pagination-row">
             <Button variant="ghost" disabled={pagination.page <= 1} onClick={() => setPagination((p) => ({ ...p, page: p.page - 1 }))}>Prev</Button>
             <span>Page {pagination.page} of {pagination.totalPages || 1}</span>
@@ -163,11 +165,12 @@ function AuditSecurityModulePage({ page }) {
               <Button onClick={async () => {
                 try {
                   const parsed = JSON.parse(editValues[s.key] || '{}')
-                  await saveSecuritySetting({ key: s.key, group: s.group, value: parsed, description: s.description })
-                  toastOk(`${s.key} saved`)
+                  const res = await saveSecuritySetting({ key: s.key, group: s.group, value: parsed, description: s.description })
+                  toastOk(res?.message || `${s.key} saved`)
                   load()
-                } catch {
-                  toastError('Invalid JSON format')
+                } catch (error) {
+                  if (error instanceof SyntaxError) toastError('Invalid JSON format')
+                  else toastError(error?.response?.data?.message || 'Failed to save security setting')
                 }
               }}>Save Setting</Button>
             </div>

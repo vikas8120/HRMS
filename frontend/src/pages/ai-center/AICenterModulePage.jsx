@@ -5,7 +5,8 @@ import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import FormInput from '../../components/ui/FormInput'
 import EmptyState from '../../components/ui/EmptyState'
-import { createAIUsageLog, createAutomationRule, getAIInsights, listAISettings, listAIUsageLogs, listAutomationRules, saveAISetting } from '../../api/aiCenterApi'
+import LoadingSkeleton from '../../components/ui/LoadingSkeleton'
+import { createAIUsageLog, createAutomationRule, getAIInsights, listAISettings, listAIUsageLogs, listAutomationRules, saveAISetting, updateAutomationRule } from '../../api/aiCenterApi'
 
 const insightModules = [
   'AI Dashboard',
@@ -36,6 +37,7 @@ function AICenterModulePage({ page }) {
   const [rules, setRules] = useState([])
   const [toast, setToast] = useState({ type: '', message: '' })
   const [ruleModal, setRuleModal] = useState(false)
+  const [editRuleId, setEditRuleId] = useState('')
   const [ruleForm, setRuleForm] = useState({ name: '', trigger: '', action: '', enabled: true })
   const [loading, setLoading] = useState(false)
 
@@ -91,7 +93,7 @@ function AICenterModulePage({ page }) {
       />
 
       {toast.message ? <div className={`toast toast-${toast.type}`}>{toast.message}</div> : null}
-      {loading ? <div className="panel">Loading AI center data...</div> : null}
+      {loading ? <div className="panel"><LoadingSkeleton rows={5} /></div> : null}
 
       <div className="panel">
         <div className="panel-head"><h3>All AI Controls In One Page</h3></div>
@@ -105,10 +107,11 @@ function AICenterModulePage({ page }) {
             <div key={insight.module} className="permission-card">
               <h4>{insight.module}</h4>
               <pre className="form-input" style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(insight.data || {}, null, 2)}</pre>
-              <Button onClick={async () => { await createAIUsageLog({ module: insight.module, action: 'VIEW_INSIGHT', usageCount: 1, actor: 'Super Admin' }); toastOk('Usage log created'); load() }}>Log Usage</Button>
+              <Button onClick={async () => { try { const res = await createAIUsageLog({ module: insight.module, action: 'VIEW_INSIGHT', usageCount: 1, actor: 'Super Admin' }); toastOk(res?.message || 'Usage log created'); load() } catch (error) { toastError(error?.response?.data?.message || 'Failed to log usage') } }}>Log Usage</Button>
             </div>
           ))}
         </div>
+        {!loading && insights.length === 0 ? <EmptyState title="No AI insights available" /> : null}
       </div>
 
       <div id="ai-settings-section" className="panel">
@@ -117,22 +120,36 @@ function AICenterModulePage({ page }) {
           <div key={s._id} className="inline-action-card">
             <strong>{s.key}</strong>
             <span>{s.description || '-'}</span>
-            <Button variant="ghost" onClick={async () => { await saveAISetting({ key: s.key, value: s.value, description: s.description }); toastOk('Setting saved') }}>Save</Button>
+            <Button variant="ghost" onClick={async () => { try { const res = await saveAISetting({ key: s.key, value: s.value, description: s.description }); toastOk(res?.message || 'Setting saved') } catch (error) { toastError(error?.response?.data?.message || 'Failed to save setting') } }}>Save</Button>
           </div>
         ))}
       </div>
 
       <div id="ai-usage-section" className="panel">
         <h3>AI Usage Analytics</h3>
-        <DataTable columns={logCols} rows={logRows} onView={() => {}} onEdit={() => {}} onDelete={() => {}} />
+        <DataTable columns={logCols} rows={logRows} showActions={false} />
+        {!loading && logRows.length === 0 ? <EmptyState title="No AI usage logs found" /> : null}
       </div>
 
       <div id="ai-rules-section" className="panel">
         <div className="panel-head"><h3>AI Automation Rules</h3><Button onClick={() => setRuleModal(true)}>Add Rule</Button></div>
-        <DataTable columns={ruleCols} rows={ruleRows} onView={() => {}} onEdit={() => {}} onDelete={() => {}} />
+        <DataTable columns={ruleCols} rows={ruleRows} showDeleteAction={false} onView={(row) => {
+          const r = rules.find((x) => x._id === row.id)
+          if (!r) return
+          setEditRuleId(r._id)
+          setRuleForm({ name: r.name || '', trigger: r.trigger || '', action: r.action || '', enabled: !!r.enabled })
+          setRuleModal(true)
+        }} onEdit={(row) => {
+          const r = rules.find((x) => x._id === row.id)
+          if (!r) return
+          setEditRuleId(r._id)
+          setRuleForm({ name: r.name || '', trigger: r.trigger || '', action: r.action || '', enabled: !!r.enabled })
+          setRuleModal(true)
+        }} />
+        {!loading && ruleRows.length === 0 ? <EmptyState title="No automation rules found" /> : null}
       </div>
 
-      <Modal open={ruleModal} title="Create Automation Rule" onClose={() => setRuleModal(false)}>
+      <Modal open={ruleModal} title={editRuleId ? 'Update Automation Rule' : 'Create Automation Rule'} onClose={() => { setRuleModal(false); setEditRuleId('') }}>
         <div className="form-grid">
           <FormInput label="Name" value={ruleForm.name} onChange={(e) => setRuleForm((p) => ({ ...p, name: e.target.value }))} />
           <FormInput label="Trigger" value={ruleForm.trigger} onChange={(e) => setRuleForm((p) => ({ ...p, trigger: e.target.value }))} />
@@ -141,12 +158,22 @@ function AICenterModulePage({ page }) {
         <div className="actions-row">
           <Button onClick={async () => {
             if (!ruleForm.name || !ruleForm.trigger || !ruleForm.action) return toastError('All fields required')
-            await createAutomationRule(ruleForm)
-            toastOk('Rule created')
-            setRuleModal(false)
-            setRuleForm({ name: '', trigger: '', action: '', enabled: true })
-            load()
-          }}>Save Rule</Button>
+            try {
+              if (editRuleId) {
+                const res = await updateAutomationRule(editRuleId, ruleForm)
+                toastOk(res?.message || 'Rule updated')
+              } else {
+                const res = await createAutomationRule(ruleForm)
+                toastOk(res?.message || 'Rule created')
+              }
+              setRuleModal(false)
+              setEditRuleId('')
+              setRuleForm({ name: '', trigger: '', action: '', enabled: true })
+              load()
+            } catch (error) {
+              toastError(error?.response?.data?.message || (editRuleId ? 'Failed to update rule' : 'Failed to create rule'))
+            }
+          }}>{editRuleId ? 'Update Rule' : 'Save Rule'}</Button>
         </div>
       </Modal>
     </section>

@@ -3,6 +3,8 @@ import PageHeader from '../../components/ui/PageHeader'
 import DataTable from '../../components/ui/DataTable'
 import Button from '../../components/ui/Button'
 import FormInput from '../../components/ui/FormInput'
+import EmptyState from '../../components/ui/EmptyState'
+import LoadingSkeleton from '../../components/ui/LoadingSkeleton'
 import { listBackupLogs, runBackup, runRestore } from '../../api/backupRestoreApi'
 
 const backupTypes = ['Database Backup', 'File Backup', 'Automatic Backup', 'Manual Backup', 'Backup Scheduling', 'Cloud Backup', 'Backup Encryption']
@@ -29,10 +31,18 @@ function BackupRestoreModulePage({ page }) {
   const [details, setDetails] = useState('')
   const [selectedBackupType, setSelectedBackupType] = useState('Database Backup')
   const [selectedRestoreType, setSelectedRestoreType] = useState('Restore Database')
+  const [loading, setLoading] = useState(false)
 
   const load = async () => {
-    const res = await listBackupLogs({ page: 1, limit: 100, type: 'all' })
-    setLogs(res.items)
+    setLoading(true)
+    try {
+      const res = await listBackupLogs({ page: 1, limit: 100, type: 'all' })
+      setLogs(res.items || [])
+    } catch (e) {
+      setToast({ type: 'error', message: e?.response?.data?.message || 'Failed to load backup logs' })
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { load() }, [])
@@ -59,7 +69,7 @@ function BackupRestoreModulePage({ page }) {
         encryption: selectedBackupType.includes('Encryption'),
         cloudProvider: selectedBackupType.includes('Cloud') ? 'MockCloud' : ''
       })
-      setToast({ type: 'success', message: `${selectedBackupType} simulated successfully` })
+      setToast({ type: 'success', message: `${selectedBackupType} completed successfully` })
       load()
     } catch (e) {
       setToast({ type: 'error', message: e?.response?.data?.message || 'Backup action failed' })
@@ -69,7 +79,7 @@ function BackupRestoreModulePage({ page }) {
   const runRestoreAction = async () => {
     try {
       await runRestore({ type: selectedRestoreType, target, details })
-      setToast({ type: 'success', message: `${selectedRestoreType} simulated successfully` })
+      setToast({ type: 'success', message: `${selectedRestoreType} completed successfully` })
       load()
     } catch (e) {
       setToast({ type: 'error', message: e?.response?.data?.message || 'Restore action failed' })
@@ -121,7 +131,8 @@ function BackupRestoreModulePage({ page }) {
 
       <div id="backup-logs-section" className="panel">
         <h3>Backup Logs</h3>
-        <DataTable columns={cols} rows={rows} onView={() => {}} onEdit={() => {}} onDelete={() => {}} />
+        {loading ? <LoadingSkeleton rows={6} /> : <DataTable columns={cols} rows={rows} showActions={false} />}
+        {!loading && rows.length === 0 ? <EmptyState title="No backup logs found" /> : null}
       </div>
     </section>
   )
