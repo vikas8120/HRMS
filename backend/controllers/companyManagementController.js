@@ -1,8 +1,28 @@
 import crypto from 'crypto'
 import TenantCompany from '../models/TenantCompany.js'
 import asyncHandler from '../utils/asyncHandler.js'
+import User from '../models/User.js'
+import Subscription from '../models/Subscription.js'
+import GlobalUser from '../models/GlobalUser.js'
+import AuditLog from '../models/AuditLog.js'
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const respond = (res, status, message, payload = {}) => res.status(status).json({ success: status < 400, message, data: payload, ...payload })
+
+const writeAudit = async (req, action, description, metadata = {}) => {
+  await AuditLog.create({
+    actorType: 'super_admin',
+    actorName: req.user?.name || req.user?.email || 'Super Admin',
+    module: 'company',
+    action,
+    description,
+    ipAddress: req.ip || '',
+    device: req.get('user-agent') || '',
+    metadata,
+    severity: 'info',
+    createdAt: new Date().toISOString()
+  })
+}
 
 const pushActivity = async (company, action, description, performedBy) => {
   company.activityLogs.push({ action, description, performedBy })
@@ -64,8 +84,10 @@ export const getCompanies = asyncHandler(async (req, res) => {
     TenantCompany.countDocuments(query)
   ])
 
-  return res.status(200).json({
-    items: items.map(serializeCompany),
+  const data = items.map(serializeCompany)
+  return respond(res, 200, 'Companies fetched successfully', {
+    data,
+    items: data,
     pagination: {
       page: Number(page),
       limit: Number(limit),
@@ -79,12 +101,12 @@ export const createCompany = asyncHandler(async (req, res) => {
   const body = req.body
   const required = ['companyName', 'companyCode', 'industry', 'email', 'phone', 'plan']
   for (const field of required) {
-    if (!body[field]) return res.status(400).json({ message: `${field} is required` })
+    if (!body[field]) return respond(res, 400, `${field} is required`)
   }
-  if (!EMAIL_REGEX.test(body.email)) return res.status(400).json({ message: 'Invalid email format' })
+  if (!EMAIL_REGEX.test(body.email)) return respond(res, 400, 'Invalid email format')
 
   const exists = await TenantCompany.findOne({ $or: [{ companyCode: body.companyCode.trim() }, { email: body.email.toLowerCase().trim() }] })
-  if (exists) return res.status(400).json({ message: 'Company code or email already exists' })
+  if (exists) return respond(res, 400, 'Company code or email already exists')
 
   const item = await TenantCompany.create({
     ...body,
@@ -94,18 +116,21 @@ export const createCompany = asyncHandler(async (req, res) => {
   })
 
   await pushActivity(item, 'CREATE_COMPANY', `Company ${item.companyName} created`, req.user?._id)
-  return res.status(201).json({ item: serializeCompany(item) })
+  await writeAudit(req, 'CREATE_COMPANY', `Company ${item.companyName} created`, { companyId: item._id, companyCode: item.companyCode })
+  const data = serializeCompany(item)
+  return respond(res, 201, 'Company created successfully', { data, item: data })
 })
 
 export const getCompanyById = asyncHandler(async (req, res) => {
   const item = await TenantCompany.findById(req.params.id)
-  if (!item) return res.status(404).json({ message: 'Company not found' })
-  return res.status(200).json({ item: serializeCompany(item) })
+  if (!item) return respond(res, 404, 'Company not found')
+  const data = serializeCompany(item)
+  return respond(res, 200, 'Company fetched successfully', { data, item: data })
 })
 
 export const updateCompany = asyncHandler(async (req, res) => {
   const item = await TenantCompany.findById(req.params.id)
-  if (!item) return res.status(404).json({ message: 'Company not found' })
+  if (!item) return respond(res, 404, 'Company not found')
 
   const updatable = ['companyName', 'industry', 'email', 'phone', 'address', 'city', 'state', 'country', 'timezone', 'currency', 'gst', 'pan', 'plan', 'employeeLimit', 'storageLimit', 'status']
   updatable.forEach((field) => {
@@ -113,30 +138,47 @@ export const updateCompany = asyncHandler(async (req, res) => {
   })
 
   if (req.body.email && !EMAIL_REGEX.test(req.body.email)) {
-    return res.status(400).json({ message: 'Invalid email format' })
+    return respond(res, 400, 'Invalid email format')
   }
 
   await item.save()
   await pushActivity(item, 'UPDATE_COMPANY', `Company ${item.companyName} updated`, req.user?._id)
 
-  return res.status(200).json({ item: serializeCompany(item) })
+  const data = serializeCompany(item)
+  return respond(res, 200, 'Company updated successfully', { data, item: data })
 })
 
 export const deleteCompany = asyncHandler(async (req, res) => {
   const item = await TenantCompany.findById(req.params.id)
-  if (!item) return res.status(404).json({ message: 'Company not found' })
+  if (!item) return respond(res, 404, 'Company not found')
+
+  const [linkedUsersCount, linkedSubscriptionsCount, linkedGlobalUsersCount] = await Promise.all([
+    User.countDocuments({ companyId: item._id }),
+    Subscription.countDocuments({ company: item._id }),
+    GlobalUser.countDocuments({ company: item._id })
+  ])
+
+  if (linkedUsersCount > 0 || linkedSubscriptionsCount > 0 || linkedGlobalUsersCount > 0) {
+    return respond(res, 400, 'Company cannot be deleted because linked records exist', {
+      details: {
+        linkedUsers: linkedUsersCount,
+        linkedSubscriptions: linkedSubscriptionsCount,
+        linkedGlobalUsers: linkedGlobalUsersCount
+      }
+    })
+  }
 
   await TenantCompany.deleteOne({ _id: item._id })
-  return res.status(200).json({ message: 'Company deleted successfully' })
+  return respond(res, 200, 'Company deleted successfully')
 })
 
 export const updateCompanyStatus = asyncHandler(async (req, res) => {
   const { status, reason = '' } = req.body
   const valid = ['active', 'inactive', 'suspended', 'trial', 'expired']
-  if (!valid.includes(status)) return res.status(400).json({ message: 'Invalid status' })
+  if (!valid.includes(status)) return respond(res, 400, 'Invalid status')
 
   const item = await TenantCompany.findById(req.params.id)
-  if (!item) return res.status(404).json({ message: 'Company not found' })
+  if (!item) return respond(res, 404, 'Company not found')
 
   item.status = status
   if (status === 'suspended') item.suspensionReason = reason
@@ -144,46 +186,47 @@ export const updateCompanyStatus = asyncHandler(async (req, res) => {
   await item.save()
 
   await pushActivity(item, 'STATUS_CHANGE', `Status changed to ${status}${reason ? `: ${reason}` : ''}`, req.user?._id)
-  return res.status(200).json({ item: serializeCompany(item) })
+  const data = serializeCompany(item)
+  return respond(res, 200, 'Company status updated successfully', { data, item: data })
 })
 
 export const addBranch = asyncHandler(async (req, res) => {
   const item = await TenantCompany.findById(req.params.id)
-  if (!item) return res.status(404).json({ message: 'Company not found' })
+  if (!item) return respond(res, 404, 'Company not found')
 
   const { name, code } = req.body
-  if (!name || !code) return res.status(400).json({ message: 'name and code are required' })
+  if (!name || !code) return respond(res, 400, 'name and code are required')
 
   item.branches = ensureSubdocIds([...(item.branches || []), req.body])
   await item.save()
   await pushActivity(item, 'ADD_BRANCH', `Branch ${name} added`, req.user?._id)
 
-  return res.status(201).json({ branches: item.branches })
+  return respond(res, 201, 'Branch added successfully', { data: item.branches, items: item.branches, branches: item.branches })
 })
 
 export const updateBranch = asyncHandler(async (req, res) => {
   const item = await TenantCompany.findById(req.params.id)
-  if (!item) return res.status(404).json({ message: 'Company not found' })
+  if (!item) return respond(res, 404, 'Company not found')
 
   const branches = [...(item.branches || [])]
   const branchIndex = findBranchIndex(branches, req.params.branchId)
-  if (branchIndex === -1) return res.status(404).json({ message: 'Branch not found' })
+  if (branchIndex === -1) return respond(res, 404, 'Branch not found')
 
   branches[branchIndex] = { ...branches[branchIndex], ...req.body }
   item.branches = branches
 
   await item.save()
   await pushActivity(item, 'UPDATE_BRANCH', `Branch ${branches[branchIndex].name} updated`, req.user?._id)
-  return res.status(200).json({ branches: item.branches })
+  return respond(res, 200, 'Branch updated successfully', { data: item.branches, items: item.branches, branches: item.branches })
 })
 
 export const deleteBranch = asyncHandler(async (req, res) => {
   const item = await TenantCompany.findById(req.params.id)
-  if (!item) return res.status(404).json({ message: 'Company not found' })
+  if (!item) return respond(res, 404, 'Company not found')
 
   const branches = [...(item.branches || [])]
   const branchIndex = findBranchIndex(branches, req.params.branchId)
-  if (branchIndex === -1) return res.status(404).json({ message: 'Branch not found' })
+  if (branchIndex === -1) return respond(res, 404, 'Branch not found')
 
   const branchName = branches[branchIndex].name
   branches.splice(branchIndex, 1)
@@ -191,36 +234,38 @@ export const deleteBranch = asyncHandler(async (req, res) => {
   await item.save()
   await pushActivity(item, 'DELETE_BRANCH', `Branch ${branchName} deleted`, req.user?._id)
 
-  return res.status(200).json({ branches: item.branches })
+  return respond(res, 200, 'Branch deleted successfully', { data: item.branches, items: item.branches, branches: item.branches })
 })
 
 export const updateBranding = asyncHandler(async (req, res) => {
   const item = await TenantCompany.findById(req.params.id)
-  if (!item) return res.status(404).json({ message: 'Company not found' })
+  if (!item) return respond(res, 404, 'Company not found')
 
   item.branding = { ...(item.branding || {}), ...req.body }
   await item.save()
   await pushActivity(item, 'UPDATE_BRANDING', 'Company branding updated', req.user?._id)
 
-  return res.status(200).json({ item: serializeCompany(item) })
+  const data = serializeCompany(item)
+  return respond(res, 200, 'Company branding updated successfully', { data, item: data })
 })
 
 export const updateDomain = asyncHandler(async (req, res) => {
   const item = await TenantCompany.findById(req.params.id)
-  if (!item) return res.status(404).json({ message: 'Company not found' })
+  if (!item) return respond(res, 404, 'Company not found')
 
   item.domainSetup = { ...(item.domainSetup || {}), ...req.body }
   await item.save()
   await pushActivity(item, 'UPDATE_DOMAIN', `Domain updated to ${item.domainSetup.customDomain || '-'}`, req.user?._id)
 
-  return res.status(200).json({ item: serializeCompany(item) })
+  const data = serializeCompany(item)
+  return respond(res, 200, 'Company domain updated successfully', { data, item: data })
 })
 
 export const getCompanyActivityLogs = asyncHandler(async (req, res) => {
   const item = await TenantCompany.findById(req.params.id).select('activityLogs companyName')
-  if (!item) return res.status(404).json({ message: 'Company not found' })
-
-  return res.status(200).json({ companyName: item.companyName, items: item.activityLogs.sort((a, b) => new Date(b.dateTime) - new Date(a.dateTime)) })
+  if (!item) return respond(res, 404, 'Company not found')
+  const data = item.activityLogs.sort((a, b) => new Date(b.dateTime) - new Date(a.dateTime))
+  return respond(res, 200, 'Company activity logs fetched successfully', { data, items: data, companyName: item.companyName })
 })
 
 export const listTenantCompanies = asyncHandler(async (_req, res) => {
@@ -234,5 +279,6 @@ export const listTenantCompanies = asyncHandler(async (_req, res) => {
     ])
   }
 
-  return res.status(200).json({ items: companies.map((company) => ({ _id: company._id, name: company.companyName })) })
+  const data = companies.map((company) => ({ _id: company._id, name: company.companyName }))
+  return respond(res, 200, 'Tenant companies fetched successfully', { data, items: data })
 })

@@ -5,6 +5,7 @@ import asyncHandler from '../utils/asyncHandler.js'
 import { createAdminActivityLog } from '../utils/adminAudit.js'
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const respond = (res, status, message, payload = {}) => res.status(status).json({ success: status < 400, message, data: payload, ...payload })
 
 const serializeAdmin = (admin) => ({
   id: admin._id,
@@ -45,8 +46,10 @@ export const getCompanyAdmins = asyncHandler(async (req, res) => {
     CompanyAdmin.countDocuments(query)
   ])
 
-  return res.status(200).json({
-    items: items.map(serializeAdmin),
+  const data = items.map(serializeAdmin)
+  return respond(res, 200, 'Company admins fetched successfully', {
+    data,
+    items: data,
     pagination: {
       page: Number(page),
       limit: Number(limit),
@@ -60,16 +63,16 @@ export const createCompanyAdmin = asyncHandler(async (req, res) => {
   const { name, email, phone, password, role, assignedCompanies = [], status = 'active' } = req.body
 
   if (!name || !email || !phone || !password || !role) {
-    return res.status(400).json({ message: 'name, email, phone, password and role are required' })
+    return respond(res, 400, 'name, email, phone, password and role are required')
   }
 
   if (!EMAIL_REGEX.test(email)) {
-    return res.status(400).json({ message: 'Invalid email format' })
+    return respond(res, 400, 'Invalid email format')
   }
 
   const exists = await CompanyAdmin.findOne({ email: email.toLowerCase().trim() })
   if (exists) {
-    return res.status(400).json({ message: 'Email is already in use' })
+    return respond(res, 400, 'Email is already in use')
   }
 
   const hashed = await bcrypt.hash(password, 10)
@@ -93,19 +96,21 @@ export const createCompanyAdmin = asyncHandler(async (req, res) => {
   })
 
   const populated = await CompanyAdmin.findById(admin._id).populate('assignedCompanies', 'name')
-  return res.status(201).json({ item: serializeAdmin(populated) })
+  const data = serializeAdmin(populated)
+  return respond(res, 201, 'Company admin created successfully', { data, item: data })
 })
 
 export const getCompanyAdminById = asyncHandler(async (req, res) => {
   const item = await CompanyAdmin.findById(req.params.id).populate('assignedCompanies', 'name')
-  if (!item) return res.status(404).json({ message: 'Admin not found' })
-  return res.status(200).json({ item: serializeAdmin(item) })
+  if (!item) return respond(res, 404, 'Admin not found')
+  const data = serializeAdmin(item)
+  return respond(res, 200, 'Company admin fetched successfully', { data, item: data })
 })
 
 export const updateCompanyAdmin = asyncHandler(async (req, res) => {
   const { name, phone, role, assignedCompanies, status } = req.body
   const item = await CompanyAdmin.findById(req.params.id)
-  if (!item) return res.status(404).json({ message: 'Admin not found' })
+  if (!item) return respond(res, 404, 'Admin not found')
 
   if (name) item.name = name.trim()
   if (phone) item.phone = phone.trim()
@@ -124,12 +129,13 @@ export const updateCompanyAdmin = asyncHandler(async (req, res) => {
   })
 
   const populated = await CompanyAdmin.findById(item._id).populate('assignedCompanies', 'name')
-  return res.status(200).json({ item: serializeAdmin(populated) })
+  const data = serializeAdmin(populated)
+  return respond(res, 200, 'Company admin updated successfully', { data, item: data })
 })
 
 export const deleteCompanyAdmin = asyncHandler(async (req, res) => {
   const item = await CompanyAdmin.findById(req.params.id)
-  if (!item) return res.status(404).json({ message: 'Admin not found' })
+  if (!item) return respond(res, 404, 'Admin not found')
 
   await CompanyAdmin.deleteOne({ _id: item._id })
 
@@ -141,16 +147,16 @@ export const deleteCompanyAdmin = asyncHandler(async (req, res) => {
     performedBy: req.user?._id
   })
 
-  return res.status(200).json({ message: 'Admin deleted successfully' })
+  return respond(res, 200, 'Admin deleted successfully')
 })
 
 export const updateCompanyAdminStatus = asyncHandler(async (req, res) => {
   const { status } = req.body
   const valid = ['active', 'inactive', 'suspended', 'locked']
-  if (!status || !valid.includes(status)) return res.status(400).json({ message: 'Invalid status' })
+  if (!status || !valid.includes(status)) return respond(res, 400, 'Invalid status')
 
   const item = await CompanyAdmin.findById(req.params.id)
-  if (!item) return res.status(404).json({ message: 'Admin not found' })
+  if (!item) return respond(res, 404, 'Admin not found')
 
   item.status = status
   await item.save()
@@ -163,17 +169,18 @@ export const updateCompanyAdminStatus = asyncHandler(async (req, res) => {
     performedBy: req.user?._id
   })
 
-  return res.status(200).json({ item: serializeAdmin(item) })
+  const data = serializeAdmin(item)
+  return respond(res, 200, 'Company admin status updated successfully', { data, item: data })
 })
 
 export const resetCompanyAdminPassword = asyncHandler(async (req, res) => {
   const { password } = req.body
   if (!password || password.length < 6) {
-    return res.status(400).json({ message: 'Password must be at least 6 characters' })
+    return respond(res, 400, 'Password must be at least 6 characters')
   }
 
   const item = await CompanyAdmin.findById(req.params.id)
-  if (!item) return res.status(404).json({ message: 'Admin not found' })
+  if (!item) return respond(res, 404, 'Admin not found')
 
   item.password = await bcrypt.hash(password, 10)
   await item.save()
@@ -186,13 +193,13 @@ export const resetCompanyAdminPassword = asyncHandler(async (req, res) => {
     performedBy: req.user?._id
   })
 
-  return res.status(200).json({ message: 'Password reset successfully' })
+  return respond(res, 200, 'Password reset successfully')
 })
 
 export const assignCompaniesToAdmin = asyncHandler(async (req, res) => {
   const { companyIds = [] } = req.body
   const item = await CompanyAdmin.findById(req.params.id)
-  if (!item) return res.status(404).json({ message: 'Admin not found' })
+  if (!item) return respond(res, 404, 'Admin not found')
 
   const companies = await TenantCompany.find({ _id: { $in: companyIds } }).select('_id')
   item.assignedCompanies = companies.map((company) => company._id)
@@ -207,7 +214,8 @@ export const assignCompaniesToAdmin = asyncHandler(async (req, res) => {
   })
 
   const populated = await CompanyAdmin.findById(item._id).populate('assignedCompanies', 'name')
-  return res.status(200).json({ item: serializeAdmin(populated) })
+  const data = serializeAdmin(populated)
+  return respond(res, 200, 'Companies assigned successfully', { data, item: data })
 })
 
 export const listTenantCompanies = asyncHandler(async (_req, res) => {
@@ -221,5 +229,5 @@ export const listTenantCompanies = asyncHandler(async (_req, res) => {
     ])
   }
 
-  return res.status(200).json({ items: companies })
+  return respond(res, 200, 'Tenant companies fetched successfully', { data: companies, items: companies })
 })

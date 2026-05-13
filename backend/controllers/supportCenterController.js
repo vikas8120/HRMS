@@ -4,6 +4,8 @@ import SupportTicket from '../models/SupportTicket.js'
 import TicketMessage from '../models/TicketMessage.js'
 import TicketCategory from '../models/TicketCategory.js'
 import SupportAgent from '../models/SupportAgent.js'
+import AuditLog from '../models/AuditLog.js'
+const respond = (res, status, message, payload = {}) => res.status(status).json({ success: status < 400, message, data: payload, ...payload })
 
 const generateTicketNo = async () => {
   while (true) {
@@ -11,6 +13,21 @@ const generateTicketNo = async () => {
     const exists = await SupportTicket.findOne({ ticketNo })
     if (!exists) return ticketNo
   }
+}
+
+const writeAudit = async (req, action, description, metadata = {}) => {
+  await AuditLog.create({
+    actorType: 'super_admin',
+    actorName: req.user?.name || req.user?.email || 'Super Admin',
+    module: 'support',
+    action,
+    description,
+    ipAddress: req.ip || '',
+    device: req.get('user-agent') || '',
+    metadata,
+    severity: 'info',
+    createdAt: new Date().toISOString()
+  })
 }
 
 export const listTickets = asyncHandler(async (req, res) => {
@@ -23,84 +40,85 @@ export const listTickets = asyncHandler(async (req, res) => {
     SupportTicket.find(query).populate('company', 'companyName').populate('raisedBy', 'name email').populate('assignedAgent', 'name email').populate('category', 'name slaHours').sort({ createdAt: -1 }).skip(skip).limit(Number(limit)),
     SupportTicket.countDocuments(query)
   ])
-  res.status(200).json({ items, pagination: { page: Number(page), limit: Number(limit), total, totalPages: Math.ceil(total / Number(limit)) } })
+  respond(res, 200, 'Support tickets fetched successfully', { data: items, items, pagination: { page: Number(page), limit: Number(limit), total, totalPages: Math.ceil(total / Number(limit)) } })
 })
 
 export const createTicket = asyncHandler(async (req, res) => {
   const { subject } = req.body
-  if (!subject) return res.status(400).json({ message: 'subject is required' })
+  if (!subject) return respond(res, 400, 'subject is required')
   const ticketNo = await generateTicketNo()
   const ticket = await SupportTicket.create({ ...req.body, ticketNo })
-  res.status(201).json({ item: ticket })
+  await writeAudit(req, 'CREATE_TICKET', `Support ticket ${ticketNo} created`, { ticketId: ticket._id, ticketNo })
+  respond(res, 201, 'Support ticket created successfully', { data: ticket, item: ticket })
 })
 
 export const updateTicket = asyncHandler(async (req, res) => {
   const ticket = await SupportTicket.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
-  if (!ticket) return res.status(404).json({ message: 'Ticket not found' })
-  res.status(200).json({ item: ticket })
+  if (!ticket) return respond(res, 404, 'Ticket not found')
+  respond(res, 200, 'Support ticket updated successfully', { data: ticket, item: ticket })
 })
 
 export const assignTicket = asyncHandler(async (req, res) => {
   const { assignedAgent } = req.body
   const ticket = await SupportTicket.findById(req.params.id)
-  if (!ticket) return res.status(404).json({ message: 'Ticket not found' })
+  if (!ticket) return respond(res, 404, 'Ticket not found')
   ticket.assignedAgent = assignedAgent || null
   await ticket.save()
-  res.status(200).json({ item: ticket })
+  respond(res, 200, 'Ticket assignment updated successfully', { data: ticket, item: ticket })
 })
 
 export const setTicketPriority = asyncHandler(async (req, res) => {
   const { priority } = req.body
   const valid = ['low', 'medium', 'high', 'critical']
-  if (!valid.includes(priority)) return res.status(400).json({ message: 'Invalid priority' })
+  if (!valid.includes(priority)) return respond(res, 400, 'Invalid priority')
   const ticket = await SupportTicket.findById(req.params.id)
-  if (!ticket) return res.status(404).json({ message: 'Ticket not found' })
+  if (!ticket) return respond(res, 404, 'Ticket not found')
   ticket.priority = priority
   await ticket.save()
-  res.status(200).json({ item: ticket })
+  respond(res, 200, 'Ticket priority updated successfully', { data: ticket, item: ticket })
 })
 
 export const setTicketSla = asyncHandler(async (req, res) => {
   const { slaDueAt } = req.body
   const ticket = await SupportTicket.findById(req.params.id)
-  if (!ticket) return res.status(404).json({ message: 'Ticket not found' })
+  if (!ticket) return respond(res, 404, 'Ticket not found')
   ticket.slaDueAt = slaDueAt ? new Date(slaDueAt) : null
   await ticket.save()
-  res.status(200).json({ item: ticket })
+  respond(res, 200, 'Ticket SLA updated successfully', { data: ticket, item: ticket })
 })
 
 export const addTicketMessage = asyncHandler(async (req, res) => {
   const { senderType, senderName, message, attachmentUrl = '' } = req.body
-  if (!senderType || !message) return res.status(400).json({ message: 'senderType and message required' })
+  if (!senderType || !message) return respond(res, 400, 'senderType and message required')
   const exists = await SupportTicket.findById(req.params.id)
-  if (!exists) return res.status(404).json({ message: 'Ticket not found' })
+  if (!exists) return respond(res, 404, 'Ticket not found')
   const item = await TicketMessage.create({ ticket: req.params.id, senderType, senderName, message, attachmentUrl })
-  res.status(201).json({ item })
+  respond(res, 201, 'Ticket message added successfully', { data: item, item })
 })
 
 export const getTicketMessages = asyncHandler(async (req, res) => {
   const items = await TicketMessage.find({ ticket: req.params.id }).sort({ createdAt: 1 })
-  res.status(200).json({ items })
+  respond(res, 200, 'Ticket messages fetched successfully', { data: items, items })
 })
 
 export const addInternalNote = asyncHandler(async (req, res) => {
   const { note, by = 'Super Admin' } = req.body
-  if (!note) return res.status(400).json({ message: 'note is required' })
+  if (!note) return respond(res, 400, 'note is required')
   const ticket = await SupportTicket.findById(req.params.id)
-  if (!ticket) return res.status(404).json({ message: 'Ticket not found' })
+  if (!ticket) return respond(res, 404, 'Ticket not found')
   ticket.internalNotes.push({ note, by })
   await ticket.save()
-  res.status(200).json({ item: ticket })
+  respond(res, 200, 'Internal note added successfully', { data: ticket, item: ticket })
 })
 
 export const resolveTicket = asyncHandler(async (req, res) => {
   const { resolution } = req.body
   const ticket = await SupportTicket.findById(req.params.id)
-  if (!ticket) return res.status(404).json({ message: 'Ticket not found' })
+  if (!ticket) return respond(res, 404, 'Ticket not found')
   ticket.status = 'closed'
   ticket.resolution = resolution || ticket.resolution
   await ticket.save()
-  res.status(200).json({ item: ticket })
+  respond(res, 200, 'Ticket resolved successfully', { data: ticket, item: ticket })
 })
 
 export const listCategories = asyncHandler(async (_req, res) => {
@@ -112,14 +130,14 @@ export const listCategories = asyncHandler(async (_req, res) => {
       { name: 'Access', description: 'Login and access', slaHours: 6 }
     ])
   }
-  res.status(200).json({ items })
+  respond(res, 200, 'Support categories fetched successfully', { data: items, items })
 })
 
 export const createCategory = asyncHandler(async (req, res) => {
   const { name } = req.body
-  if (!name) return res.status(400).json({ message: 'name is required' })
+  if (!name) return respond(res, 400, 'name is required')
   const item = await TicketCategory.create(req.body)
-  res.status(201).json({ item })
+  respond(res, 201, 'Support category created successfully', { data: item, item })
 })
 
 export const listAgents = asyncHandler(async (_req, res) => {
@@ -130,13 +148,13 @@ export const listAgents = asyncHandler(async (_req, res) => {
       { name: 'Riya Escalation', email: 'riya.escalation@hrms.com', level: 'L2' }
     ])
   }
-  res.status(200).json({ items })
+  respond(res, 200, 'Support agents fetched successfully', { data: items, items })
 })
 
 export const createAgent = asyncHandler(async (req, res) => {
   const { name, email } = req.body
-  if (!name || !email) return res.status(400).json({ message: 'name and email required' })
+  if (!name || !email) return respond(res, 400, 'name and email required')
   const item = await SupportAgent.create(req.body)
-  res.status(201).json({ item })
+  respond(res, 201, 'Support agent created successfully', { data: item, item })
 })
 

@@ -1,6 +1,8 @@
-﻿import asyncHandler from '../utils/asyncHandler.js'
+import asyncHandler from '../utils/asyncHandler.js'
 import AuditLog from '../models/AuditLog.js'
 import SecuritySetting from '../models/SecuritySetting.js'
+
+const respond = (res, status, message, payload = {}) => res.status(status).json({ success: status < 400, message, data: payload, ...payload })
 
 const defaultSecuritySettings = [
   { key: 'password_policy', group: 'Password Policies', value: { minLength: 8, requireUppercase: true, requireNumber: true }, description: 'Password complexity policy' },
@@ -34,7 +36,8 @@ export const getAuditLogs = asyncHandler(async (req, res) => {
     AuditLog.countDocuments(query)
   ])
 
-  res.status(200).json({
+  return respond(res, 200, 'Audit logs fetched successfully', {
+    data: items,
     items,
     pagination: {
       page: Number(page),
@@ -47,14 +50,14 @@ export const getAuditLogs = asyncHandler(async (req, res) => {
 
 export const seedAuditLog = asyncHandler(async (req, res) => {
   const item = await AuditLog.create(req.body)
-  res.status(201).json({ item })
+  return respond(res, 201, 'Audit log created successfully', { data: item, item })
 })
 
 export const exportAuditLogs = asyncHandler(async (req, res) => {
   const { category = 'all' } = req.query
   const query = category === 'all' ? {} : { category }
   const items = await AuditLog.find(query).sort({ dateTime: -1 }).limit(2000)
-  res.status(200).json({ items, exportedAt: new Date().toISOString(), count: items.length })
+  return respond(res, 200, 'Audit logs exported successfully', { data: items, items, exportedAt: new Date().toISOString(), count: items.length })
 })
 
 export const getSecuritySettings = asyncHandler(async (_req, res) => {
@@ -62,12 +65,12 @@ export const getSecuritySettings = asyncHandler(async (_req, res) => {
   if (items.length === 0) {
     items = await SecuritySetting.insertMany(defaultSecuritySettings)
   }
-  res.status(200).json({ items })
+  return respond(res, 200, 'Security settings fetched successfully', { data: items, items })
 })
 
 export const upsertSecuritySetting = asyncHandler(async (req, res) => {
   const { key, group, value, description = '' } = req.body
-  if (!key || !group) return res.status(400).json({ message: 'key and group are required' })
+  if (!key || !group) return respond(res, 400, 'key and group are required')
 
   const item = await SecuritySetting.findOneAndUpdate(
     { key },
@@ -84,5 +87,5 @@ export const upsertSecuritySetting = asyncHandler(async (req, res) => {
     description: `Updated security setting: ${key}`
   })
 
-  res.status(200).json({ item })
+  return respond(res, 200, 'Security setting updated successfully', { data: item, item })
 })
