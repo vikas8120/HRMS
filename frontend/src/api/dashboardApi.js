@@ -1,5 +1,6 @@
 import api from './axios'
 
+export const getCompanyAdminDashboard = () => api.get('/admin/dashboard').then((r) => r.data)
 export const getDashboardStats = () => api.get('/super-admin/dashboard/stats').then((r) => r.data)
 export const getOverview = () => api.get('/super-admin/dashboard/overview').then((r) => r.data)
 export const globalSearch = (q) => api.get('/super-admin/search', { params: { q } }).then((r) => r.data)
@@ -13,3 +14,5 @@ export const runHealthCheck = () => api.post('/super-admin/dashboard/system-heal
 export const listActivities = (params) => api.get('/super-admin/dashboard/recent-activities', { params }).then((r) => r.data)
 export const updateActivity = (id, payload) => api.put(`/super-admin/dashboard/recent-activities/${id}`, payload).then((r) => r.data)
 export const deleteActivity = (id) => api.delete(`/super-admin/dashboard/recent-activities/${id}`).then((r) => r.data)
+export const listPlatformOverviewItems = (params) => api.get('/super-admin/dashboard/platform-overview', { params }).then((r) => r.data)
+export const listDashboardSectionWidgets = (sectionKey, params) => api.get(`/super-admin/dashboard/widgets/${sectionKey}`, { params }).then((r) => r.data)

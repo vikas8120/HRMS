@@ -29,7 +29,7 @@ import DataTable from '../components/ui/DataTable'
 import Button from '../components/ui/Button'
 import LoadingSkeleton from '../components/ui/LoadingSkeleton'
 import EmptyState from '../components/ui/EmptyState'
-import { getAdminDashboard } from '../services/adminApi'
+import { getCompanyAdminDashboard } from '../api/dashboardApi'
 
 const formatCurrency = (value) => Number(value || 0).toLocaleString('en-US', {
   style: 'currency',
@@ -47,11 +47,11 @@ function CompanyAdminDashboardPage() {
     setError('')
 
     try {
-      const response = await getAdminDashboard()
-      setDashboard(response || null)
+      const response = await getCompanyAdminDashboard()
+      const payload = response?.data || response
+      setDashboard(payload || null)
     } catch (err) {
-      console.error('Failed to load dashboard data', err)
-      setError('Failed to load dashboard data')
+      setError(err?.response?.data?.message || err?.message || 'Failed to load dashboard data')
     } finally {
       setLoading(false)
     }
@@ -66,12 +66,12 @@ function CompanyAdminDashboardPage() {
 
     return [
       { title: 'Total Employees', value: String(data?.totalEmployees ?? 0), trend: 'Company workforce', icon: UserRound, trendTone: 'success' },
-      { title: 'HR', value: String(data?.totalHR ?? 0), trend: 'HR operations team', icon: Users, trendTone: 'info' },
-      { title: 'Managers', value: String(data?.totalManagers ?? 0), trend: 'Team leadership count', icon: UserCog, trendTone: 'info' },
+      { title: 'Total HR', value: String(data?.totalHR ?? 0), trend: 'HR operations team', icon: Users, trendTone: 'info' },
+      { title: 'Total Managers', value: String(data?.totalManagers ?? 0), trend: 'Team leadership count', icon: UserCog, trendTone: 'info' },
       { title: 'Departments', value: String(data?.totalDepartments ?? 0), trend: 'Organizational units', icon: Building2, trendTone: 'info' },
-      { title: 'Present Today', value: String(data?.presentToday ?? 0), trend: `${data?.absentToday ?? 0} absent`, icon: CalendarCheck2, trendTone: 'success' },
+      { title: 'Today Attendance', value: `${data?.todayAttendance?.present ?? data?.presentToday ?? 0}/${data?.todayAttendance?.total ?? data?.totalEmployees ?? 0}`, trend: `${data?.todayAttendance?.absent ?? data?.absentToday ?? 0} absent`, icon: CalendarCheck2, trendTone: 'success' },
       { title: 'Pending Leaves', value: String(data?.pendingLeaves ?? 0), trend: `${data?.approvedLeaves ?? 0} approved`, icon: CalendarClock, trendTone: 'warning' },
-      { title: 'Monthly Payroll', value: formatCurrency(data?.monthlyPayroll ?? 0), trend: `${data?.rejectedLeaves ?? 0} rejected leaves`, icon: Wallet, trendTone: 'warning' }
+      { title: 'Payroll Summary', value: formatCurrency(data?.monthlyPayroll ?? 0), trend: `${data?.rejectedLeaves ?? 0} rejected leaves`, icon: Wallet, trendTone: 'warning' }
     ]
   }, [dashboard])
 
@@ -103,6 +103,27 @@ function CompanyAdminDashboardPage() {
     createdAt: item.createdAt ? String(item.createdAt).slice(0, 19).replace('T', ' ') : '-'
   }))
 
+  const profile = dashboard?.companyProfileSummary || null
+  const alerts = dashboard?.alerts || []
+
+  const companySummaryRows = profile ? [
+    { id: 'cname', field: 'Company', value: profile.companyName || '-' },
+    { id: 'ccode', field: 'Code', value: profile.companyCode || '-' },
+    { id: 'cplan', field: 'Plan', value: profile.plan || '-' },
+    { id: 'cstatus', field: 'Status', value: profile.status || '-' },
+    { id: 'ctimezone', field: 'Timezone', value: profile.timezone || '-' },
+    { id: 'ccurrency', field: 'Currency', value: profile.currency || '-' },
+    { id: 'clocation', field: 'Location', value: profile.location || '-' },
+    { id: 'climit', field: 'Employee Limit', value: String(profile.employeeLimit ?? '-') }
+  ] : []
+
+  const alertRows = alerts.map((item, index) => ({
+    id: item.id || `alert-${index}`,
+    severity: item.severity || 'info',
+    title: item.title || 'Notification',
+    message: item.message || '-'
+  }))
+
   const employeeColumns = [
     { key: 'name', label: 'Employee' },
     { key: 'email', label: 'Email' },
@@ -122,6 +143,17 @@ function CompanyAdminDashboardPage() {
     { key: 'message', label: 'Message', sortable: false },
     { key: 'module', label: 'Module' },
     { key: 'createdAt', label: 'Created At' }
+  ]
+
+  const companySummaryColumns = [
+    { key: 'field', label: 'Field' },
+    { key: 'value', label: 'Value', sortable: false }
+  ]
+
+  const alertsColumns = [
+    { key: 'severity', label: 'Severity' },
+    { key: 'title', label: 'Alert' },
+    { key: 'message', label: 'Message', sortable: false }
   ]
 
   const noDashboardData = !loading
@@ -287,6 +319,34 @@ function CompanyAdminDashboardPage() {
           />
         )}
       </article>
+
+      <div className="dashboard-main-grid">
+        <article className="panel">
+          <div className="panel-head"><h3>Company Profile Summary</h3></div>
+          {loading ? <LoadingSkeleton rows={4} /> : (
+            <DataTable
+              columns={companySummaryColumns}
+              rows={companySummaryRows}
+              showActions={false}
+              emptyTitle="No company profile data"
+              emptyDescription="Company profile details will appear once configured."
+            />
+          )}
+        </article>
+
+        <article className="panel">
+          <div className="panel-head"><h3>Alerts/Notifications</h3></div>
+          {loading ? <LoadingSkeleton rows={4} /> : (
+            <DataTable
+              columns={alertsColumns}
+              rows={alertRows}
+              showActions={false}
+              emptyTitle="No alerts"
+              emptyDescription="All key operational checks are currently clear."
+            />
+          )}
+        </article>
+      </div>
     </section>
   )
 }

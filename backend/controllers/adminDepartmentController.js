@@ -61,7 +61,7 @@ export const listDepartments = asyncHandler(async (req, res) => {
 
   const data = items.map((item) => serializeDepartment(item, countByDepartment[String(item._id)] || 0))
 
-  return res.status(200).json({ success: true, message: 'Departments fetched successfully', data })
+  return res.status(200).json({ success: true, message: 'Departments fetched successfully', data, items: data })
 })
 
 export const getDepartmentById = asyncHandler(async (req, res) => {
@@ -73,7 +73,8 @@ export const getDepartmentById = asyncHandler(async (req, res) => {
   return res.status(200).json({
     success: true,
     message: 'Department fetched successfully',
-    data: serializeDepartment(item, employeeCount)
+    data: serializeDepartment(item, employeeCount),
+    item: serializeDepartment(item, employeeCount)
   })
 })
 
@@ -88,6 +89,10 @@ export const createDepartment = asyncHandler(async (req, res) => {
 
   const exists = await Department.findOne({ companyId: req.user.companyId, name: name.trim() })
   if (exists) return res.status(409).json({ success: false, message: 'Department already exists' })
+  if (departmentHead) {
+    const manager = await User.findOne({ _id: departmentHead, companyId: req.user.companyId, role: 'manager' })
+    if (!manager) return res.status(400).json({ success: false, message: 'Invalid department manager for this company' })
+  }
 
   const item = await Department.create({
     companyId: req.user.companyId,
@@ -106,17 +111,24 @@ export const createDepartment = asyncHandler(async (req, res) => {
     metadata: { departmentId: item._id }
   })
 
-  return res.status(201).json({ success: true, message: 'Department created successfully', data: serializeDepartment(item, 0) })
+  const payload = serializeDepartment(item, 0)
+  return res.status(201).json({ success: true, message: 'Department created successfully', data: payload, item: payload })
 })
 
 export const updateDepartment = asyncHandler(async (req, res) => {
   const item = await Department.findOne({ _id: req.params.id, companyId: req.user.companyId })
   if (!item) return res.status(404).json({ success: false, message: 'Department not found' })
 
-  const { name, description, departmentHead, status } = req.body
+  const { name, description, departmentHead, status, employeeIds } = req.body
   if (name) item.name = name.trim()
   if (description !== undefined) item.description = description
-  if (departmentHead !== undefined) item.departmentHead = departmentHead
+  if (departmentHead !== undefined) {
+    if (departmentHead) {
+      const manager = await User.findOne({ _id: departmentHead, companyId: req.user.companyId, role: 'manager' })
+      if (!manager) return res.status(400).json({ success: false, message: 'Invalid department manager for this company' })
+    }
+    item.departmentHead = departmentHead
+  }
   if (status !== undefined) {
     const normalizedStatus = String(status).toLowerCase()
     if (!ALLOWED_STATUS.has(normalizedStatus)) {
@@ -126,14 +138,57 @@ export const updateDepartment = asyncHandler(async (req, res) => {
   }
 
   await item.save()
+  if (employeeIds !== undefined) {
+    if (!Array.isArray(employeeIds)) {
+      return res.status(400).json({ success: false, message: 'employeeIds must be an array' })
+    }
+    const requestedIds = employeeIds.map(String)
+    const validEmployees = requestedIds.length
+      ? await User.find({ _id: { $in: requestedIds }, companyId: req.user.companyId, role: 'employee' }).select('_id')
+      : []
+    const validEmployeeIds = validEmployees.map((employee) => String(employee._id))
+
+    await User.updateMany(
+      { companyId: req.user.companyId, role: 'employee', departmentId: item._id, _id: { $nin: validEmployeeIds } },
+      { $set: { departmentId: null } }
+    )
+    if (validEmployeeIds.length) {
+      await User.updateMany(
+        { companyId: req.user.companyId, role: 'employee', _id: { $in: validEmployeeIds } },
+        { $set: { departmentId: item._id } }
+      )
+    }
+  }
 
   const employeeCount = await User.countDocuments({ companyId: req.user.companyId, role: 'employee', departmentId: item._id })
 
-  return res.status(200).json({ success: true, message: 'Department updated successfully', data: serializeDepartment(item, employeeCount) })
+  const payload = serializeDepartment(item, employeeCount)
+  return res.status(200).json({ success: true, message: 'Department updated successfully', data: payload, item: payload })
 })
 
 export const deleteDepartment = asyncHandler(async (req, res) => {
-  const result = await Department.deleteOne({ _id: req.params.id, companyId: req.user.companyId })
+  const item = await Department.findOne({ _id: req.params.id, companyId: req.user.companyId })
+  if (!item) return res.status(404).json({ success: false, message: 'Department not found' })
+
+  const activeEmployees = await User.countDocuments({
+    companyId: req.user.companyId,
+    role: 'employee',
+    departmentId: item._id,
+    status: 'active'
+  })
+  if (activeEmployees > 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Department cannot be deleted while active employees are assigned',
+      details: { activeEmployees }
+    })
+  }
+
+  await User.updateMany(
+    { companyId: req.user.companyId, role: 'employee', departmentId: item._id },
+    { $set: { departmentId: null } }
+  )
+  const result = await Department.deleteOne({ _id: item._id, companyId: req.user.companyId })
   if (!result.deletedCount) return res.status(404).json({ success: false, message: 'Department not found' })
   return res.status(200).json({ success: true, message: 'Department deleted successfully' })
 })
@@ -155,6 +210,7 @@ export const getDepartmentEmployees = asyncHandler(async (req, res) => {
       department: serializeDepartment(department, employees.length),
       employees: employees.map((item) => serializeEmployee(item)),
       totalEmployees: employees.length
-    }
+    },
+    employees: employees.map((item) => serializeEmployee(item))
   })
 })

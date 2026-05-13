@@ -16,7 +16,8 @@ import {
   updateDepartment,
   deleteDepartment,
   getDepartmentEmployees,
-  getManagers
+  getManagers,
+  getEmployees
 } from '../api/adminDepartmentApi'
 
 const initialForm = {
@@ -37,6 +38,7 @@ function CompanyAdminDepartmentsPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [employeesOpen, setEmployeesOpen] = useState(false)
+  const [assignOpen, setAssignOpen] = useState(false)
 
   const [selected, setSelected] = useState(null)
   const [form, setForm] = useState(initialForm)
@@ -45,6 +47,8 @@ function CompanyAdminDepartmentsPage() {
   const [managers, setManagers] = useState([])
   const [deptEmployees, setDeptEmployees] = useState([])
   const [deptEmployeesLoading, setDeptEmployeesLoading] = useState(false)
+  const [employees, setEmployees] = useState([])
+  const [assignedEmployeeIds, setAssignedEmployeeIds] = useState([])
 
   const [toast, setToast] = useState(null)
 
@@ -68,6 +72,15 @@ function CompanyAdminDepartmentsPage() {
     }
   }
 
+  const loadEmployees = async () => {
+    try {
+      const res = await getEmployees({ limit: 500, status: 'all' })
+      setEmployees(res?.data || [])
+    } catch (_err) {
+      setEmployees([])
+    }
+  }
+
   const loadDepartments = async ({ searchArg = search, statusArg = status, keepLoading = false } = {}) => {
     if (!keepLoading) setLoading(true)
     setError('')
@@ -85,6 +98,7 @@ function CompanyAdminDepartmentsPage() {
 
   useEffect(() => {
     loadManagers()
+    loadEmployees()
     loadDepartments()
   }, [])
 
@@ -140,6 +154,15 @@ function CompanyAdminDepartmentsPage() {
     }
   }
 
+  const openAssignEmployees = (row) => {
+    setSelected(row)
+    const existing = employees
+      .filter((employee) => String(employee.departmentId || '') === String(row.id))
+      .map((employee) => String(employee.id || employee._id))
+    setAssignedEmployeeIds(existing)
+    setAssignOpen(true)
+  }
+
   const validateForm = () => {
     const next = {}
     if (!form.name.trim()) next.name = 'Department name is required'
@@ -163,7 +186,7 @@ function CompanyAdminDepartmentsPage() {
         const updated = res?.data
         if (!updated?.id) throw new Error('Database update confirmation not received')
         setRows((prev) => prev.map((row) => (row.id === updated.id ? updated : row)))
-        setToast({ type: 'success', message: `Saved in database successfully (ID: ${updated.id})` })
+        setToast({ type: 'success', message: res?.message || `Department updated successfully (ID: ${updated.id})` })
       } else {
         const res = await createDepartment({
           name: form.name.trim(),
@@ -174,7 +197,7 @@ function CompanyAdminDepartmentsPage() {
         const created = res?.data
         if (!created?.id) throw new Error('Database save confirmation not received')
         setRows((prev) => [created, ...prev])
-        setToast({ type: 'success', message: `Saved in database successfully (ID: ${created.id})` })
+        setToast({ type: 'success', message: res?.message || `Department created successfully (ID: ${created.id})` })
       }
 
       setFormOpen(false)
@@ -192,9 +215,9 @@ function CompanyAdminDepartmentsPage() {
     setSubmitting(true)
 
     try {
-      await deleteDepartment(selected.id)
+      const res = await deleteDepartment(selected.id)
       setRows((prev) => prev.filter((row) => row.id !== selected.id))
-      setToast({ type: 'success', message: 'Department deleted successfully' })
+      setToast({ type: 'success', message: res?.message || 'Department deleted successfully' })
       setConfirmOpen(false)
       setSelected(null)
       await loadDepartments({ keepLoading: true })
@@ -203,6 +226,30 @@ function CompanyAdminDepartmentsPage() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const onSaveDepartmentEmployees = async () => {
+    if (!selected?.id) return
+    setSubmitting(true)
+    try {
+      const res = await updateDepartment(selected.id, { employeeIds: assignedEmployeeIds })
+      const updated = res?.data
+      setRows((prev) => prev.map((row) => (row.id === selected.id ? { ...row, ...updated } : row)))
+      setToast({ type: 'success', message: res?.message || 'Department employee assignment updated successfully' })
+      setAssignOpen(false)
+      await Promise.all([loadEmployees(), loadDepartments({ keepLoading: true })])
+    } catch (err) {
+      setToast({ type: 'error', message: err?.response?.data?.message || 'Failed to update assignment' })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const toggleAssignedEmployee = (employeeId) => {
+    const id = String(employeeId)
+    setAssignedEmployeeIds((prev) => (
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    ))
   }
 
   const onApplySearch = async () => {
@@ -296,6 +343,7 @@ function CompanyAdminDepartmentsPage() {
                     <td>
                       <div className="table-actions">
                         <button className="text-btn" onClick={() => openEmployees(row)}>View Employees</button>
+                        <button className="text-btn" onClick={() => openAssignEmployees(row)}>Assign Employees</button>
                         <button className="text-btn" onClick={() => openEdit(row)}>Edit</button>
                         <button className="text-btn danger" onClick={() => { setSelected(row); setConfirmOpen(true) }}>Delete</button>
                       </div>
@@ -331,6 +379,31 @@ function CompanyAdminDepartmentsPage() {
 
           <Button type="submit" disabled={submitting}>{submitting ? 'Saving...' : 'Save'}</Button>
         </form>
+      </Modal>
+
+      <Modal open={assignOpen} title={`Assign Employees - ${selected?.name || ''}`} onClose={() => { if (!submitting) setAssignOpen(false) }}>
+        <div className="modal-form">
+          <div className="checkbox-grid">
+            {employees.length === 0 ? <p className="error">No employees available.</p> : employees.map((employee) => {
+              const id = String(employee.id || employee._id)
+              const alreadyInOther = employee.departmentId && String(employee.departmentId) !== String(selected?.id)
+              return (
+                <label key={id} className="checkbox-item">
+                  <input
+                    type="checkbox"
+                    checked={assignedEmployeeIds.includes(id)}
+                    onChange={() => toggleAssignedEmployee(id)}
+                  />
+                  <span>{employee.name} ({employee.email}){alreadyInOther ? ' - reassigned on save' : ''}</span>
+                </label>
+              )
+            })}
+          </div>
+          <div className="actions-row">
+            <Button variant="ghost" onClick={() => setAssignOpen(false)} disabled={submitting}>Cancel</Button>
+            <Button onClick={onSaveDepartmentEmployees} disabled={submitting}>{submitting ? 'Saving...' : 'Save Assignment'}</Button>
+          </div>
+        </div>
       </Modal>
 
       <Modal open={employeesOpen} title={`Department Employees - ${selected?.name || ''}`} onClose={() => setEmployeesOpen(false)}>

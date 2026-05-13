@@ -5,9 +5,11 @@ import Attendance from '../models/Attendance.js'
 import Leave from '../models/Leave.js'
 import Payroll from '../models/Payroll.js'
 import ActivityLog from '../models/ActivityLog.js'
+import TenantCompany from '../models/TenantCompany.js'
+import CompanySettings from '../models/CompanySettings.js'
 
 export const getAdminDashboard = asyncHandler(async (req, res) => {
-  const companyId = req.user.companyId
+  const companyId = req.companyId || req.user.companyId
   const today = new Date()
   const todayDate = today.toISOString().slice(0, 10)
   const currentYear = today.getUTCFullYear()
@@ -25,7 +27,9 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
     payrollRows,
     recentEmployees,
     recentLeaves,
-    activityLogs
+    activityLogs,
+    company,
+    companySettings
   ] = await Promise.all([
     User.countDocuments({ companyId, role: 'employee' }),
     User.countDocuments({ companyId, role: 'hr' }),
@@ -41,7 +45,9 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
     ActivityLog.find({
       companyId,
       action: { $in: ['employee_added', 'leave_approved', 'payroll_generated', 'department_created'] }
-    }).sort({ createdAt: -1 }).limit(10)
+    }).sort({ createdAt: -1 }).limit(10),
+    TenantCompany.findById(companyId).select('companyName companyCode plan status industry email phone city state country timezone currency employeeLimit storageLimit'),
+    CompanySettings.findOne({ companyId }).select('timezone currency attendancePolicy leavePolicy payrollPolicy')
   ])
 
   const employeeNameMap = {}
@@ -147,26 +153,59 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
     userId: item.userId || null
   }))
 
+  const payrollPendingCount = payrollRows.filter((item) => String(item.status || '').toLowerCase() !== 'paid').length
+  const companyProfileSummary = {
+    companyId,
+    companyName: company?.companyName || '',
+    companyCode: company?.companyCode || '',
+    plan: company?.plan || '',
+    status: company?.status || '',
+    industry: company?.industry || '',
+    email: company?.email || '',
+    phone: company?.phone || '',
+    location: [company?.city, company?.state, company?.country].filter(Boolean).join(', '),
+    timezone: companySettings?.timezone || company?.timezone || '',
+    currency: companySettings?.currency || company?.currency || '',
+    employeeLimit: Number(company?.employeeLimit || 0),
+    storageLimit: Number(company?.storageLimit || 0)
+  }
+
+  const alerts = []
+  if (pendingLeaves > 0) alerts.push({ id: 'pending-leaves', severity: 'warning', title: 'Pending leave requests', message: `${pendingLeaves} leave request(s) need review` })
+  if (absentToday > 0) alerts.push({ id: 'today-absent', severity: 'info', title: 'Today attendance', message: `${absentToday} employee(s) marked absent today` })
+  if (payrollPendingCount > 0) alerts.push({ id: 'payroll-pending', severity: 'warning', title: 'Payroll follow-up', message: `${payrollPendingCount} payroll record(s) are not marked paid` })
+  if (!companySettings) alerts.push({ id: 'settings-missing', severity: 'info', title: 'Company settings', message: 'Complete company settings setup for better compliance tracking' })
+
+  const payload = {
+    totalEmployees,
+    totalHR,
+    totalManagers,
+    totalDepartments,
+    presentToday,
+    absentToday,
+    pendingLeaves,
+    approvedLeaves,
+    rejectedLeaves,
+    monthlyPayroll,
+    todayAttendance: {
+      present: presentToday,
+      absent: absentToday,
+      total: totalEmployees
+    },
+    recentEmployees,
+    recentLeaveRequests,
+    attendanceChartData,
+    payrollChartData,
+    departmentWiseEmployees,
+    recentActivities,
+    companyProfileSummary,
+    alerts
+  }
+
   return res.status(200).json({
     success: true,
     message: 'Dashboard fetched successfully',
-    data: {
-      totalEmployees,
-      totalHR,
-      totalManagers,
-      totalDepartments,
-      presentToday,
-      absentToday,
-      pendingLeaves,
-      approvedLeaves,
-      rejectedLeaves,
-      monthlyPayroll,
-      recentEmployees,
-      recentLeaveRequests,
-      attendanceChartData,
-      payrollChartData,
-      departmentWiseEmployees,
-      recentActivities
-    }
+    data: payload,
+    ...payload
   })
 })
