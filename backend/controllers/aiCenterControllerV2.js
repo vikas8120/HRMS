@@ -2,6 +2,24 @@
 import AISetting from '../models/AISetting.js'
 import AIUsageLog from '../models/AIUsageLog.js'
 import AutomationRule from '../models/AutomationRule.js'
+import AuditLog from '../models/AuditLog.js'
+
+const respond = (res, status, message, payload = {}) =>
+  res.status(status).json({ success: status < 400, message, data: payload, ...payload })
+
+const writeAudit = async (req, action, description, metadata = {}) => {
+  await AuditLog.create({
+    category: 'Configuration Changes',
+    actorType: 'super_admin',
+    actorName: req.user?.name || req.user?.email || 'Super Admin',
+    module: 'AI Center',
+    action,
+    description,
+    ipAddress: req.ip || '',
+    device: req.get('user-agent') || '',
+    metadata
+  })
+}
 
 const insights = {
   'AI Dashboard': { score: 92, summary: 'AI systems healthy with stable inference throughput.' },
@@ -18,19 +36,20 @@ const insights = {
 export const getAIInsights = asyncHandler(async (req, res) => {
   const { module = 'AI Dashboard' } = req.query
   const data = insights[module] || { summary: 'No insight model configured yet.' }
-  res.status(200).json({ module, data })
+  respond(res, 200, 'AI insights fetched successfully', { module, data })
 })
 
 export const listAISettings = asyncHandler(async (_req, res) => {
   const items = await AISetting.find().sort({ key: 1 })
-  res.status(200).json({ items })
+  respond(res, 200, 'AI settings fetched successfully', { items })
 })
 
 export const upsertAISetting = asyncHandler(async (req, res) => {
   const { key, value, description = '' } = req.body
-  if (!key) return res.status(400).json({ message: 'key is required' })
+  if (!key) return respond(res, 400, 'Validation failed: key is required')
   const item = await AISetting.findOneAndUpdate({ key }, { key, value, description }, { upsert: true, new: true, runValidators: true })
-  res.status(200).json({ item })
+  await writeAudit(req, 'UPSERT_AI_SETTING', `AI setting updated: ${key}`, { key })
+  respond(res, 200, 'AI setting saved successfully', { item })
 })
 
 export const listAIUsageLogs = asyncHandler(async (req, res) => {
@@ -41,28 +60,32 @@ export const listAIUsageLogs = asyncHandler(async (req, res) => {
     AIUsageLog.find(query).sort({ dateTime: -1 }).skip(skip).limit(Number(limit)),
     AIUsageLog.countDocuments(query)
   ])
-  res.status(200).json({ items, pagination: { page: Number(page), limit: Number(limit), total, totalPages: Math.ceil(total / Number(limit)) } })
+  const pagination = { page: Number(page), limit: Number(limit), total, totalPages: Math.ceil(total / Number(limit)) }
+  respond(res, 200, 'AI usage logs fetched successfully', { items, pagination })
 })
 
 export const createAIUsageLog = asyncHandler(async (req, res) => {
   const item = await AIUsageLog.create(req.body)
-  res.status(201).json({ item })
+  await writeAudit(req, 'CREATE_AI_USAGE_LOG', `AI usage log created for module ${item.module || 'unknown'}`, { usageLogId: item._id })
+  respond(res, 201, 'AI usage log created successfully', { item })
 })
 
 export const listAutomationRules = asyncHandler(async (_req, res) => {
   const items = await AutomationRule.find().sort({ createdAt: -1 })
-  res.status(200).json({ items })
+  respond(res, 200, 'AI automation rules fetched successfully', { items })
 })
 
 export const createAutomationRule = asyncHandler(async (req, res) => {
   const { name, trigger, action } = req.body
-  if (!name || !trigger || !action) return res.status(400).json({ message: 'name, trigger and action are required' })
+  if (!name || !trigger || !action) return respond(res, 400, 'Validation failed: name, trigger and action are required')
   const item = await AutomationRule.create(req.body)
-  res.status(201).json({ item })
+  await writeAudit(req, 'CREATE_AI_AUTOMATION_RULE', `AI automation rule created: ${item.name}`, { ruleId: item._id })
+  respond(res, 201, 'AI automation rule created successfully', { item })
 })
 
 export const updateAutomationRule = asyncHandler(async (req, res) => {
   const item = await AutomationRule.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
-  if (!item) return res.status(404).json({ message: 'Rule not found' })
-  res.status(200).json({ item })
+  if (!item) return respond(res, 404, `Automation rule not found for id: ${req.params.id}`)
+  await writeAudit(req, 'UPDATE_AI_AUTOMATION_RULE', `AI automation rule updated: ${item.name}`, { ruleId: item._id })
+  respond(res, 200, 'AI automation rule updated successfully', { item })
 })

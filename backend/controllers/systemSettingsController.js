@@ -1,5 +1,9 @@
-﻿import asyncHandler from '../utils/asyncHandler.js'
+import asyncHandler from '../utils/asyncHandler.js'
 import SystemSetting from '../models/SystemSetting.js'
+import AuditLog from '../models/AuditLog.js'
+
+const respond = (res, status, message, payload = {}) =>
+  res.status(status).json({ success: status < 400, message, data: payload, ...payload })
 
 const defaults = [
   { group: 'General Settings', key: 'general_settings', value: { appName: 'HRMS', supportEmail: 'support@hrms.com' } },
@@ -23,12 +27,25 @@ export const listSystemSettings = asyncHandler(async (_req, res) => {
   if (items.length === 0) {
     items = await SystemSetting.insertMany(defaults)
   }
-  res.status(200).json({ items })
+  respond(res, 200, 'System settings fetched successfully', { items })
 })
 
 export const upsertSystemSetting = asyncHandler(async (req, res) => {
   const { key, group, value, description = '' } = req.body
-  if (!key || !group) return res.status(400).json({ message: 'key and group are required' })
+  if (!key || !group) return respond(res, 400, 'Validation failed: key and group are required')
   const item = await SystemSetting.findOneAndUpdate({ key }, { key, group, value, description }, { upsert: true, new: true, runValidators: true })
-  res.status(200).json({ item })
+
+  await AuditLog.create({
+    category: 'Configuration Changes',
+    actorType: 'super_admin',
+    actorName: req.user?.name || req.user?.email || 'Super Admin',
+    module: 'System Settings',
+    action: 'UPSERT_SYSTEM_SETTING',
+    description: `Updated system setting: ${key}`,
+    ipAddress: req.ip || '',
+    device: req.get('user-agent') || '',
+    metadata: { settingKey: key, group }
+  })
+
+  respond(res, 200, 'System setting saved successfully', { item })
 })
