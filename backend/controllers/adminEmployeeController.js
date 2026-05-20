@@ -2,6 +2,10 @@ import asyncHandler from '../utils/asyncHandler.js'
 import User from '../models/User.js'
 import bcrypt from 'bcryptjs'
 import ActivityLog from '../models/ActivityLog.js'
+import Department from '../models/Department.js'
+import Attendance from '../models/Attendance.js'
+import Leave from '../models/Leave.js'
+import Payroll from '../models/Payroll.js'
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const ALLOWED_STATUS = new Set(['active', 'inactive'])
@@ -29,9 +33,16 @@ const serializeEmployee = (item) => ({
 })
 
 const generateEmployeeId = async (companyId) => {
-  const totalEmployees = await User.countDocuments({ companyId, role: 'employee' })
-  const next = String(totalEmployees + 1).padStart(4, '0')
-  return `EMP-${next}`
+  let attempts = 0
+  while (attempts < 10) {
+    const totalEmployees = await User.countDocuments({ companyId, role: 'employee' })
+    const next = String(totalEmployees + attempts + 1).padStart(4, '0')
+    const candidate = `EMP-${next}`
+    const exists = await User.findOne({ companyId, role: 'employee', employeeId: candidate }).select('_id')
+    if (!exists) return candidate
+    attempts += 1
+  }
+  return `EMP-${Date.now()}`
 }
 
 export const listEmployees = asyncHandler(async (req, res) => {
@@ -120,6 +131,24 @@ export const createEmployee = asyncHandler(async (req, res) => {
   const exists = await User.findOne({ email: email.toLowerCase().trim() })
   if (exists) return res.status(409).json({ success: false, message: 'Email already exists' })
 
+  if (departmentId) {
+    const dept = await Department.findOne({ _id: departmentId, companyId: req.user.companyId })
+    if (!dept) return res.status(400).json({ success: false, message: 'Invalid department for this company' })
+  }
+  if (managerId) {
+    const manager = await User.findOne({ _id: managerId, companyId: req.user.companyId, role: 'manager' })
+    if (!manager) return res.status(400).json({ success: false, message: 'Invalid manager for this company' })
+  }
+  if (hrId) {
+    const hr = await User.findOne({ _id: hrId, companyId: req.user.companyId, role: 'hr' })
+    if (!hr) return res.status(400).json({ success: false, message: 'Invalid HR for this company' })
+  }
+
+  const normalizedSalary = Number(salary || 0)
+  if (!Number.isFinite(normalizedSalary) || normalizedSalary < 0) {
+    return res.status(400).json({ success: false, message: 'salary must be a non-negative number' })
+  }
+
   const employeeId = await generateEmployeeId(req.user.companyId)
   const hashed = await bcrypt.hash(password, 10)
 
@@ -137,11 +166,17 @@ export const createEmployee = asyncHandler(async (req, res) => {
     managerId,
     hrId,
     designation,
-    salary: Number(salary || 0),
+    salary: normalizedSalary,
     address,
     role: 'employee',
     status: normalizedStatus
   })
+  if (managerId) {
+    await User.updateOne(
+      { _id: managerId, companyId: req.user.companyId, role: 'manager' },
+      { $addToSet: { assignedEmployees: item._id } }
+    )
+  }
 
   await ActivityLog.create({
     companyId: req.user.companyId,
@@ -158,6 +193,7 @@ export const createEmployee = asyncHandler(async (req, res) => {
 export const updateEmployee = asyncHandler(async (req, res) => {
   const item = await User.findOne({ _id: req.params.id, companyId: req.user.companyId, role: 'employee' })
   if (!item) return res.status(404).json({ success: false, message: 'Employee not found' })
+  const previousManagerId = item.managerId ? String(item.managerId) : ''
 
   const {
     name,
@@ -179,11 +215,35 @@ export const updateEmployee = asyncHandler(async (req, res) => {
   if (gender !== undefined) item.gender = gender
   if (dob !== undefined) item.dob = dob
   if (joiningDate !== undefined) item.joiningDate = joiningDate
-  if (departmentId !== undefined) item.departmentId = departmentId
-  if (managerId !== undefined) item.managerId = managerId
-  if (hrId !== undefined) item.hrId = hrId
+  if (departmentId !== undefined) {
+    if (departmentId) {
+      const dept = await Department.findOne({ _id: departmentId, companyId: req.user.companyId })
+      if (!dept) return res.status(400).json({ success: false, message: 'Invalid department for this company' })
+    }
+    item.departmentId = departmentId
+  }
+  if (managerId !== undefined) {
+    if (managerId) {
+      const manager = await User.findOne({ _id: managerId, companyId: req.user.companyId, role: 'manager' })
+      if (!manager) return res.status(400).json({ success: false, message: 'Invalid manager for this company' })
+    }
+    item.managerId = managerId
+  }
+  if (hrId !== undefined) {
+    if (hrId) {
+      const hr = await User.findOne({ _id: hrId, companyId: req.user.companyId, role: 'hr' })
+      if (!hr) return res.status(400).json({ success: false, message: 'Invalid HR for this company' })
+    }
+    item.hrId = hrId
+  }
   if (designation !== undefined) item.designation = designation
-  if (salary !== undefined) item.salary = Number(salary || 0)
+  if (salary !== undefined) {
+    const normalizedSalary = Number(salary || 0)
+    if (!Number.isFinite(normalizedSalary) || normalizedSalary < 0) {
+      return res.status(400).json({ success: false, message: 'salary must be a non-negative number' })
+    }
+    item.salary = normalizedSalary
+  }
   if (address !== undefined) item.address = address
 
   if (status !== undefined) {
@@ -195,6 +255,19 @@ export const updateEmployee = asyncHandler(async (req, res) => {
   }
 
   await item.save()
+  const nextManagerId = item.managerId ? String(item.managerId) : ''
+  if (previousManagerId && previousManagerId !== nextManagerId) {
+    await User.updateOne(
+      { _id: previousManagerId, companyId: req.user.companyId, role: 'manager' },
+      { $pull: { assignedEmployees: item._id } }
+    )
+  }
+  if (nextManagerId && previousManagerId !== nextManagerId) {
+    await User.updateOne(
+      { _id: nextManagerId, companyId: req.user.companyId, role: 'manager' },
+      { $addToSet: { assignedEmployees: item._id } }
+    )
+  }
 
   return res.status(200).json({ success: true, message: 'Employee updated successfully', data: serializeEmployee(item) })
 })
@@ -220,7 +293,39 @@ export const updateEmployeeStatus = asyncHandler(async (req, res) => {
 })
 
 export const deleteEmployee = asyncHandler(async (req, res) => {
-  const result = await User.deleteOne({ _id: req.params.id, companyId: req.user.companyId, role: 'employee' })
+  const item = await User.findOne({ _id: req.params.id, companyId: req.user.companyId, role: 'employee' })
+  if (!item) return res.status(404).json({ success: false, message: 'Employee not found' })
+
+  const [attendanceCount, leaveCount, payrollCount] = await Promise.all([
+    Attendance.countDocuments({
+      companyId: req.user.companyId,
+      $or: [{ userId: item._id }, { employeeId: item._id }, { employeeId: item.employeeId }]
+    }),
+    Leave.countDocuments({
+      companyId: req.user.companyId,
+      $or: [{ userId: item._id }, { employeeId: item._id }, { employeeId: item.employeeId }]
+    }),
+    Payroll.countDocuments({
+      companyId: req.user.companyId,
+      $or: [{ userId: item._id }, { employeeId: item._id }, { employeeId: item.employeeId }]
+    })
+  ])
+  if (attendanceCount > 0 || leaveCount > 0 || payrollCount > 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Employee cannot be deleted because linked records exist',
+      details: { attendance: attendanceCount, leaves: leaveCount, payroll: payrollCount }
+    })
+  }
+
+  if (item.managerId) {
+    await User.updateOne(
+      { _id: item.managerId, companyId: req.user.companyId, role: 'manager' },
+      { $pull: { assignedEmployees: item._id } }
+    )
+  }
+
+  const result = await User.deleteOne({ _id: item._id, companyId: req.user.companyId, role: 'employee' })
   if (!result.deletedCount) return res.status(404).json({ success: false, message: 'Employee not found' })
   return res.status(200).json({ success: true, message: 'Employee deleted successfully' })
 })

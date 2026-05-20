@@ -55,6 +55,51 @@ const buildBaseFilters = (req) => {
   return { companyId, employeeId, departmentId, date, status, query }
 }
 
+const normalizeDescriptor = (value) => {
+  if (!Array.isArray(value)) return null
+  const numeric = value.map((n) => Number(n)).filter((n) => Number.isFinite(n))
+  if (numeric.length < 32) return null
+  return numeric
+}
+
+const cosineSimilarity = (a, b) => {
+  if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length || a.length === 0) return 0
+  let dot = 0
+  let magA = 0
+  let magB = 0
+  for (let i = 0; i < a.length; i += 1) {
+    dot += a[i] * b[i]
+    magA += a[i] * a[i]
+    magB += b[i] * b[i]
+  }
+  if (!magA || !magB) return 0
+  return dot / (Math.sqrt(magA) * Math.sqrt(magB))
+}
+
+const FACE_MATCH_THRESHOLD = 0.94
+
+const verifyFaceOrThrow = (userDoc, incomingDescriptor) => {
+  const enrolled = normalizeDescriptor(userDoc?.faceDescriptor)
+  const incoming = normalizeDescriptor(incomingDescriptor)
+  if (!enrolled) {
+    const error = new Error('Face not enrolled. Please enroll your face first.')
+    error.statusCode = 400
+    throw error
+  }
+  if (!incoming) {
+    const error = new Error('faceDescriptor is required for face verification')
+    error.statusCode = 400
+    throw error
+  }
+  const score = cosineSimilarity(enrolled, incoming)
+  if (score < FACE_MATCH_THRESHOLD) {
+    const error = new Error('Face verification failed. Please try again in good lighting.')
+    error.statusCode = 403
+    throw error
+  }
+  return score
+}
+
 const attachDepartmentFilter = async (query, companyId, departmentId) => {
   if (!departmentId || departmentId === 'all') return query
 
@@ -73,6 +118,12 @@ const getEmployeeMap = async (companyId) => {
   return Object.fromEntries(
     employees.map((emp) => [String(emp.employeeId || emp._id), { name: emp.name || '-', departmentId: emp.departmentId || null }])
   )
+}
+
+const getSelfAttendanceIdentifiers = (userDoc) => {
+  const employeeId = String(userDoc?.employeeId || userDoc?._id || '')
+  const userId = String(userDoc?._id || '')
+  return { employeeId, userId }
 }
 
 export const listAttendance = asyncHandler(async (req, res) => {
@@ -268,6 +319,134 @@ export const exportAttendance = asyncHandler(async (req, res) => {
   res.setHeader('Content-Type', 'text/csv; charset=utf-8')
   res.setHeader('Content-Disposition', `attachment; filename=attendance-${new Date().toISOString().slice(0, 10)}.csv`)
   return res.status(200).send(csv)
+})
+
+export const getMyAttendanceToday = asyncHandler(async (req, res) => {
+  const today = new Date().toISOString().slice(0, 10)
+  const userDoc = await User.findOne({ _id: req.user.id, companyId: req.user.companyId })
+  if (!userDoc) {
+    return res.status(404).json({ success: false, message: 'User not found' })
+  }
+
+  const { employeeId } = getSelfAttendanceIdentifiers(userDoc)
+  const item = await Attendance.findOne({ companyId: req.user.companyId, employeeId, date: today })
+
+  if (!item) {
+    return res.status(200).json({
+      success: true,
+      message: 'No attendance marked for today',
+      data: {
+        employeeId,
+        date: today,
+        checkIn: null,
+        checkOut: null,
+        workingHours: 0,
+        status: 'not-marked'
+      },
+      faceEnrolled: Boolean(normalizeDescriptor(userDoc?.faceDescriptor))
+    })
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: "Today's attendance fetched successfully",
+    data: {
+      ...serializeAttendance(item),
+      faceEnrolled: Boolean(normalizeDescriptor(userDoc?.faceDescriptor))
+    }
+  })
+})
+
+export const enrollAttendanceFace = asyncHandler(async (req, res) => {
+  const userDoc = await User.findOne({ _id: req.user.id, companyId: req.user.companyId })
+  if (!userDoc) {
+    return res.status(404).json({ success: false, message: 'User not found' })
+  }
+  const descriptor = normalizeDescriptor(req.body?.faceDescriptor)
+  if (!descriptor) {
+    return res.status(400).json({ success: false, message: 'Valid faceDescriptor is required for enrollment' })
+  }
+  userDoc.faceDescriptor = descriptor
+  userDoc.faceEnrolledAt = new Date().toISOString()
+  await userDoc.save()
+  return res.status(200).json({
+    success: true,
+    message: 'Face enrolled for attendance successfully',
+    data: { faceEnrolled: true, faceEnrolledAt: userDoc.faceEnrolledAt }
+  })
+})
+
+export const punchInAttendance = asyncHandler(async (req, res) => {
+  const now = new Date()
+  const today = now.toISOString().slice(0, 10)
+  const userDoc = await User.findOne({ _id: req.user.id, companyId: req.user.companyId })
+  if (!userDoc) {
+    return res.status(404).json({ success: false, message: 'User not found' })
+  }
+  verifyFaceOrThrow(userDoc, req.body?.faceDescriptor)
+
+  const { employeeId, userId } = getSelfAttendanceIdentifiers(userDoc)
+  let item = await Attendance.findOne({ companyId: req.user.companyId, employeeId, date: today })
+
+  if (item?.checkIn) {
+    return res.status(409).json({ success: false, message: 'Already punched in for today' })
+  }
+
+  const checkIn = now.toISOString()
+  if (!item) {
+    item = await Attendance.create({
+      companyId: req.user.companyId,
+      employeeId,
+      userId,
+      date: today,
+      checkIn,
+      checkOut: null,
+      workingHours: 0,
+      status: 'present',
+      markedBy: req.user.id
+    })
+  } else {
+    item.checkIn = checkIn
+    item.status = item.status === 'absent' ? 'present' : item.status
+    item.markedBy = req.user.id
+    await item.save()
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: 'Punch in recorded successfully',
+    data: serializeAttendance(item)
+  })
+})
+
+export const punchOutAttendance = asyncHandler(async (req, res) => {
+  const now = new Date()
+  const today = now.toISOString().slice(0, 10)
+  const userDoc = await User.findOne({ _id: req.user.id, companyId: req.user.companyId })
+  if (!userDoc) {
+    return res.status(404).json({ success: false, message: 'User not found' })
+  }
+  verifyFaceOrThrow(userDoc, req.body?.faceDescriptor)
+
+  const { employeeId } = getSelfAttendanceIdentifiers(userDoc)
+  const item = await Attendance.findOne({ companyId: req.user.companyId, employeeId, date: today })
+  if (!item || !item.checkIn) {
+    return res.status(409).json({ success: false, message: 'Punch in first before punch out' })
+  }
+  if (item.checkOut) {
+    return res.status(409).json({ success: false, message: 'Already punched out for today' })
+  }
+
+  item.checkOut = now.toISOString()
+  item.workingHours = getHours(item.checkIn, item.checkOut)
+  item.markedBy = req.user.id
+  await item.save()
+
+  return res.status(200).json({
+    success: true,
+    message: 'Punch out recorded successfully',
+    data: serializeAttendance(item)
+  })
 })
 
 // Backward compatibility aliases

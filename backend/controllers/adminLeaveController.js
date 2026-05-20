@@ -5,6 +5,7 @@ import CompanySettings from '../models/CompanySettings.js'
 import ActivityLog from '../models/ActivityLog.js'
 
 const ALLOWED_STATUS = new Set(['pending', 'approved', 'rejected'])
+const APPLICANT_ROLES = ['employee', 'manager', 'hr']
 
 const daysBetweenInclusive = (startDate, endDate) => {
   const start = new Date(startDate)
@@ -18,6 +19,7 @@ const serializeLeave = (item, employeeMap = {}) => ({
   id: item._id,
   employeeId: item.employeeId,
   employeeName: employeeMap[String(item.employeeId || '')]?.name || '-',
+  applicantRole: employeeMap[String(item.employeeId || '')]?.role || 'employee',
   departmentId: employeeMap[String(item.employeeId || '')]?.departmentId || null,
   companyId: item.companyId,
   leaveType: item.leaveType || 'casual',
@@ -33,15 +35,19 @@ const serializeLeave = (item, employeeMap = {}) => ({
 })
 
 const getEmployeeMap = async (companyId) => {
-  const employees = await User.find({ companyId, role: 'employee' }).select('employeeId name departmentId')
-  return Object.fromEntries(employees.map((emp) => [String(emp.employeeId || emp._id), { name: emp.name || '-', departmentId: emp.departmentId || null }]))
+  const employees = await User.find({ companyId, role: { $in: APPLICANT_ROLES } }).select('employeeId name departmentId role')
+  return Object.fromEntries(employees.map((emp) => [String(emp.employeeId || emp._id), {
+    name: emp.name || '-',
+    departmentId: emp.departmentId || null,
+    role: emp.role || 'employee'
+  }]))
 }
 
 const resolveEmployeeKey = async (companyId, providedEmployeeId) => {
   const raw = String(providedEmployeeId || '').trim()
   if (!raw) return null
 
-  const employee = await User.findOne({ companyId, role: 'employee', $or: [{ employeeId: raw }, { _id: raw }] })
+  const employee = await User.findOne({ companyId, role: { $in: APPLICANT_ROLES }, $or: [{ employeeId: raw }, { _id: raw }] })
   if (!employee) return null
 
   return String(employee.employeeId || employee._id)
@@ -70,7 +76,7 @@ export const listLeaves = asyncHandler(async (req, res) => {
   }
 
   if (departmentId && departmentId !== 'all') {
-    const deptEmployees = await User.find({ companyId, role: 'employee', departmentId }).select('employeeId')
+    const deptEmployees = await User.find({ companyId, role: { $in: APPLICANT_ROLES }, departmentId }).select('employeeId')
     const deptEmployeeIds = deptEmployees.map((emp) => String(emp.employeeId || emp._id))
     if (query.employeeId && typeof query.employeeId === 'string') {
       query.employeeId = deptEmployeeIds.includes(query.employeeId) ? query.employeeId : '__none__'

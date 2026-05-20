@@ -32,8 +32,8 @@ export function AuthProvider({ children }) {
     bootstrapAuth()
   }, [])
 
-  const login = async (email, password) => {
-    const response = await api.post('/auth/login', { email, password })
+  const login = async (identifier, password) => {
+    const response = await api.post('/auth/login', { email: identifier, identifier, password })
     const token = response?.data?.token
     const nextUser = response?.data?.user || null
     saveToken(token, nextUser)

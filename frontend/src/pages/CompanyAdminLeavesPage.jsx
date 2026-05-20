@@ -8,9 +8,11 @@ import Modal from '../components/ui/Modal'
 import LoadingSkeleton from '../components/ui/LoadingSkeleton'
 import EmptyState from '../components/ui/EmptyState'
 import StatCard from '../components/ui/StatCard'
+import { getCurrentUser } from '../utils/auth'
 import {
   getLeaves,
   createLeave,
+  updateLeave,
   approveLeave,
   rejectLeave,
   getLeaveBalance,
@@ -30,6 +32,9 @@ const statusOptions = [
 const initialPolicy = { casual: 12, sick: 12, earned: 15 }
 
 function CompanyAdminLeavesPage() {
+  const currentUser = useMemo(() => getCurrentUser(), [])
+  const isHrUser = String(currentUser?.role || '').toLowerCase() === 'hr'
+  const selfEmployeeId = String(currentUser?.employeeId || currentUser?.id || currentUser?._id || '')
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [rows, setRows] = useState([])
@@ -45,6 +50,10 @@ function CompanyAdminLeavesPage() {
   const [policy, setPolicy] = useState(initialPolicy)
   const [createOpen, setCreateOpen] = useState(false)
   const [createForm, setCreateForm] = useState({ employeeId: '', leaveType: 'casual', startDate: '', endDate: '', reason: '' })
+  const [editOpen, setEditOpen] = useState(false)
+  const [editForm, setEditForm] = useState({ id: '', employeeId: '', leaveType: 'casual', startDate: '', endDate: '', reason: '' })
+  const [selfBalance, setSelfBalance] = useState(null)
+  const [selfBalanceLoading, setSelfBalanceLoading] = useState(false)
 
   const [rejectOpen, setRejectOpen] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
@@ -248,14 +257,80 @@ function CompanyAdminLeavesPage() {
     }
   }
 
+  const openEditLeave = (row) => {
+    setEditForm({
+      id: row.id,
+      employeeId: String(row.employeeId || ''),
+      leaveType: row.leaveType || 'casual',
+      startDate: row.startDate ? String(row.startDate).slice(0, 10) : '',
+      endDate: row.endDate ? String(row.endDate).slice(0, 10) : '',
+      reason: row.reason || ''
+    })
+    setEditOpen(true)
+  }
+
+  const onEditLeave = async (event) => {
+    event.preventDefault()
+    if (!editForm.id || !editForm.employeeId || !editForm.startDate || !editForm.endDate) {
+      setToast({ type: 'error', message: 'Employee, start date and end date are required' })
+      return
+    }
+    if (new Date(editForm.endDate) < new Date(editForm.startDate)) {
+      setToast({ type: 'error', message: 'End date cannot be before start date' })
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      const res = await updateLeave(editForm.id, {
+        employeeId: editForm.employeeId,
+        leaveType: editForm.leaveType,
+        startDate: editForm.startDate,
+        endDate: editForm.endDate,
+        reason: editForm.reason
+      })
+      const updated = res?.data
+      setRows((prev) => prev.map((item) => (item.id === updated?.id ? updated : item)))
+      setEditOpen(false)
+      setToast({ type: 'success', message: res?.message || 'Leave request updated successfully' })
+      await loadLeaves({ keepLoading: true })
+    } catch (err) {
+      setToast({ type: 'error', message: err?.response?.data?.message || 'Update leave failed' })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const openLeaveRequestModal = () => {
+    if (isHrUser && selfEmployeeId) {
+      setCreateForm((prev) => ({ ...prev, employeeId: selfEmployeeId }))
+      setSelfBalance(null)
+      setSelfBalanceLoading(true)
+      getLeaveBalance(selfEmployeeId)
+        .then((res) => setSelfBalance(res?.data || null))
+        .catch(() => setSelfBalance(null))
+        .finally(() => setSelfBalanceLoading(false))
+    }
+    setCreateOpen(true)
+  }
+
+  const createTotalDays = useMemo(() => {
+    if (!createForm.startDate || !createForm.endDate) return 0
+    const start = new Date(createForm.startDate)
+    const end = new Date(createForm.endDate)
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return 0
+    const diffMs = end.getTime() - start.getTime()
+    return Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1
+  }, [createForm.startDate, createForm.endDate])
+
   return (
     <section className="section-layout">
       <PageHeader
         title="Leaves"
         description="Review leave requests, approve/reject actions, and manage company leave policy."
         breadcrumb={['Company Admin', 'Leaves']}
-        primaryActionLabel="Create Leave"
-        onPrimaryAction={() => setCreateOpen(true)}
+        primaryActionLabel={isHrUser ? 'Apply Leave' : 'Create Leave'}
+        onPrimaryAction={openLeaveRequestModal}
       />
 
       {toast ? <div className={`toast ${toast.type === 'success' ? 'toast-success' : 'toast-error'}`}>{toast.message}</div> : null}
@@ -321,6 +396,7 @@ function CompanyAdminLeavesPage() {
                     <td>
                       <div className="table-actions">
                         <button className="text-btn" onClick={() => openDetails(row)}>View</button>
+                        {row.status === 'pending' ? <button className="text-btn" onClick={() => openEditLeave(row)} disabled={submitting}>Edit</button> : null}
                         {row.status === 'pending' ? <button className="text-btn" onClick={() => onApprove(row)} disabled={submitting}>Approve</button> : null}
                         {row.status === 'pending' ? <button className="text-btn danger" onClick={() => openReject(row)} disabled={submitting}>Reject</button> : null}
                       </div>
@@ -380,13 +456,31 @@ function CompanyAdminLeavesPage() {
         )}
       </Modal>
 
-      <Modal open={createOpen} title="Create Leave Request" onClose={() => { if (!submitting) setCreateOpen(false) }}>
+      <Modal open={createOpen} title={isHrUser ? 'Apply Leave' : 'Create Leave Request'} onClose={() => { if (!submitting) setCreateOpen(false) }}>
         <form className="modal-form" onSubmit={onCreateLeave}>
+          {isHrUser ? (
+            <div className="inline-action-card">
+              <strong>Applying As:</strong>
+              <span>{currentUser?.name || 'HR User'} ({selfEmployeeId || '-'})</span>
+            </div>
+          ) : null}
+          {isHrUser ? (
+            <div className="dashboard-mini-grid">
+              <div className="inline-action-card"><strong>Casual</strong><span>{selfBalanceLoading ? '...' : (selfBalance?.balance?.casual ?? 0)} left</span></div>
+              <div className="inline-action-card"><strong>Sick</strong><span>{selfBalanceLoading ? '...' : (selfBalance?.balance?.sick ?? 0)} left</span></div>
+              <div className="inline-action-card"><strong>Earned</strong><span>{selfBalanceLoading ? '...' : (selfBalance?.balance?.earned ?? 0)} left</span></div>
+            </div>
+          ) : null}
           <FilterDropdown
             label="Employee"
             value={createForm.employeeId}
             onChange={(value) => setCreateForm((prev) => ({ ...prev, employeeId: value }))}
-            options={[{ value: '', label: 'Select employee' }, ...employees.map((e) => ({ value: String(e.employeeId || e.id || e._id), label: `${e.name} (${e.employeeId || e.id || e._id})` }))]}
+            options={isHrUser
+              ? employees
+                .filter((e) => String(e.employeeId || e.id || e._id) === selfEmployeeId)
+                .map((e) => ({ value: String(e.employeeId || e.id || e._id), label: `${e.name} (${e.employeeId || e.id || e._id})` }))
+              : [{ value: '', label: 'Select employee' }, ...employees.map((e) => ({ value: String(e.employeeId || e.id || e._id), label: `${e.name} (${e.employeeId || e.id || e._id})` }))]
+            }
           />
           <FilterDropdown
             label="Leave Type"
@@ -396,8 +490,35 @@ function CompanyAdminLeavesPage() {
           />
           <FormInput label="Start Date" type="date" value={createForm.startDate} onChange={(e) => setCreateForm((prev) => ({ ...prev, startDate: e.target.value }))} />
           <FormInput label="End Date" type="date" value={createForm.endDate} onChange={(e) => setCreateForm((prev) => ({ ...prev, endDate: e.target.value }))} />
+          <div className="inline-action-card"><strong>Total Days:</strong><span>{createTotalDays || '-'}</span></div>
           <FormInput label="Reason" value={createForm.reason} onChange={(e) => setCreateForm((prev) => ({ ...prev, reason: e.target.value }))} placeholder="Enter reason" />
-          <Button type="submit" disabled={submitting}>{submitting ? 'Creating...' : 'Create Request'}</Button>
+          <Button type="submit" disabled={submitting}>{submitting ? (isHrUser ? 'Applying...' : 'Creating...') : (isHrUser ? 'Apply Leave' : 'Create Request')}</Button>
+        </form>
+      </Modal>
+
+      <Modal open={editOpen} title="Edit Leave Request" onClose={() => { if (!submitting) setEditOpen(false) }}>
+        <form className="modal-form" onSubmit={onEditLeave}>
+          <FilterDropdown
+            label="Employee"
+            value={editForm.employeeId}
+            onChange={(value) => setEditForm((prev) => ({ ...prev, employeeId: value }))}
+            options={isHrUser
+              ? employees
+                .filter((e) => String(e.employeeId || e.id || e._id) === selfEmployeeId)
+                .map((e) => ({ value: String(e.employeeId || e.id || e._id), label: `${e.name} (${e.employeeId || e.id || e._id})` }))
+              : [{ value: '', label: 'Select employee' }, ...employees.map((e) => ({ value: String(e.employeeId || e.id || e._id), label: `${e.name} (${e.employeeId || e.id || e._id})` }))]
+            }
+          />
+          <FilterDropdown
+            label="Leave Type"
+            value={editForm.leaveType}
+            onChange={(value) => setEditForm((prev) => ({ ...prev, leaveType: value }))}
+            options={[{ value: 'casual', label: 'Casual' }, { value: 'sick', label: 'Sick' }, { value: 'earned', label: 'Earned' }]}
+          />
+          <FormInput label="Start Date" type="date" value={editForm.startDate} onChange={(e) => setEditForm((prev) => ({ ...prev, startDate: e.target.value }))} />
+          <FormInput label="End Date" type="date" value={editForm.endDate} onChange={(e) => setEditForm((prev) => ({ ...prev, endDate: e.target.value }))} />
+          <FormInput label="Reason" value={editForm.reason} onChange={(e) => setEditForm((prev) => ({ ...prev, reason: e.target.value }))} placeholder="Enter reason" />
+          <Button type="submit" disabled={submitting}>{submitting ? 'Updating...' : 'Update Request'}</Button>
         </form>
       </Modal>
     </section>

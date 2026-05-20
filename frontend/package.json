@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@vladmandic/face-api": "^1.7.15",
     "axios": "^1.7.7",
     "framer-motion": "^12.38.0",
     "lucide-react": "^0.469.0",

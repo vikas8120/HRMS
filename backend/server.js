@@ -2,12 +2,16 @@ import cors from 'cors'
 import dotenv from 'dotenv'
 import express from 'express'
 import net from 'net'
+import path from 'path'
 import connectDB from './config/db.js'
 import { errorHandler, notFound } from './middleware/errorMiddleware.js'
 import superAdminAuthRoutes from './routes/superAdminAuthRoutes.js'
 import aiCenterRoutes from './routes/aiCenterRoutes.js'
 import superAdminManagementRoutes from './routes/superAdminManagementRoutes.js'
 import adminRoutes from './routes/adminRoutes.js'
+import hrRoutes from './routes/hrRoutes.js'
+import managerRoutes from './routes/managerRoutes.js'
+import employeeRoutes from './routes/employeeRoutes.js'
 import authRoutes from './routes/authRoutes.js'
 
 dotenv.config()
@@ -58,6 +62,7 @@ app.use(
 )
 
 app.use(express.json())
+app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')))
 
 app.get('/api/health', (_req, res) => {
   res.status(200).json({ status: 'ok', message: 'Server is healthy' })
@@ -68,6 +73,9 @@ app.use('/api/auth', authRoutes)
 app.use('/api/super-admin', superAdminManagementRoutes)
 app.use('/api/ai-center', aiCenterRoutes)
 app.use('/api/admin', adminRoutes)
+app.use('/api/hr', hrRoutes)
+app.use('/api/manager', managerRoutes)
+app.use('/api/employee', employeeRoutes)
 
 app.use(notFound)
 app.use(errorHandler)

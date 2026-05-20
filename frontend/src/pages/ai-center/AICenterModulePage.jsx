@@ -54,7 +54,7 @@ function AICenterModulePage({ page }) {
         listAutomationRules()
       ])
 
-      setInsights(insightResponses)
+      setInsights((insightResponses || []).map((response) => response?.data || {}))
       setSettings(st.items)
       setLogs(lg.items)
       setRules(rl.items)
@@ -103,9 +103,9 @@ function AICenterModulePage({ page }) {
       <div id="ai-insights-section" className="panel">
         <h3>AI Insights</h3>
         <div className="permission-grid">
-          {insights.map((insight) => (
-            <div key={insight.module} className="permission-card">
-              <h4>{insight.module}</h4>
+          {insights.map((insight, index) => (
+            <div key={insight.module || `insight-${index}`} className="permission-card">
+              <h4>{insight.module || '-'}</h4>
               <pre className="form-input" style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(insight.data || {}, null, 2)}</pre>
               <Button onClick={async () => { try { const res = await createAIUsageLog({ module: insight.module, action: 'VIEW_INSIGHT', usageCount: 1, actor: 'Super Admin' }); toastOk(res?.message || 'Usage log created'); load() } catch (error) { toastError(error?.response?.data?.message || 'Failed to log usage') } }}>Log Usage</Button>
             </div>

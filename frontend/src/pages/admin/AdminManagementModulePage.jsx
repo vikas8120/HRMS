@@ -82,9 +82,11 @@ function AdminManagementModulePage({ page }) {
   const [roleAssignmentForm, setRoleAssignmentForm] = useState({ adminId: '', role: '' })
   const [permissionRoleId, setPermissionRoleId] = useState('')
   const [permissionRows, setPermissionRows] = useState(defaultPermissions)
+  const [newRoleName, setNewRoleName] = useState('')
 
   const setSuccess = (message) => setToast({ type: 'success', message })
   const setError = (message) => setToast({ type: 'error', message })
+  const setInfo = (message) => setToast({ type: 'success', message })
 
   const loadBaseData = async () => {
     setLoading(true)
@@ -94,10 +96,10 @@ function AdminManagementModulePage({ page }) {
         fetchTenantCompanies(),
         fetchRoles()
       ])
-      setAdmins(adminsRes.items)
-      setPagination(adminsRes.pagination)
+      setAdmins(adminsRes?.items || [])
+      setPagination(adminsRes?.pagination || { page: 1, limit: 10, total: 0, totalPages: 1 })
       setCompanies(companiesRes.companies || [])
-      setRoles(rolesRes.items)
+      setRoles(rolesRes?.items || [])
     } catch (error) {
       setError(error?.response?.data?.message || 'Failed to load admin management data')
     } finally {
@@ -380,7 +382,7 @@ function AdminManagementModulePage({ page }) {
             {companies.map((company) => (
               <label key={company._id} className="checkbox-item">
                 <input type="checkbox" checked={assignCompaniesForm.companyIds.includes(company._id)} onChange={(e) => setAssignCompaniesForm((prev) => ({ ...prev, companyIds: e.target.checked ? [...prev.companyIds, company._id] : prev.companyIds.filter((id) => id !== company._id) }))} />
-                <span>{company.name}</span>
+                <span>{company.companyName}</span>
               </label>
             ))}
           </div>
@@ -404,14 +406,19 @@ function AdminManagementModulePage({ page }) {
   const renderResetPassword = () => (
     <div className="panel">
       <h3>Reset Password</h3>
+      {admins.length === 0 ? <EmptyState title="No admins available" description="Create an admin first, then reset password." /> : null}
       <div className="form-grid">
         <FilterDropdown label="Select Admin" value={resetPasswordForm.adminId} onChange={(value) => setResetPasswordForm((p) => ({ ...p, adminId: value }))} options={[{ value: '', label: 'Select admin' }, ...admins.map((a) => ({ value: a.id, label: `${a.name} (${a.email})` }))]} />
         <FormInput label="New Password" type="password" value={resetPasswordForm.password} onChange={(e) => setResetPasswordForm((p) => ({ ...p, password: e.target.value }))} />
         <FormInput label="Confirm Password" type="password" value={resetPasswordForm.confirmPassword} onChange={(e) => setResetPasswordForm((p) => ({ ...p, confirmPassword: e.target.value }))} />
       </div>
-      <Button onClick={async () => {
+      <p style={{ marginTop: 8, marginBottom: 8 }}>
+        <strong>Selected Admin:</strong> {admins.find((a) => a.id === resetPasswordForm.adminId)?.name || 'None'}
+      </p>
+      <Button disabled={!resetPasswordForm.adminId || !resetPasswordForm.password || !resetPasswordForm.confirmPassword || resetPasswordForm.password.length < 6 || resetPasswordForm.password !== resetPasswordForm.confirmPassword} onClick={async () => {
         if (!resetPasswordForm.adminId) return setError('Select admin')
         if (!resetPasswordForm.password) return setError('Password required')
+        if (resetPasswordForm.password.length < 6) return setError('Password must be at least 6 characters')
         if (resetPasswordForm.password !== resetPasswordForm.confirmPassword) return setError('Passwords do not match')
         try {
           await resetAdminPassword(resetPasswordForm.adminId, resetPasswordForm.password)
@@ -468,18 +475,19 @@ function AdminManagementModulePage({ page }) {
         columns={adminColumns}
         rows={adminRows}
         showViewAction={false}
-        onEdit={() => {}}
-        onDelete={() => {}}
+        showEditAction={false}
+        showDeleteAction={false}
       />
-      <div className="actions-row">
-        {admins.slice(0, 4).map((admin) => (
+      {admins.length === 0 ? <EmptyState title="No admins found" description="Create admins first to manage account status." /> : null}
+      <div className="actions-row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+        {admins.map((admin) => (
           <div className="inline-action-card" key={admin.id}>
-            <span>{admin.name}</span>
+            <span>{admin.name} ({admin.email})</span>
             <div className="actions-row">
-              <Button variant="ghost" onClick={() => updateAdminStatus(admin.id, 'locked').then(() => { setSuccess('Locked'); loadBaseData() }).catch(() => setError('Failed'))}>Lock</Button>
-              <Button variant="ghost" onClick={() => updateAdminStatus(admin.id, 'active').then(() => { setSuccess('Unlocked'); loadBaseData() }).catch(() => setError('Failed'))}>Unlock</Button>
-              <Button variant="danger" onClick={() => updateAdminStatus(admin.id, 'suspended').then(() => { setSuccess('Suspended'); loadBaseData() }).catch(() => setError('Failed'))}>Suspend</Button>
-              <Button onClick={() => updateAdminStatus(admin.id, 'active').then(() => { setSuccess('Activated'); loadBaseData() }).catch(() => setError('Failed'))}>Activate</Button>
+              <Button variant="ghost" onClick={() => updateAdminStatus(admin.id, 'locked').then(() => { setSuccess(`${admin.name} locked`); loadBaseData() }).catch((error) => setError(error?.response?.data?.message || 'Failed to lock admin'))}>Lock</Button>
+              <Button variant="ghost" onClick={() => updateAdminStatus(admin.id, 'active').then(() => { setSuccess(`${admin.name} unlocked`); loadBaseData() }).catch((error) => setError(error?.response?.data?.message || 'Failed to unlock admin'))}>Unlock</Button>
+              <Button variant="danger" onClick={() => updateAdminStatus(admin.id, 'suspended').then(() => { setSuccess(`${admin.name} suspended`); loadBaseData() }).catch((error) => setError(error?.response?.data?.message || 'Failed to suspend admin'))}>Suspend</Button>
+              <Button onClick={() => updateAdminStatus(admin.id, 'active').then(() => { setInfo(`${admin.name} activated`); loadBaseData() }).catch((error) => setError(error?.response?.data?.message || 'Failed to activate admin'))}>Activate</Button>
             </div>
           </div>
         ))}
@@ -490,11 +498,15 @@ function AdminManagementModulePage({ page }) {
   const renderRoleAssignment = () => (
     <div className="panel">
       <h3>Role Assignment</h3>
+      {admins.length === 0 ? <EmptyState title="No admins available" description="Create an admin first, then assign a role." /> : null}
       <div className="form-grid">
         <FilterDropdown label="Select Admin" value={roleAssignmentForm.adminId} onChange={(value) => setRoleAssignmentForm((p) => ({ ...p, adminId: value }))} options={[{ value: '', label: 'Select admin' }, ...admins.map((a) => ({ value: a.id, label: `${a.name} (${a.email})` }))]} />
         <FilterDropdown label="Select Role" value={roleAssignmentForm.role} onChange={(value) => setRoleAssignmentForm((p) => ({ ...p, role: value }))} options={[{ value: '', label: 'Select role' }, ...[...new Set(['COMPANY_ADMIN', 'HR_ADMIN', ...roles.map((r) => r.name)])].map((r) => ({ value: r, label: r }))]} />
       </div>
-      <Button onClick={async () => {
+      <p style={{ marginTop: 8, marginBottom: 8 }}>
+        <strong>Selected Admin:</strong> {admins.find((a) => a.id === roleAssignmentForm.adminId)?.name || 'None'}
+      </p>
+      <Button disabled={!roleAssignmentForm.adminId || !roleAssignmentForm.role} onClick={async () => {
         if (!roleAssignmentForm.adminId || !roleAssignmentForm.role) return setError('Select admin and role')
         try {
           await assignRoleToAdmin(roleAssignmentForm.adminId, roleAssignmentForm.role)
@@ -521,17 +533,38 @@ function AdminManagementModulePage({ page }) {
           }}
           options={[{ value: '', label: 'Select role' }, ...roles.map((r) => ({ value: r._id, label: r.name }))]}
         />
-        <FormInput label="Create Role" placeholder="Role name" onBlur={async (e) => {
-          if (!e.target.value) return
-          try {
-            await createRole({ name: e.target.value, permissions: defaultPermissions })
-            setSuccess('Role created')
-            const refreshed = await fetchRoles()
-            setRoles(refreshed.items)
-          } catch (error) {
-            setError(error?.response?.data?.message || 'Failed to create role')
-          }
-        }} />
+        <FormInput
+          label="Create Role"
+          placeholder="Role name"
+          value={newRoleName}
+          onChange={(e) => setNewRoleName(e.target.value)}
+        />
+      </div>
+      <div className="actions-row" style={{ marginBottom: 12 }}>
+        <Button
+          variant="ghost"
+          onClick={async () => {
+            const roleName = String(newRoleName || '').trim()
+            if (!roleName) return setError('Enter role name first')
+            try {
+              await createRole({ name: roleName, permissions: defaultPermissions })
+              setSuccess('Role created')
+              setNewRoleName('')
+              const refreshed = await fetchRoles()
+              const nextRoles = refreshed?.items || []
+              setRoles(nextRoles)
+              const created = nextRoles.find((r) => r.name === roleName)
+              if (created?._id) {
+                setPermissionRoleId(created._id)
+                setPermissionRows(created.permissions?.length ? created.permissions : defaultPermissions)
+              }
+            } catch (error) {
+              setError(error?.response?.data?.message || 'Failed to create role')
+            }
+          }}
+        >
+          Create Role
+        </Button>
       </div>
 
       {permissionRows.length === 0 ? <EmptyState title="No permissions configured" /> : (

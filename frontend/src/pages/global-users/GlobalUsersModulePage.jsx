@@ -8,6 +8,7 @@ import Modal from '../../components/ui/Modal'
 import FormInput from '../../components/ui/FormInput'
 import EmptyState from '../../components/ui/EmptyState'
 import LoadingSkeleton from '../../components/ui/LoadingSkeleton'
+import { formatDateTime } from '../../utils/dateFormat'
 import {
   bulkExportUsers,
   bulkImportUsers,
@@ -91,16 +92,16 @@ function GlobalUsersModulePage({ page }) {
   }, [page])
 
   const userCols = [{ key: 'name', label: 'Name' }, { key: 'email', label: 'Email' }, { key: 'phone', label: 'Phone' }, { key: 'company', label: 'Company' }, { key: 'role', label: 'Role' }, { key: 'status', label: 'Status' }, { key: 'lastLogin', label: 'Last Login' }]
-  const userRows = useMemo(() => users.map((u) => ({ id: u._id, name: u.name, email: u.email, phone: u.phone || '-', company: u.company?.companyName || '-', role: u.role, status: u.status, lastLogin: u.lastLogin ? new Date(u.lastLogin).toLocaleString() : '-' })), [users])
+  const userRows = useMemo(() => users.map((u) => ({ id: u._id, name: u.name, email: u.email, phone: u.phone || '-', company: u.company?.companyName || '-', role: u.role, status: u.status, lastLogin: u.lastLogin ? formatDateTime(u.lastLogin) : '-' })), [users])
 
   const loginCols = [{ key: 'user', label: 'User' }, { key: 'email', label: 'Email' }, { key: 'ipAddress', label: 'IP' }, { key: 'device', label: 'Device' }, { key: 'success', label: 'Status' }, { key: 'dateTime', label: 'Date/Time' }]
-  const loginRows = attempts.map((a) => ({ id: a._id, user: a.user?.name || '-', email: a.email || a.user?.email || '-', ipAddress: a.ipAddress || '-', device: a.device || '-', success: a.success ? 'active' : 'failed', dateTime: new Date(a.dateTime).toLocaleString() }))
+  const loginRows = attempts.map((a) => ({ id: a._id, user: a.user?.name || '-', email: a.email || a.user?.email || '-', ipAddress: a.ipAddress || '-', device: a.device || '-', success: a.success ? 'active' : 'failed', dateTime: formatDateTime(a.dateTime) }))
 
   const sessionCols = [{ key: 'user', label: 'User' }, { key: 'email', label: 'Email' }, { key: 'ipAddress', label: 'IP' }, { key: 'device', label: 'Device' }, { key: 'active', label: 'Status' }, { key: 'loggedInAt', label: 'Login At' }]
-  const sessionRows = sessions.map((s) => ({ id: s._id, user: s.user?.name || '-', email: s.user?.email || '-', ipAddress: s.ipAddress || '-', device: s.device || '-', active: s.active ? 'active' : 'inactive', loggedInAt: new Date(s.loggedInAt).toLocaleString() }))
+  const sessionRows = sessions.map((s) => ({ id: s._id, user: s.user?.name || '-', email: s.user?.email || '-', ipAddress: s.ipAddress || '-', device: s.device || '-', active: s.active ? 'active' : 'inactive', loggedInAt: formatDateTime(s.loggedInAt) }))
 
   const deviceCols = [{ key: 'user', label: 'User' }, { key: 'deviceType', label: 'Device' }, { key: 'os', label: 'OS' }, { key: 'browser', label: 'Browser' }, { key: 'ipAddress', label: 'IP' }, { key: 'dateTime', label: 'Date/Time' }]
-  const deviceRows = devices.map((d) => ({ id: d._id, user: d.user?.name || '-', deviceType: d.deviceType || '-', os: d.os || '-', browser: d.browser || '-', ipAddress: d.ipAddress || '-', dateTime: new Date(d.dateTime).toLocaleString() }))
+  const deviceRows = devices.map((d) => ({ id: d._id, user: d.user?.name || '-', deviceType: d.deviceType || '-', os: d.os || '-', browser: d.browser || '-', ipAddress: d.ipAddress || '-', dateTime: formatDateTime(d.dateTime) }))
 
   const saveUser = async () => {
     if (!form.name || !form.email) return toastError('Name and email are required')
@@ -229,7 +230,7 @@ function GlobalUsersModulePage({ page }) {
             <FormInput label="Company" value={viewUser.company?.companyName || '-'} disabled />
             <FormInput label="Role" value={viewUser.role || '-'} disabled />
             <FormInput label="Status" value={viewUser.status || '-'} disabled />
-            <FormInput label="Last Login" value={viewUser.lastLogin ? new Date(viewUser.lastLogin).toLocaleString() : '-'} disabled />
+            <FormInput label="Last Login" value={viewUser.lastLogin ? formatDateTime(viewUser.lastLogin) : '-'} disabled />
           </div>
         ) : <EmptyState title="No user selected" />}
         <div className="actions-row"><Button onClick={() => setViewModalOpen(false)}>Close</Button></div>

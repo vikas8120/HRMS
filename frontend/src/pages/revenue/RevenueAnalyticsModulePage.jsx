@@ -10,7 +10,8 @@ import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import LoadingSkeleton from '../../components/ui/LoadingSkeleton'
 import EmptyState from '../../components/ui/EmptyState'
 import { fetchCompanies } from '../../api/companyManagementApi'
-import { createPayment, deletePayment, listInvoices, listPayments, updatePayment } from '../../api/subscriptionBillingApi'
+import { createPayment, deletePayment, listInvoices, listPayments, listSubscriptions, updatePayment } from '../../api/subscriptionBillingApi'
+import { formatDateTime } from '../../utils/dateFormat'
 
 const revenueColumns = [
   { key: 'transactionRef', label: 'Transaction Ref' },
@@ -22,22 +23,29 @@ const revenueColumns = [
   { key: 'updatedAt', label: 'Updated' }
 ]
 
-const defaultForm = { company: '', invoice: '', amount: 0, method: 'card', status: 'pending', transactionRef: '' }
+const defaultForm = { company: '', invoice: '', amount: 0, method: 'card', status: 'completed', transactionRef: '', transactionDate: '' }
+const monthlyRevenuePage = 'Monthly Revenue'
+const annualRevenuePage = 'Annual Revenue'
+const revenueByPlanPage = 'Revenue by Plan'
+const topPayingCustomersPage = 'Top Paying Customers'
 
 function RevenueAnalyticsModulePage({ page }) {
   const [items, setItems] = useState([])
   const [invoices, setInvoices] = useState([])
   const [companies, setCompanies] = useState([])
+  const [subscriptions, setSubscriptions] = useState([])
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('all')
-  const [pagination, setPagination] = useState({ page: 1, limit: 10, totalPages: 1 })
+  const [pagination, setPagination] = useState({ page: 1, limit: 10 })
   const [toast, setToast] = useState({ type: '', message: '' })
 
   const [open, setOpen] = useState(false)
   const [viewOnly, setViewOnly] = useState(false)
   const [selectedId, setSelectedId] = useState('')
   const [form, setForm] = useState(defaultForm)
+  const [saveBusy, setSaveBusy] = useState(false)
+  const [formError, setFormError] = useState('')
 
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [targetId, setTargetId] = useState('')
@@ -48,15 +56,16 @@ function RevenueAnalyticsModulePage({ page }) {
   const load = async () => {
     setLoading(true)
     try {
-      const [paymentRes, invoiceRes, companyRes] = await Promise.all([
-        listPayments({ page: pagination.page, limit: pagination.limit, search, status }),
+      const [paymentRes, invoiceRes, companyRes, subscriptionRes] = await Promise.all([
+        listPayments({ page: 1, limit: 1000, search, status }),
         listInvoices({ page: 1, limit: 500, search: '' }),
-        fetchCompanies({ page: 1, limit: 500, search: '', status: 'all', plan: 'all' })
+        fetchCompanies({ page: 1, limit: 500, search: '', status: 'all', plan: 'all' }),
+        listSubscriptions({ page: 1, limit: 500, search: '', status: 'all' })
       ])
       setItems(paymentRes.items || [])
-      setPagination(paymentRes.pagination || { page: 1, limit: 10, totalPages: 1 })
       setInvoices(invoiceRes.items || [])
       setCompanies(companyRes.items || [])
+      setSubscriptions(subscriptionRes.items || [])
     } catch (error) {
       notifyError(error?.response?.data?.message || 'Failed to load revenue data')
     } finally {
@@ -67,26 +76,140 @@ function RevenueAnalyticsModulePage({ page }) {
   useEffect(() => {
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pagination.page, search, status])
+  }, [search, status])
 
-  const rows = useMemo(
-    () =>
-      items.map((item) => ({
+  useEffect(() => {
+    setPagination((p) => ({ ...p, page: 1 }))
+  }, [page, search, status])
+
+  const enrichedRows = useMemo(
+    () => {
+      const companyNameById = new Map((companies || []).map((c) => [String(c._id || c.id), c.companyName]))
+      const companyPlanById = new Map((companies || []).map((c) => [String(c._id || c.id), c.plan || '-']))
+      const invoiceNoById = new Map((invoices || []).map((i) => [String(i._id || i.id), i.invoiceNumber || i.invoiceNo]))
+      const planByCompanyId = new Map(
+        (subscriptions || []).map((s) => [String(s.company?._id || s.company || ''), s.plan?.name || s.plan || '-'])
+      )
+
+      return items.map((item) => ({
         id: item._id,
         transactionRef: item.transactionRef || `TX-${String(item._id || '').slice(-6).toUpperCase()}`,
-        company: item.company?.companyName || '-',
-        invoiceNumber: item.invoice?.invoiceNumber || '-',
+        company:
+          item.company?.companyName ||
+          item.companyName ||
+          companyNameById.get(String(item.company || '')) ||
+          item.company ||
+          '-',
+        invoiceNumber:
+          item.invoice?.invoiceNumber ||
+          item.invoiceNumber ||
+          item.invoiceNo ||
+          invoiceNoById.get(String(item.invoice || '')) ||
+          item.invoice ||
+          '-',
+        amountRaw: Number(item.amount || 0),
         amount: Number(item.amount || 0).toFixed(2),
         status: item.status || 'pending',
         method: item.method || '-',
-        updatedAt: item.updatedAt ? new Date(item.updatedAt).toLocaleString() : '-'
-      })),
-    [items]
+        transactionDateRaw: item.transactionDate ? new Date(item.transactionDate) : null,
+        updatedAt: item.transactionDate
+          ? formatDateTime(item.transactionDate)
+          : item.updatedAt
+            ? formatDateTime(item.updatedAt)
+            : '-',
+        updatedAtRaw: item.transactionDate ? new Date(item.transactionDate) : item.updatedAt ? new Date(item.updatedAt) : null,
+        plan:
+          item.plan?.name ||
+          planByCompanyId.get(String(item.company?._id || item.company || '')) ||
+          companyPlanById.get(String(item.company?._id || item.company || '')) ||
+          '-'
+      }))
+    },
+    [items, companies, invoices, subscriptions]
   )
+
+  const viewConfig = useMemo(() => {
+    const now = new Date()
+    const currentMonth = now.getMonth()
+    const currentYear = now.getFullYear()
+    const isPaid = (value) => ['paid', 'completed', 'success'].includes(String(value || '').toLowerCase())
+
+    if ((page || monthlyRevenuePage) === monthlyRevenuePage) {
+      const rows = enrichedRows.filter((row) => row.updatedAtRaw && row.updatedAtRaw.getMonth() === currentMonth && row.updatedAtRaw.getFullYear() === currentYear)
+      return { title: 'Monthly Revenue Records', rows, columns: revenueColumns, showActions: true, allowCreate: true, emptyTitle: 'No monthly revenue records found' }
+    }
+
+    if (page === annualRevenuePage) {
+      const rows = enrichedRows.filter((row) => row.updatedAtRaw && row.updatedAtRaw.getFullYear() === currentYear)
+      return { title: 'Annual Revenue Records', rows, columns: revenueColumns, showActions: true, allowCreate: true, emptyTitle: 'No annual revenue records found' }
+    }
+
+    if (page === revenueByPlanPage) {
+      const grouped = new Map()
+      for (const row of enrichedRows) {
+        if (!row.updatedAtRaw || row.updatedAtRaw.getFullYear() !== currentYear || !isPaid(row.status)) continue
+        const key = String(row.plan || '-')
+        const current = grouped.get(key) || { id: key, plan: key, transactions: 0, revenue: 0 }
+        current.transactions += 1
+        current.revenue += row.amountRaw
+        grouped.set(key, current)
+      }
+      const rows = [...grouped.values()].map((item) => ({ ...item, revenue: item.revenue.toFixed(2) }))
+      return {
+        title: 'Revenue By Plan',
+        rows,
+        columns: [{ key: 'plan', label: 'Plan' }, { key: 'transactions', label: 'Transactions' }, { key: 'revenue', label: 'Revenue' }],
+        showActions: false,
+        allowCreate: false,
+        emptyTitle: 'No revenue-by-plan data found'
+      }
+    }
+
+    if (page === topPayingCustomersPage) {
+      const grouped = new Map()
+      for (const row of enrichedRows) {
+        if (!isPaid(row.status)) continue
+        const key = String(row.company || '-')
+        const current = grouped.get(key) || { id: key, company: key, transactions: 0, totalPaid: 0, lastPaidAtRaw: null }
+        current.transactions += 1
+        current.totalPaid += row.amountRaw
+        if (row.updatedAtRaw && (!current.lastPaidAtRaw || row.updatedAtRaw > current.lastPaidAtRaw)) current.lastPaidAtRaw = row.updatedAtRaw
+        grouped.set(key, current)
+      }
+      const rows = [...grouped.values()]
+        .sort((a, b) => b.totalPaid - a.totalPaid)
+        .map((item) => ({
+          id: item.id,
+          company: item.company,
+          transactions: item.transactions,
+          totalPaid: item.totalPaid.toFixed(2),
+          lastPaidAt: item.lastPaidAtRaw ? formatDateTime(item.lastPaidAtRaw) : '-'
+        }))
+      return {
+        title: 'Top Paying Customers',
+        rows,
+        columns: [{ key: 'company', label: 'Company' }, { key: 'transactions', label: 'Transactions' }, { key: 'totalPaid', label: 'Total Paid' }, { key: 'lastPaidAt', label: 'Last Payment' }],
+        showActions: false,
+        allowCreate: false,
+        emptyTitle: 'No top customer data found'
+      }
+    }
+
+    return { title: `${page || monthlyRevenuePage} Records`, rows: enrichedRows, columns: revenueColumns, showActions: true, allowCreate: true, emptyTitle: 'No revenue records found' }
+  }, [enrichedRows, page])
+
+  const pagedRows = useMemo(() => {
+    const start = (pagination.page - 1) * pagination.limit
+    return viewConfig.rows.slice(start, start + pagination.limit)
+  }, [viewConfig.rows, pagination.page, pagination.limit])
+
+  const totalPages = Math.max(1, Math.ceil(viewConfig.rows.length / pagination.limit))
+  const isCrudView = viewConfig.showActions
 
   const openCreate = () => {
     setSelectedId('')
     setForm(defaultForm)
+    setFormError('')
     setViewOnly(false)
     setOpen(true)
   }
@@ -96,13 +219,15 @@ function RevenueAnalyticsModulePage({ page }) {
     if (!found) return
     setSelectedId(found._id)
     setForm({
-      company: found.company?._id || '',
-      invoice: found.invoice?._id || '',
+      company: found.company?._id || found.company || '',
+      invoice: found.invoice?._id || found.invoice || '',
       amount: Number(found.amount || 0),
       method: found.method || 'card',
       status: found.status || 'pending',
-      transactionRef: found.transactionRef || ''
+      transactionRef: found.transactionRef || '',
+      transactionDate: found.transactionDate ? new Date(found.transactionDate).toISOString().slice(0, 10) : ''
     })
+    setFormError('')
     setViewOnly(true)
     setOpen(true)
   }
@@ -112,29 +237,35 @@ function RevenueAnalyticsModulePage({ page }) {
     if (!found) return
     setSelectedId(found._id)
     setForm({
-      company: found.company?._id || '',
-      invoice: found.invoice?._id || '',
+      company: found.company?._id || found.company || '',
+      invoice: found.invoice?._id || found.invoice || '',
       amount: Number(found.amount || 0),
       method: found.method || 'card',
       status: found.status || 'pending',
-      transactionRef: found.transactionRef || ''
+      transactionRef: found.transactionRef || '',
+      transactionDate: found.transactionDate ? new Date(found.transactionDate).toISOString().slice(0, 10) : ''
     })
+    setFormError('')
     setViewOnly(false)
     setOpen(true)
   }
 
   const save = async () => {
     if (!form.company || Number(form.amount) <= 0) {
+      setFormError('Please select company and enter amount greater than 0.')
       return notifyError('Company and valid amount are required')
     }
     try {
+      setSaveBusy(true)
+      setFormError('')
       const payload = {
         company: form.company,
         invoice: form.invoice || undefined,
         amount: Number(form.amount),
         method: form.method,
         status: form.status,
-        transactionRef: form.transactionRef || undefined
+        transactionRef: form.transactionRef || undefined,
+        transactionDate: form.transactionDate ? new Date(form.transactionDate).toISOString() : undefined
       }
       if (selectedId) {
         await updatePayment(selectedId, payload)
@@ -147,6 +278,9 @@ function RevenueAnalyticsModulePage({ page }) {
       await load()
     } catch (error) {
       notifyError(error?.response?.data?.message || 'Failed to save revenue record')
+      setFormError(error?.response?.data?.message || 'Failed to save revenue record')
+    } finally {
+      setSaveBusy(false)
     }
   }
 
@@ -169,8 +303,8 @@ function RevenueAnalyticsModulePage({ page }) {
         title="Revenue & Analytics"
         description="Live revenue records from payment transactions with real database CRUD."
         breadcrumb={['Super Admin', 'Revenue & Analytics', page || 'Monthly Revenue']}
-        primaryActionLabel="Add Revenue"
-        onPrimaryAction={openCreate}
+        primaryActionLabel={viewConfig.allowCreate ? 'Add Revenue' : undefined}
+        onPrimaryAction={viewConfig.allowCreate ? openCreate : undefined}
       />
 
       {toast.message ? <div className={`toast toast-${toast.type}`}>{toast.message}</div> : null}
@@ -189,7 +323,9 @@ function RevenueAnalyticsModulePage({ page }) {
               { value: 'all', label: 'All' },
               { value: 'pending', label: 'Pending' },
               { value: 'paid', label: 'Paid' },
+              { value: 'completed', label: 'Completed' },
               { value: 'failed', label: 'Failed' },
+              { value: 'success', label: 'Success' },
               { value: 'refunded', label: 'Refunded' }
             ]}
           />
@@ -198,16 +334,20 @@ function RevenueAnalyticsModulePage({ page }) {
 
       <div className="panel">
         <div className="panel-head">
-          <h3>{page || 'Monthly Revenue'} Records</h3>
-          <Button onClick={openCreate}>Add</Button>
+          <h3>{viewConfig.title}</h3>
+          {viewConfig.allowCreate ? <Button onClick={openCreate}>Add</Button> : null}
         </div>
         {loading ? (
           <LoadingSkeleton rows={8} />
-        ) : rows.length ? (
+        ) : viewConfig.rows.length ? (
           <>
             <DataTable
-              columns={revenueColumns}
-              rows={rows}
+              columns={viewConfig.columns}
+              rows={pagedRows}
+              showActions={isCrudView}
+              showViewAction={isCrudView}
+              showEditAction={isCrudView}
+              showDeleteAction={isCrudView}
               onView={openView}
               onEdit={openEdit}
               onDelete={(row) => {
@@ -217,12 +357,12 @@ function RevenueAnalyticsModulePage({ page }) {
             />
             <div className="pagination-row">
               <Button variant="ghost" disabled={pagination.page <= 1} onClick={() => setPagination((p) => ({ ...p, page: p.page - 1 }))}>Prev</Button>
-              <span>Page {pagination.page} of {pagination.totalPages || 1}</span>
-              <Button variant="ghost" disabled={pagination.page >= pagination.totalPages} onClick={() => setPagination((p) => ({ ...p, page: p.page + 1 }))}>Next</Button>
+              <span>Page {pagination.page} of {totalPages}</span>
+              <Button variant="ghost" disabled={pagination.page >= totalPages} onClick={() => setPagination((p) => ({ ...p, page: p.page + 1 }))}>Next</Button>
             </div>
           </>
         ) : (
-          <EmptyState title="No revenue records found" description="Create your first revenue transaction to begin analytics tracking." />
+          <EmptyState title={viewConfig.emptyTitle} description="Try adjusting filters or add a new transaction in revenue views." />
         )}
       </div>
 
@@ -233,7 +373,7 @@ function RevenueAnalyticsModulePage({ page }) {
             value={form.company}
             onChange={(value) => setForm((p) => ({ ...p, company: value }))}
             disabled={viewOnly}
-            options={[{ value: '', label: 'Select company' }, ...companies.map((company) => ({ value: company.id || company._id, label: company.companyName }))]}
+            options={[{ value: '', label: 'Select company' }, ...companies.map((company) => ({ value: company._id || company.id, label: company.companyName }))]}
           />
           <FilterDropdown
             label="Invoice"
@@ -244,6 +384,7 @@ function RevenueAnalyticsModulePage({ page }) {
           />
           <FormInput label="Amount" type="number" value={form.amount} onChange={(e) => setForm((p) => ({ ...p, amount: Number(e.target.value) }))} disabled={viewOnly} />
           <FormInput label="Transaction Ref" value={form.transactionRef} onChange={(e) => setForm((p) => ({ ...p, transactionRef: e.target.value }))} disabled={viewOnly} />
+          <FormInput label="Transaction Date" type="date" value={form.transactionDate} onChange={(e) => setForm((p) => ({ ...p, transactionDate: e.target.value }))} disabled={viewOnly} />
           <FilterDropdown
             label="Method"
             value={form.method}
@@ -259,10 +400,11 @@ function RevenueAnalyticsModulePage({ page }) {
             options={[{ value: 'pending', label: 'Pending' }, { value: 'paid', label: 'Paid' }, { value: 'failed', label: 'Failed' }, { value: 'refunded', label: 'Refunded' }]}
           />
         </div>
+        {formError ? <div className="field-error" style={{ marginTop: 8 }}>{formError}</div> : null}
         {viewOnly ? null : (
           <div className="actions-row">
             <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={save}>Save</Button>
+            <Button onClick={save} disabled={saveBusy}>{saveBusy ? 'Saving...' : 'Save'}</Button>
           </div>
         )}
       </Modal>

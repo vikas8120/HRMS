@@ -40,7 +40,8 @@ import PageHeader from '../components/ui/PageHeader'
 import LoadingSkeleton from '../components/ui/LoadingSkeleton'
 import EmptyState from '../components/ui/EmptyState'
 import Button from '../components/ui/Button'
-import { getDashboardStats, getOverview } from '../api/dashboardApi'
+import { getDashboardStats, getOverview, listDashboardSectionWidgets, listPlatformOverviewItems } from '../api/dashboardApi'
+import { logout as clearAuth } from '../utils/auth'
 
 const formatCurrency = (value) => Number(value || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 const formatCompact = (value) => Number(value || 0).toLocaleString('en-US', { notation: 'compact', maximumFractionDigits: 1 })
@@ -61,97 +62,40 @@ const timeAgo = (value) => {
   return `${Math.floor(hrs / 24)} d ago`
 }
 
-const demoOverviewData = {
-  stats: {
-    totalCompanies: 128,
-    activeCompanies: 104,
-    totalUsers: 12480,
-    activeUsers: 9862,
-    activeSubscriptions: 92,
-    monthlyRevenue: 4281900,
-    systemHealth: 'Optimal'
-  },
-  revenueDeals: [
-    { month: 'Jan', revenue: 2200000, deals: 82 },
-    { month: 'Feb', revenue: 2480000, deals: 91 },
-    { month: 'Mar', revenue: 2310000, deals: 87 },
-    { month: 'Apr', revenue: 2960000, deals: 109 },
-    { month: 'May', revenue: 3340000, deals: 118 },
-    { month: 'Jun', revenue: 3720000, deals: 124 }
-  ],
-  leadSources: [
-    { source: 'Facebook', value: 32 },
-    { source: 'Instagram', value: 18 },
-    { source: 'LinkedIn', value: 15 },
-    { source: 'Website', value: 22 },
-    { source: 'WhatsApp', value: 8 },
-    { source: 'Referral', value: 5 }
-  ],
-  salesFunnel: [
-    { stage: 'Leads', count: 980 },
-    { stage: 'Demo Booked', count: 640 },
-    { stage: 'Proposal', count: 380 },
-    { stage: 'Paid', count: 210 }
-  ],
-  supportSummary: { totalTickets: 112, openTickets: 24, pendingTickets: 18, resolvedTickets: 70 },
-  aiInsights: [
-    { title: 'Revenue Growth', message: 'Monthly revenue is up 12.4% vs last month.', severity: 'success' },
-    { title: 'Lead Quality', message: 'LinkedIn campaigns show highest close probability.', severity: 'info' },
-    { title: 'Churn Risk', message: '4 enterprise accounts need proactive outreach.', severity: 'warning' }
-  ],
-  recentActivities: [
-    { title: 'New Enterprise Deal', description: 'Acme Corp signed annual plan.', type: 'sales', createdAt: new Date().toISOString() },
-    { title: 'Ticket Resolved', description: 'Priority support issue closed for NeoTech.', type: 'support', createdAt: new Date(Date.now() - 3600 * 1000).toISOString() },
-    { title: 'Payment Captured', description: 'Subscription payment received from Quantum Analytics.', type: 'billing', createdAt: new Date(Date.now() - 2 * 3600 * 1000).toISOString() }
-  ]
-}
-
-const demoStatsMeta = {
-  systemHealth: {
-    apiStatus: 'Operational',
-    databaseStatus: 'Operational',
-    storageStatus: 'Operational',
-    uptime: '99.98%'
-  }
-}
-
-const demoRevenueTrendData = [
-  { month: 'Jan', revenue: 2200000 },
-  { month: 'Feb', revenue: 2480000 },
-  { month: 'Mar', revenue: 2310000 },
-  { month: 'Apr', revenue: 2960000 },
-  { month: 'May', revenue: 3340000 },
-  { month: 'Jun', revenue: 3720000 }
-]
-
-const demoTicketDistribution = [
-  { name: 'Open', value: 24 },
-  { name: 'Pending', value: 18 },
-  { name: 'Resolved', value: 70 }
-]
-
 function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [overview, setOverview] = useState(null)
   const [statsMeta, setStatsMeta] = useState(null)
+  const [platformOverviewRows, setPlatformOverviewRows] = useState([])
+  const [platformWidgets, setPlatformWidgets] = useState([])
+  const [platformDataError, setPlatformDataError] = useState('')
   const [revenueView, setRevenueView] = useState('6m')
   const [dateFilter, setDateFilter] = useState('this-month')
 
   const loadDashboard = async () => {
     setLoading(true)
     setError('')
+    setPlatformDataError('')
     try {
-      const [overviewRes, statsRes] = await Promise.all([getOverview(), getDashboardStats()])
+      const [overviewRes, statsRes, platformOverviewRes, widgetRes] = await Promise.all([
+        getOverview(),
+        getDashboardStats(),
+        listPlatformOverviewItems({ page: 1, limit: 20, search: '', status: 'all' }),
+        listDashboardSectionWidgets('platform-overview', { page: 1, limit: 20, search: '', status: 'all' })
+      ])
       setOverview(overviewRes?.data || null)
       setStatsMeta(statsRes?.data || null)
+      setPlatformOverviewRows(platformOverviewRes?.items || [])
+      setPlatformWidgets(widgetRes?.items || [])
     } catch (err) {
       if (err?.response?.status === 401) {
-        localStorage.removeItem('super_admin_token')
+        clearAuth()
         window.location.href = '/login'
         return
       }
       setError(err?.response?.data?.message || 'Failed to load dashboard data')
+      setPlatformDataError(err?.response?.data?.message || 'Failed to load platform overview/widgets')
     } finally {
       setLoading(false)
     }
@@ -161,18 +105,8 @@ function DashboardPage() {
     loadDashboard()
   }, [])
 
-  const shouldUseDemoData = useMemo(() => {
-    if (!overview) return false
-    const stats = overview.stats || {}
-    const noCoreStats = Number(stats.totalCompanies || 0) === 0
-      && Number(stats.totalUsers || 0) === 0
-      && Number(stats.monthlyRevenue || 0) === 0
-    const noRevenue = !(overview.revenueDeals || []).some((r) => Number(r.revenue || 0) > 0 || Number(r.deals || 0) > 0)
-    return noCoreStats && noRevenue
-  }, [overview])
-
-  const displayOverview = shouldUseDemoData ? demoOverviewData : overview
-  const displayStatsMeta = shouldUseDemoData ? demoStatsMeta : statsMeta
+  const displayOverview = overview
+  const displayStatsMeta = statsMeta
 
   const revenueDeals = useMemo(() => {
     const source = displayOverview?.revenueDeals || []
@@ -197,13 +131,17 @@ function DashboardPage() {
   const cards = useMemo(
     () => [
       { title: 'Total Companies', value: String(displayOverview?.stats?.totalCompanies ?? 0), trend: `${displayOverview?.stats?.activeCompanies ?? 0} active companies`, icon: Building2, trendTone: 'info' },
+      { title: 'Active Companies', value: String(displayOverview?.stats?.activeCompanies ?? 0), trend: `${displayOverview?.stats?.totalCompanies ?? 0} total companies`, icon: Building2, trendTone: 'success' },
+      { title: 'Total Admins', value: String(displayOverview?.stats?.totalAdmins ?? 0), trend: 'Company admins', icon: CreditCard, trendTone: 'info' },
       { title: 'Active Users', value: String(displayOverview?.stats?.activeUsers ?? 0), trend: `${displayOverview?.stats?.totalUsers ?? 0} total users`, icon: Users, trendTone: 'success' },
       { title: 'Active Subscriptions', value: String(displayOverview?.stats?.activeSubscriptions ?? 0), trend: `${revenueGrowth >= 0 ? '+' : ''}${revenueGrowth.toFixed(1)}% this period`, icon: Receipt, trendTone: revenueGrowth >= 0 ? 'success' : 'danger' },
       { title: 'Monthly Revenue', value: formatCurrency(displayOverview?.stats?.monthlyRevenue ?? 0), trend: `${formatCompact(displayOverview?.stats?.monthlyRevenue ?? 0)} booked`, icon: BarChart3, trendTone: 'success' },
-      { title: 'Support Tickets', value: String(support.totalTickets ?? 0), trend: `${support.openTickets ?? 0} open · ${support.pendingTickets ?? 0} pending`, icon: LifeBuoy, trendTone: 'warning' },
-      { title: 'System Health', value: displayOverview?.stats?.systemHealth ?? 'Unknown', trend: `${systemHealth.uptime || 'N/A'} uptime`, icon: ShieldCheck, trendTone: 'success' }
+      { title: 'Support Ticket Summary', value: String(support.totalTickets ?? 0), trend: `${support.openTickets ?? 0} open - ${support.pendingTickets ?? 0} pending`, icon: LifeBuoy, trendTone: 'warning' },
+      { title: 'System Health Status', value: displayOverview?.stats?.systemHealth ?? 'Unknown', trend: `${systemHealth.uptime || 'N/A'} uptime`, icon: ShieldCheck, trendTone: 'success' },
+      { title: 'Recent Activities', value: String(activities.length || 0), trend: 'Latest platform events', icon: Activity, trendTone: 'info' },
+      { title: 'Platform Overview Widgets', value: String((platformOverviewRows?.length || 0) + (platformWidgets?.length || 0)), trend: `${platformOverviewRows?.length || 0} overview + ${platformWidgets?.length || 0} widgets`, icon: Sparkles, trendTone: 'info' }
     ],
-    [displayOverview, support, revenueGrowth, systemHealth]
+    [displayOverview, support, revenueGrowth, systemHealth, activities.length, platformOverviewRows.length, platformWidgets.length]
   )
 
   const exportCsv = () => {
@@ -256,11 +194,9 @@ function DashboardPage() {
     { name: 'Resolved', value: Number(support.resolvedTickets || 0) }
   ]
   const hasTicketData = supportChartData.some((item) => Number(item.value || 0) > 0)
-  const ticketChartDisplayData = hasTicketData ? supportChartData : demoTicketDistribution
+  const ticketChartDisplayData = supportChartData
   const leadRadarData = leadSources.map((entry) => ({ source: entry.source, value: Number(entry.value || 0) }))
-  const revenueTrendDisplayData = hasMeaningfulRevenueData
-    ? revenueDeals.map((item) => ({ month: item.month, revenue: Number(item.revenue || 0) }))
-    : demoRevenueTrendData
+  const revenueTrendDisplayData = revenueDeals.map((item) => ({ month: item.month, revenue: Number(item.revenue || 0) }))
 
   return (
     <section className="section-layout dashboard-premium">
@@ -332,7 +268,7 @@ function DashboardPage() {
           ) : (
             <div className="revenue-grid">
               {revenueDeals.map((item) => (
-                <div key={item.month} className="revenue-bar-item" title={`${item.month}: ${formatCurrency(item.revenue)} · Deals ${item.deals}`}>
+                <div key={item.month} className="revenue-bar-item" title={`${item.month}: ${formatCurrency(item.revenue)} - Deals ${item.deals}`}>
                   <div className="bars-wrap">
                     <span className="bar revenue" style={{ height: `${Math.max((Number(item.revenue || 0) / maxRevenue) * 100, 6)}%` }} />
                     <span className="bar deals" style={{ height: `${Math.max((Number(item.deals || 0) / maxDeals) * 100, 6)}%` }} />
@@ -380,7 +316,7 @@ function DashboardPage() {
                   <div key={item.stage} className="funnel-row">
                     <div className="funnel-label">
                       <strong>{item.stage}</strong>
-                      <span>{item.count} · {pct}%</span>
+                      <span>{item.count} - {pct}%</span>
                     </div>
                     <div className="funnel-track"><span style={{ width: `${Math.max(pct, 4)}%` }} /></div>
                     <small>Conversion: {conv}%</small>
@@ -534,10 +470,26 @@ function DashboardPage() {
                 <div>
                   <strong>{item.title}</strong>
                   <p>{item.description}</p>
-                  <small>{timeAgo(item.createdAt)} · {item.type}</small>
+                  <small>{timeAgo(item.createdAt)} - {item.type}</small>
                 </div>
               </div>
             ))}
+          </div>
+        )}
+      </article>
+
+      <article className="panel">
+        <div className="panel-head"><h3>Platform Overview Widgets</h3></div>
+        {loading ? <LoadingSkeleton rows={4} /> : platformDataError ? (
+          <EmptyState title="Failed to load platform overview/widgets" description={platformDataError} />
+        ) : (platformOverviewRows.length === 0 && platformWidgets.length === 0) ? (
+          <EmptyState title="No platform overview widgets found" description="Create platform overview records or dashboard widgets to populate this section." />
+        ) : (
+          <div className="modal-form">
+            <div><strong>Platform Overview Items:</strong> {platformOverviewRows.length}</div>
+            <div><strong>Dashboard Widgets:</strong> {platformWidgets.length}</div>
+            <div><strong>Latest Overview:</strong> {platformOverviewRows[0]?.name || '-'}</div>
+            <div><strong>Latest Widget:</strong> {platformWidgets[0]?.name || '-'}</div>
           </div>
         )}
       </article>

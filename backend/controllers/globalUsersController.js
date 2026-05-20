@@ -23,16 +23,19 @@ const writeAudit = async (req, action, description, metadata = {}) => {
 }
 
 export const listGlobalUsers = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 10, search = '', status = 'all' } = req.query
+  const page = Math.max(Number(req.query.page || 1), 1)
+  const limit = Math.min(Math.max(Number(req.query.limit || 10), 1), 200)
+  const search = String(req.query.search || '')
+  const status = String(req.query.status || 'all')
   const query = {}
   if (search) query.$or = [{ name: { $regex: search, $options: 'i' } }, { email: { $regex: search, $options: 'i' } }]
   if (status !== 'all') query.status = status
-  const skip = (Number(page) - 1) * Number(limit)
+  const skip = (page - 1) * limit
   const [items, total] = await Promise.all([
-    GlobalUser.find(query).populate('company', 'companyName').sort({ createdAt: -1 }).skip(skip).limit(Number(limit)),
+    GlobalUser.find(query).populate('company', 'companyName').sort({ createdAt: -1 }).skip(skip).limit(limit),
     GlobalUser.countDocuments(query)
   ])
-  const pagination = { page: Number(page), limit: Number(limit), total, totalPages: Math.ceil(total / Number(limit)) }
+  const pagination = { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) }
   respond(res, 200, 'Global users fetched successfully', { items, pagination })
 })
 

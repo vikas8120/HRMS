@@ -31,16 +31,19 @@ const writeAudit = async (req, action, description, metadata = {}) => {
 }
 
 export const listTickets = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 10, search = '', status = 'all' } = req.query
+  const page = Math.max(Number(req.query.page || 1), 1)
+  const limit = Math.min(Math.max(Number(req.query.limit || 10), 1), 200)
+  const search = String(req.query.search || '')
+  const status = String(req.query.status || 'all')
   const query = {}
   if (search) query.$or = [{ ticketNo: { $regex: search, $options: 'i' } }, { subject: { $regex: search, $options: 'i' } }]
   if (status !== 'all') query.status = status
-  const skip = (Number(page) - 1) * Number(limit)
+  const skip = (page - 1) * limit
   const [items, total] = await Promise.all([
-    SupportTicket.find(query).populate('company', 'companyName').populate('raisedBy', 'name email').populate('assignedAgent', 'name email').populate('category', 'name slaHours').sort({ createdAt: -1 }).skip(skip).limit(Number(limit)),
+    SupportTicket.find(query).populate('company', 'companyName').populate('raisedBy', 'name email').populate('assignedAgent', 'name email').populate('category', 'name slaHours').sort({ createdAt: -1 }).skip(skip).limit(limit),
     SupportTicket.countDocuments(query)
   ])
-  respond(res, 200, 'Support tickets fetched successfully', { data: items, items, pagination: { page: Number(page), limit: Number(limit), total, totalPages: Math.ceil(total / Number(limit)) } })
+  respond(res, 200, 'Support tickets fetched successfully', { data: items, items, pagination: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) } })
 })
 
 export const createTicket = asyncHandler(async (req, res) => {

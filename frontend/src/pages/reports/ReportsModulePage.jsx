@@ -48,6 +48,7 @@ function ReportsModulePage({ page }) {
   const [filterText, setFilterText] = useState('')
   const [selectedType, setSelectedType] = useState('Tenant Reports')
   const [loading, setLoading] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
 
   const load = async () => {
     setLoading(true)
@@ -61,7 +62,14 @@ function ReportsModulePage({ page }) {
     }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    const today = new Date()
+    const prior = new Date()
+    prior.setDate(today.getDate() - 30)
+    setToDate(today.toISOString().slice(0, 10))
+    setFromDate(prior.toISOString().slice(0, 10))
+    load()
+  }, [])
 
   useEffect(() => {
     if (reportTypes.includes(page)) setSelectedType(page)
@@ -85,13 +93,22 @@ function ReportsModulePage({ page }) {
   })), [rows])
 
   const runGenerate = async (fmt) => {
+    if (submitting) return
     if (!fromDate || !toDate) return setToast({ type: 'error', message: 'Select date range' })
+    if (new Date(fromDate) > new Date(toDate)) return setToast({ type: 'error', message: 'From Date cannot be after To Date' })
+    const normalizedFormat = String(fmt || format || '').trim().toLowerCase()
+    if (!['csv', 'pdf', 'xlsx'].includes(normalizedFormat)) {
+      return setToast({ type: 'error', message: 'Format must be csv, pdf, or xlsx' })
+    }
     try {
-      const res = await generateReport({ reportType: selectedType, fromDate, toDate, format: fmt, filters: { query: filterText } })
-      setToast({ type: 'success', message: res?.message || `${fmt.toUpperCase()} report generated successfully: ${res.downloadUrl}` })
-      load()
+      setSubmitting(true)
+      const res = await generateReport({ reportType: selectedType, fromDate, toDate, format: normalizedFormat, filters: { query: filterText } })
+      setToast({ type: 'success', message: res?.message || `${normalizedFormat.toUpperCase()} report generated successfully` })
+      await load()
     } catch (error) {
       setToast({ type: 'error', message: error?.response?.data?.message || 'Failed to generate report' })
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -118,12 +135,17 @@ function ReportsModulePage({ page }) {
           <FormInput label="From Date" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
           <FormInput label="To Date" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
           <FormInput label="Filter" value={filterText} onChange={(e) => setFilterText(e.target.value)} placeholder="Optional filter" />
-          <FormInput label="Format" value={format} onChange={(e) => setFormat(e.target.value)} placeholder="csv/pdf" />
+          <FilterDropdown
+            label="Format"
+            value={format}
+            onChange={setFormat}
+            options={[{ value: 'csv', label: 'CSV' }, { value: 'pdf', label: 'PDF' }, { value: 'xlsx', label: 'XLSX' }]}
+          />
         </div>
         <div className="actions-row">
-          <Button onClick={() => runGenerate(format)}>Generate Report</Button>
-          <Button variant="ghost" onClick={() => runGenerate('csv')}>Export CSV</Button>
-          <Button variant="ghost" onClick={() => runGenerate('pdf')}>Export PDF</Button>
+          <Button disabled={submitting} onClick={() => runGenerate(format)}>{submitting ? 'Generating...' : 'Generate Report'}</Button>
+          <Button variant="ghost" disabled={submitting} onClick={() => runGenerate('csv')}>Export CSV</Button>
+          <Button variant="ghost" disabled={submitting} onClick={() => runGenerate('pdf')}>Export PDF</Button>
         </div>
       </div>
 

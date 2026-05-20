@@ -8,7 +8,7 @@ import Button from '../components/ui/Button'
 function LoginPage() {
   const { user, login, authLoading } = useAuth()
   const navigate = useNavigate()
-  const [email, setEmail] = useState('')
+  const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -29,10 +29,14 @@ function LoginPage() {
     setLoading(true)
 
     try {
-      const response = await login(email, password)
+      const response = await login(identifier, password)
       navigate(response?.redirectUrl || '/login', { replace: true })
     } catch (err) {
-      setError(err?.response?.data?.message || 'Invalid credentials')
+      if (!err?.response) {
+        setError('Unable to reach server. Start backend API and try again.')
+      } else {
+        setError(err?.response?.data?.message || 'Invalid credentials')
+      }
     } finally {
       setLoading(false)
     }
@@ -44,7 +48,7 @@ function LoginPage() {
         <h1 className="login-title">Welcome Back</h1>
         <p className="login-subtitle">Sign in with your work credentials.</p>
         {error ? <div className="toast toast-error">{error}</div> : null}
-        <FormInput label="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <FormInput label="Email or Admin ID" value={identifier} onChange={(e) => setIdentifier(e.target.value)} />
         <label className="form-input-wrap">
           <span>Password</span>
           <div className="password-input-wrap">

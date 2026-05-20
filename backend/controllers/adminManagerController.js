@@ -1,6 +1,7 @@
 import asyncHandler from '../utils/asyncHandler.js'
 import User from '../models/User.js'
 import bcrypt from 'bcryptjs'
+import Department from '../models/Department.js'
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const ALLOWED_STATUS = new Set(['active', 'inactive'])
@@ -110,6 +111,10 @@ export const createManager = asyncHandler(async (req, res) => {
   if (exists) return res.status(409).json({ success: false, message: 'Email already exists' })
 
   const hashed = await bcrypt.hash(password, 10)
+  if (departmentId) {
+    const dept = await Department.findOne({ _id: departmentId, companyId: req.user.companyId })
+    if (!dept) return res.status(400).json({ success: false, message: 'Invalid department for this company' })
+  }
 
   const employeeIds = Array.isArray(assignedEmployees) ? assignedEmployees.map(String) : []
   const validEmployees = employeeIds.length
@@ -129,6 +134,12 @@ export const createManager = asyncHandler(async (req, res) => {
     role: 'manager',
     status: normalizedStatus
   })
+  if (validEmployeeIds.length) {
+    await User.updateMany(
+      { _id: { $in: validEmployeeIds }, companyId: req.user.companyId, role: 'employee' },
+      { $set: { managerId: item._id } }
+    )
+  }
 
   return res.status(201).json({ success: true, message: 'Manager created successfully', data: serializeManager(item) })
 })
@@ -140,7 +151,13 @@ export const updateManager = asyncHandler(async (req, res) => {
   const { name, phone, departmentId, status } = req.body
   if (name) item.name = name.trim()
   if (phone != null) item.phone = String(phone).trim()
-  if (departmentId !== undefined) item.departmentId = departmentId
+  if (departmentId !== undefined) {
+    if (departmentId) {
+      const dept = await Department.findOne({ _id: departmentId, companyId: req.user.companyId })
+      if (!dept) return res.status(400).json({ success: false, message: 'Invalid department for this company' })
+    }
+    item.departmentId = departmentId
+  }
   if (status !== undefined) {
     const normalizedStatus = String(status).toLowerCase()
     if (!ALLOWED_STATUS.has(normalizedStatus)) {
@@ -191,8 +208,23 @@ export const assignEmployeesToManager = asyncHandler(async (req, res) => {
 
   const validEmployeeIds = validEmployees.map((employee) => String(employee._id))
 
+  const currentAssigned = Array.isArray(manager.assignedEmployees) ? manager.assignedEmployees.map(String) : []
+  const removedIds = currentAssigned.filter((id) => !validEmployeeIds.includes(id))
   manager.assignedEmployees = validEmployeeIds
   await manager.save()
+
+  if (removedIds.length) {
+    await User.updateMany(
+      { _id: { $in: removedIds }, companyId: req.user.companyId, role: 'employee', managerId: manager._id },
+      { $set: { managerId: null } }
+    )
+  }
+  if (validEmployeeIds.length) {
+    await User.updateMany(
+      { _id: { $in: validEmployeeIds }, companyId: req.user.companyId, role: 'employee' },
+      { $set: { managerId: manager._id } }
+    )
+  }
 
   return res.status(200).json({
     success: true,
@@ -202,7 +234,19 @@ export const assignEmployeesToManager = asyncHandler(async (req, res) => {
 })
 
 export const deleteManager = asyncHandler(async (req, res) => {
-  const result = await User.deleteOne({ _id: req.params.id, companyId: req.user.companyId, role: 'manager' })
+  const item = await User.findOne({ _id: req.params.id, companyId: req.user.companyId, role: 'manager' })
+  if (!item) return res.status(404).json({ success: false, message: 'Manager not found' })
+
+  const linkedEmployees = await User.countDocuments({ companyId: req.user.companyId, role: 'employee', managerId: item._id })
+  if (linkedEmployees > 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Manager cannot be deleted because employees are linked',
+      details: { linkedEmployees }
+    })
+  }
+
+  const result = await User.deleteOne({ _id: item._id, companyId: req.user.companyId, role: 'manager' })
   if (!result.deletedCount) return res.status(404).json({ success: false, message: 'Manager not found' })
   return res.status(200).json({ success: true, message: 'Manager deleted successfully' })
 })

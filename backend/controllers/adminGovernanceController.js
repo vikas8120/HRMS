@@ -7,6 +7,16 @@ import User from '../models/User.js'
 import asyncHandler from '../utils/asyncHandler.js'
 import { createAdminActivityLog } from '../utils/adminAudit.js'
 const respond = (res, status, message, payload = {}) => res.status(status).json({ success: status < 400, message, data: payload, ...payload })
+const defaultPermissions = [
+  { module: 'Admin Management', view: true, create: false, edit: false, delete: false, approve: false, export: false },
+  { module: 'Company Management', view: true, create: false, edit: false, delete: false, approve: false, export: false },
+  { module: 'Support Center', view: true, create: false, edit: false, delete: false, approve: false, export: false }
+]
+const defaultRoles = [
+  { name: 'COMPANY_ADMIN', description: 'Default company admin role', permissions: defaultPermissions },
+  { name: 'HR_ADMIN', description: 'Default HR admin role', permissions: defaultPermissions },
+  { name: 'OPERATIONS_ADMIN', description: 'Default operations admin role', permissions: defaultPermissions }
+]
 
 export const getAdminAccessLogs = asyncHandler(async (_req, res) => {
   const items = await AdminAccessLog.find()
@@ -89,7 +99,11 @@ export const getAdminActivityLogs = asyncHandler(async (_req, res) => {
 })
 
 export const getRoles = asyncHandler(async (_req, res) => {
-  const items = await Role.find().sort({ name: 1 })
+  let items = await Role.find().sort({ name: 1 })
+  if (items.length === 0) {
+    await Role.insertMany(defaultRoles)
+    items = await Role.find().sort({ name: 1 })
+  }
   return respond(res, 200, 'Roles fetched successfully', { data: items, items })
 })
 
@@ -135,17 +149,33 @@ export const assignRoleToAdmin = asyncHandler(async (req, res) => {
   const { adminId, role } = req.body
   if (!adminId || !role) return respond(res, 400, 'adminId and role are required')
 
-  const admin = await CompanyAdmin.findById(adminId)
-  if (!admin) return respond(res, 404, 'Admin not found')
+  const companyAdmin = await CompanyAdmin.findById(adminId)
+  if (companyAdmin) {
+    companyAdmin.role = role
+    await companyAdmin.save()
 
-  admin.role = role
-  await admin.save()
+    await createAdminActivityLog({
+      adminId: companyAdmin._id,
+      module: 'Admin Management',
+      action: 'ROLE_ASSIGNMENT',
+      description: `Role ${role} assigned to ${companyAdmin.email}`,
+      performedBy: req.user?._id
+    })
+
+    return respond(res, 200, 'Role assigned successfully')
+  }
+
+  const userAdmin = await User.findOne({ _id: adminId, role: 'admin' })
+  if (!userAdmin) return respond(res, 404, 'Admin not found')
+
+  userAdmin.role = role
+  await userAdmin.save()
 
   await createAdminActivityLog({
-    adminId: admin._id,
+    adminId: userAdmin._id,
     module: 'Admin Management',
     action: 'ROLE_ASSIGNMENT',
-    description: `Role ${role} assigned to ${admin.email}`,
+    description: `Role ${role} assigned to ${userAdmin.email}`,
     performedBy: req.user?._id
   })
 

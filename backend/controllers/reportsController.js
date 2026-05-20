@@ -6,14 +6,16 @@ const respond = (res, status, message, payload = {}) =>
   res.status(status).json({ success: status < 400, message, data: payload, ...payload })
 
 export const listReportRuns = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 20, reportType = 'all' } = req.query
+  const page = Math.max(Number(req.query.page || 1), 1)
+  const limit = Math.min(Math.max(Number(req.query.limit || 20), 1), 200)
+  const reportType = String(req.query.reportType || 'all')
   const query = reportType === 'all' ? {} : { reportType }
-  const skip = (Number(page) - 1) * Number(limit)
+  const skip = (page - 1) * limit
   const [items, total] = await Promise.all([
-    ReportRun.find(query).sort({ dateTime: -1 }).skip(skip).limit(Number(limit)),
+    ReportRun.find(query).sort({ dateTime: -1 }).skip(skip).limit(limit),
     ReportRun.countDocuments(query)
   ])
-  const pagination = { page: Number(page), limit: Number(limit), total, totalPages: Math.ceil(total / Number(limit)) }
+  const pagination = { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) }
   respond(res, 200, 'Report runs fetched successfully', { items, pagination })
 })
 

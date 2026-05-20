@@ -214,12 +214,15 @@ function CompanyAdminSettingsPage() {
   }
 
   const onDeleteHoliday = async (holiday) => {
-    const id = holiday?.id
+    const id = holiday?.id || holiday?._id
     if (!id) return
     setSectionSaving(`holidayDelete-${id}`, true)
     try {
       const res = await deleteHoliday(id)
-      setData((prev) => ({ ...prev, holidays: (prev.holidays || []).filter((item) => item.id !== id) }))
+      setData((prev) => ({
+        ...prev,
+        holidays: (prev.holidays || []).filter((item) => String(item.id || item._id) !== String(id))
+      }))
       setToast({ type: 'success', message: res?.message || 'Holiday removed' })
     } catch (err) {
       setToast({ type: 'error', message: err?.response?.data?.message || 'Failed to remove holiday' })
@@ -418,19 +421,22 @@ function CompanyAdminSettingsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.holidays.map((holiday) => (
-                    <tr key={holiday.id}>
+                  {data.holidays.map((holiday, index) => {
+                    const holidayId = String(holiday.id || holiday._id || `${holiday.name || 'holiday'}-${holiday.date || 'date'}-${index}`)
+                    return (
+                    <tr key={holidayId}>
                       <td>{holiday.name || '-'}</td>
                       <td>{String(holiday.date || '').slice(0, 10)}</td>
                       <td>{holiday.type || '-'}</td>
                       <td>{holiday.description || '-'}</td>
                       <td>
-                        <button className="text-btn danger" onClick={() => onDeleteHoliday(holiday)} disabled={saving[`holidayDelete-${holiday.id}`]}>
-                          <Trash2 size={13} /> {saving[`holidayDelete-${holiday.id}`] ? 'Deleting...' : 'Delete'}
+                        <button type="button" className="text-btn danger" onClick={() => onDeleteHoliday(holiday)} disabled={saving[`holidayDelete-${holidayId}`]}>
+                          <Trash2 size={13} /> {saving[`holidayDelete-${holidayId}`] ? 'Deleting...' : 'Delete'}
                         </button>
                       </td>
                     </tr>
-                  ))}
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

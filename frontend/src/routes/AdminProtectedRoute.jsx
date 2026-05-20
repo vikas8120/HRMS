@@ -46,6 +46,7 @@ function AdminProtectedRoute() {
       const payload = parseTokenPayload(token)
       if (!payload || isTokenExpired(payload)) {
         localStorage.removeItem('admin_token')
+        localStorage.removeItem('super_admin_token')
         setAuthState({ loading: false, allow: false, redirect: '/login' })
         return
       }
@@ -77,6 +78,7 @@ function AdminProtectedRoute() {
         })
       } catch (_error) {
         localStorage.removeItem('admin_token')
+        localStorage.removeItem('super_admin_token')
         setAuthState({ loading: false, allow: false, redirect: '/login' })
       }
     }

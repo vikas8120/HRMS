@@ -8,7 +8,7 @@ function Modal({ open, title, children, onClose }) {
       <div className="modal-card">
         <div className="modal-head">
           <h3>{title}</h3>
-          <Button variant="ghost" onClick={onClose}>Close</Button>
+          <Button variant="ghost" className="modal-close-btn" onClick={onClose}>Close</Button>
         </div>
         <div className="modal-body">{children}</div>
       </div>

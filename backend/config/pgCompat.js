@@ -9,7 +9,13 @@ const Op = { in: '$in' }
 
 const clone = (value) => JSON.parse(JSON.stringify(value))
 
-const getMongoUri = () => process.env.MONGO_URI || process.env.MONGODB_URI
+export const getMongoUri = () => process.env.MONGO_URI || process.env.MONGODB_URI
+
+const getConnectionLabel = () => {
+  const dbName = mongoose.connection?.name || '(unknown-db)'
+  const host = mongoose.connection?.host || '(unknown-host)'
+  return `${host}/${dbName}`
+}
 
 const ensureDb = async () => {
   if (documentRowModel && mongoose.connection.readyState === 1) return
@@ -20,7 +26,12 @@ const ensureDb = async () => {
   }
 
   if (!connectionPromise) {
+    mongoose.set('strictQuery', true)
+
     connectionPromise = mongoose.connect(mongoUri, {
+      autoIndex: process.env.NODE_ENV !== 'production',
+      maxPoolSize: 10,
+      minPoolSize: 1,
       serverSelectionTimeoutMS: 10000
     }).catch((error) => {
       connectionPromise = null
@@ -47,6 +58,21 @@ const ensureDb = async () => {
     documentRowModel = mongoose.models.DocumentRow || mongoose.model('DocumentRow', schema)
   }
 }
+
+export const ensureMongoConnection = ensureDb
+
+export const getMongoConnectionInfo = () => ({
+  readyState: mongoose.connection.readyState,
+  state:
+    mongoose.connection.readyState === 1
+      ? 'connected'
+      : mongoose.connection.readyState === 2
+        ? 'connecting'
+        : mongoose.connection.readyState === 3
+          ? 'disconnecting'
+          : 'disconnected',
+  label: getConnectionLabel()
+})
 
 const toRow = (doc) => {
   if (!doc) return null
@@ -320,7 +346,8 @@ class Query {
           .filter(Boolean)
       } else {
         const row = await getDocumentRow().findOne({ where: { model: refModel, docId: String(current) } })
-        doc[pop.path] = row ? projectFields({ _id: row.docId, ...row.data }, pop.select) : null
+        // Preserve raw foreign key when target row is missing so callers can still recover/migrate data.
+        doc[pop.path] = row ? projectFields({ _id: row.docId, ...row.data }, pop.select) : current
       }
     }
 

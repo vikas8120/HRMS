@@ -37,6 +37,7 @@ import {
   upgradeDowngrade
 } from '../../api/subscriptionBillingApi'
 import { fetchCompanies } from '../../api/companyManagementApi'
+import { formatDate, formatDateTime } from '../../utils/dateFormat'
 
 const submodules = new Set([
   'Subscription Plans', 'Feature Mapping', 'Trial Plans', 'Enterprise Plan', 'Plan Limits', 'Plan Pricing', 'User Limits', 'Storage Limits', 'Add-on Services', 'Plan Upgrade/Downgrade', 'Auto Renewal', 'Subscription History', 'Invoice Management', 'Generate Invoice', 'Payment Tracking', 'Failed Payments', 'Refund Management', 'Transaction History', 'Discount Coupons'
@@ -76,7 +77,7 @@ const planCols = [
 
 const resetPlanForm = (type = 'standard') => ({ name: '', type, monthlyPrice: 0, yearlyPrice: 0, userLimit: 10, storageLimit: 5, features: '', status: 'active', autoRenewalEnabled: true })
 const resetInvoiceForm = () => ({ companyId: '', subscriptionId: '', amount: 0, dueDate: '', couponCode: '' })
-const resetPaymentForm = () => ({ companyId: '', invoiceId: '', amount: 0, method: 'card', status: 'completed', transactionRef: '' })
+const resetPaymentForm = () => ({ companyId: '', invoiceId: '', amount: '', method: 'card', status: 'completed', transactionRef: '' })
 const resetCouponForm = () => ({ code: '', discountType: 'percent', discountValue: 10, active: true, expiresAt: '' })
 const resetAddonForm = () => ({ name: '', description: '', priceMonthly: 0, priceYearly: 0, active: true })
 const resetSubscriptionForm = () => ({ id: '', company: '', plan: '', billingCycle: 'monthly', status: 'active', autoRenewal: true })
@@ -118,8 +119,12 @@ function SubscriptionBillingModulePage({ page }) {
 
   const [assignModal, setAssignModal] = useState(false)
   const [subscriptionForm, setSubscriptionForm] = useState(resetSubscriptionForm())
+  const [paymentTab, setPaymentTab] = useState('all')
 
-  const companyOptions = useMemo(() => (companies || []).map((c) => ({ value: c.id, label: c.companyName })), [companies])
+  const companyOptions = useMemo(
+    () => (companies || []).map((c) => ({ value: c._id || c.id, label: c.companyName })),
+    [companies]
+  )
   const planOptions = useMemo(() => plans.map((p) => ({ value: p._id, label: p.name })), [plans])
 
   const toastError = (message) => setToast({ type: 'error', message })
@@ -168,6 +173,13 @@ function SubscriptionBillingModulePage({ page }) {
     if (page === 'Trial Plans') setPlanTypeTab('trial')
     else if (page === 'Enterprise Plan') setPlanTypeTab('enterprise')
     else if (page === 'Subscription Plans') setPlanTypeTab('standard')
+  }, [page])
+
+  useEffect(() => {
+    if (page === 'Failed Payments') setPaymentTab('failed')
+    else if (page === 'Refund Management') setPaymentTab('refund')
+    else if (page === 'Transaction History') setPaymentTab('transactions')
+    else if (page === 'Payment Tracking') setPaymentTab('all')
   }, [page])
 
   useEffect(() => {
@@ -257,11 +269,13 @@ function SubscriptionBillingModulePage({ page }) {
 
   const savePayment = async () => {
     try {
-      if (!paymentForm.companyId || !paymentForm.amount) return toastError('Company and amount are required')
+      const amount = Number(paymentForm.amount)
+      if (!paymentForm.companyId || Number.isNaN(amount)) return toastError('Company and amount are required')
+      if (amount <= 0) return toastError('Amount must be greater than 0')
       await createPayment({
         company: paymentForm.companyId,
         invoice: paymentForm.invoiceId || undefined,
-        amount: Number(paymentForm.amount),
+        amount,
         method: paymentForm.method,
         status: paymentForm.status,
         transactionRef: paymentForm.transactionRef || `TXN-${Date.now()}`
@@ -294,7 +308,7 @@ function SubscriptionBillingModulePage({ page }) {
     company: x.company?.companyName || x.company || '-',
     invoiceNumber: x.invoiceNumber,
     amount: x.amount,
-    dueDate: x.dueDate ? new Date(x.dueDate).toLocaleDateString() : '-',
+    dueDate: x.dueDate ? formatDate(x.dueDate) : '-',
     status: x.status
   }))
   const invoiceCols = [{ key: 'company', label: 'Company' }, { key: 'invoiceNumber', label: 'Invoice #' }, { key: 'amount', label: 'Amount' }, { key: 'dueDate', label: 'Due Date' }, { key: 'status', label: 'Status' }]
@@ -305,12 +319,19 @@ function SubscriptionBillingModulePage({ page }) {
     transactionRef: x.transactionRef,
     amount: x.amount,
     method: x.method,
-    status: x.status,
-    createdAt: x.createdAt ? new Date(x.createdAt).toLocaleString() : '-'
+    status: String(x.status || '').toLowerCase() === 'completed' ? 'paid' : x.status,
+    createdAt: x.createdAt ? formatDateTime(x.createdAt) : '-'
   }))
   const paymentCols = [{ key: 'company', label: 'Company' }, { key: 'transactionRef', label: 'Ref' }, { key: 'amount', label: 'Amount' }, { key: 'method', label: 'Method' }, { key: 'status', label: 'Status' }, { key: 'createdAt', label: 'Date' }]
 
-  const couponRows = coupons.map((x) => ({ id: x._id, code: x.code, discountType: x.discountType, discountValue: x.discountValue, status: x.active ? 'active' : 'inactive' }))
+  const couponRows = coupons.map((x) => ({
+    id: x._id,
+    code: x.code,
+    discountType: x.discountType,
+    discountValue: x.discountValue,
+    status: x.active ? 'active' : 'inactive'
+  }))
+  const filteredCouponRows = statusFilter === 'all' ? couponRows : couponRows.filter((row) => row.status === statusFilter)
   const couponCols = [{ key: 'code', label: 'Code' }, { key: 'discountType', label: 'Type' }, { key: 'discountValue', label: 'Value' }, { key: 'status', label: 'Status' }]
 
   const addonRows = addons.map((x) => ({ id: x._id, name: x.name, monthly: x.priceMonthly, yearly: x.priceYearly, status: x.active ? 'active' : 'inactive' }))
@@ -364,11 +385,70 @@ function SubscriptionBillingModulePage({ page }) {
       case 'Failed Payments':
       case 'Refund Management':
       case 'Transaction History': {
-        const filtered = page === 'Failed Payments' ? paymentRows.filter((x) => x.status === 'failed') : paymentRows
-        return <div className="panel"><div className="panel-head"><h3>{page}</h3><Button onClick={() => { setPaymentForm(resetPaymentForm()); setPaymentModal(true) }}>Record Payment</Button></div><DataTable columns={paymentCols} rows={filtered} showViewAction={false} showEditAction={false} showDeleteAction={page === 'Refund Management'} onDelete={async (row) => { try { if (page !== 'Refund Management') return; await refundPayment(row.id); toastOk('Payment marked as refunded'); loadData() } catch (error) { toastError(error?.response?.data?.message || 'Refund action failed') } }} /></div>
+        const refundableRows = paymentRows.filter((x) => ['paid', 'completed'].includes(String(x.status || '').toLowerCase()))
+        const tabRows = paymentTab === 'failed'
+          ? paymentRows.filter((x) => String(x.status || '').toLowerCase() === 'failed')
+          : paymentTab === 'refund'
+            ? refundableRows
+            : paymentRows
+        const emptyTitle = paymentTab === 'transactions'
+          ? 'No transactions yet'
+          : paymentTab === 'refund'
+            ? 'No refundable payments found'
+            : paymentTab === 'failed'
+              ? 'No failed payments found'
+              : 'No payments recorded yet'
+        const emptyDescription = paymentTab === 'transactions'
+          ? 'Click "Record Payment" to add a transaction.'
+          : paymentTab === 'refund'
+            ? 'Record a completed payment first, then refund it from this tab.'
+            : paymentTab === 'failed'
+              ? 'Record a payment with status "Failed" or adjust filters.'
+              : 'Use "Record Payment" to create your first payment record.'
+        const sectionTitle = paymentTab === 'transactions'
+          ? 'Transaction History'
+          : paymentTab === 'refund'
+            ? 'Refund Management'
+            : paymentTab === 'failed'
+              ? 'Failed Payments'
+              : 'Payment Tracking'
+        return (
+          <div className="panel">
+            <div className="panel-head">
+              <h3>{sectionTitle}</h3>
+              <Button onClick={() => { setPaymentForm(resetPaymentForm()); setPaymentModal(true) }}>Record Payment</Button>
+            </div>
+            <div className="tabs-row">
+              {[{ key: 'all', label: 'All Payments' }, { key: 'failed', label: 'Failed Payments' }, { key: 'refund', label: 'Refund Management' }, { key: 'transactions', label: 'Transaction History' }].map((tab) => (
+                <button key={tab.key} type="button" className={`chip-btn ${paymentTab === tab.key ? 'active' : ''}`} onClick={() => setPaymentTab(tab.key)}>
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            <DataTable
+              columns={paymentCols}
+              rows={tabRows}
+              showViewAction={false}
+              showEditAction={false}
+              showDeleteAction={paymentTab === 'refund'}
+              onDelete={async (row) => {
+                try {
+                  if (paymentTab !== 'refund') return
+                  await refundPayment(row.id)
+                  toastOk('Payment marked as refunded')
+                  loadData()
+                } catch (error) {
+                  toastError(error?.response?.data?.message || 'Refund action failed')
+                }
+              }}
+              emptyTitle={emptyTitle}
+              emptyDescription={emptyDescription}
+            />
+          </div>
+        )
       }
       case 'Discount Coupons':
-        return <div className="panel"><div className="panel-head"><h3>Discount Coupons</h3><Button onClick={() => { setCouponForm(resetCouponForm()); setCouponModal(true) }}>Create Coupon</Button></div><DataTable columns={couponCols} rows={couponRows} showViewAction={false} onEdit={(row) => { const c = coupons.find((x) => x._id === row.id); setCouponForm(c); setCouponModal(true) }} onDelete={(row) => openConfirm('Delete Coupon', 'Delete this discount coupon?', async () => { await deleteCoupon(row.id); toastOk('Coupon deleted'); loadData() })} /></div>
+        return <div className="panel"><div className="panel-head"><h3>Discount Coupons</h3><Button onClick={() => { setCouponForm(resetCouponForm()); setCouponModal(true) }}>Create Coupon</Button></div><DataTable columns={couponCols} rows={filteredCouponRows} showViewAction={false} onEdit={(row) => { const c = coupons.find((x) => x._id === row.id); setCouponForm(c); setCouponModal(true) }} onDelete={(row) => openConfirm('Delete Coupon', 'Delete this discount coupon?', async () => { await deleteCoupon(row.id); toastOk('Coupon deleted'); loadData() })} /></div>
       default:
         return <EmptyState title="Sub-module not configured" />
     }
@@ -378,8 +458,10 @@ function SubscriptionBillingModulePage({ page }) {
     <section className="section-layout">
       <PageHeader title="Subscription & Billing" description="Single-page workspace for plans, invoices, payments, coupons, add-ons, and renewals." breadcrumb={['Super Admin', 'Subscription & Billing', page || 'Subscription Plans']} primaryActionLabel="Reload" onPrimaryAction={loadData} />
       {toast.message ? <div className={`toast toast-${toast.type}`}>{toast.message}</div> : null}
-      <div className="panel filters-panel"><div className="filters-row"><div className="search-wrap"><label>Search</label><SearchBar value={search} onChange={setSearch} placeholder="Search by name/code/invoice" /></div><FilterDropdown label="Status" value={statusFilter} onChange={(v) => { setStatusFilter(v); setPagination((prev) => ({ ...prev, page: 1 })) }} options={[{ value: 'all', label: 'All' }, { value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }, { value: 'pending', label: 'Pending' }, { value: 'failed', label: 'Failed' }, { value: 'completed', label: 'Completed' }, { value: 'cancelled', label: 'Cancelled' }, { value: 'expired', label: 'Expired' }]} /></div></div>
-      <div className="panel"><h3>Billing Summary</h3><div className="stats-grid"><div className="stat-card"><h4>Active Subscriptions</h4><p>{billingSummary.activeSubscriptions}</p></div><div className="stat-card"><h4>Pending Invoices</h4><p>{billingSummary.pendingInvoices}</p></div><div className="stat-card"><h4>Failed Payments</h4><p>{billingSummary.failedPayments}</p></div><div className="stat-card"><h4>Revenue</h4><p>{billingSummary.revenue}</p></div><div className="stat-card"><h4>Outstanding</h4><p>{billingSummary.outstanding}</p></div></div></div>
+      <div className="panel filters-panel"><div className="filters-row"><div className="search-wrap"><label>Search</label><SearchBar value={search} onChange={setSearch} placeholder="Search by name/code/invoice" /></div><FilterDropdown label="Status" value={statusFilter} onChange={(v) => { setStatusFilter(v); setPagination((prev) => ({ ...prev, page: 1 })) }} options={page === 'Discount Coupons' ? [{ value: 'all', label: 'All' }, { value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }] : [{ value: 'all', label: 'All' }, { value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }, { value: 'pending', label: 'Pending' }, { value: 'failed', label: 'Failed' }, { value: 'completed', label: 'Completed' }, { value: 'paid', label: 'Paid' }, { value: 'cancelled', label: 'Cancelled' }, { value: 'expired', label: 'Expired' }]} /></div></div>
+      {page === 'Subscription Plans' || !page ? (
+        <div className="panel"><h3>Billing Summary</h3><div className="stats-grid"><div className="stat-card"><h4>Active Subscriptions</h4><p>{billingSummary.activeSubscriptions}</p></div><div className="stat-card"><h4>Pending Invoices</h4><p>{billingSummary.pendingInvoices}</p></div><div className="stat-card"><h4>Failed Payments</h4><p>{billingSummary.failedPayments}</p></div><div className="stat-card"><h4>Revenue</h4><p>{billingSummary.revenue}</p></div><div className="stat-card"><h4>Outstanding</h4><p>{billingSummary.outstanding}</p></div></div></div>
+      ) : null}
       {submodules.has(page) || !page ? renderSection(page || 'Subscription Plans') : <EmptyState title="Unknown Subscription module" />}
 
       <Modal open={planModal} title={selectedPlan ? 'Edit Plan' : 'Create Plan'} onClose={() => setPlanModal(false)}>
@@ -421,7 +503,7 @@ function SubscriptionBillingModulePage({ page }) {
         <div className="form-grid">
           <FilterDropdown label="Company" value={paymentForm.companyId} onChange={(v) => setPaymentForm((p) => ({ ...p, companyId: v }))} options={[{ value: '', label: 'Select Company' }, ...companyOptions]} />
           <FilterDropdown label="Invoice" value={paymentForm.invoiceId} onChange={(v) => setPaymentForm((p) => ({ ...p, invoiceId: v }))} options={[{ value: '', label: 'Optional Invoice' }, ...invoices.filter((inv) => !paymentForm.companyId || (inv.company?._id || inv.company) === paymentForm.companyId).map((inv) => ({ value: inv._id, label: `${inv.invoiceNumber} - ${inv.amount}` }))]} />
-          <FormInput label="Amount" type="number" value={paymentForm.amount} onChange={(e) => setPaymentForm((p) => ({ ...p, amount: Number(e.target.value) }))} />
+          <FormInput label="Amount" type="number" value={paymentForm.amount} onChange={(e) => setPaymentForm((p) => ({ ...p, amount: e.target.value }))} />
           <FilterDropdown label="Method" value={paymentForm.method} onChange={(v) => setPaymentForm((p) => ({ ...p, method: v }))} options={[{ value: 'card', label: 'Card' }, { value: 'bank', label: 'Bank Transfer' }, { value: 'upi', label: 'UPI' }, { value: 'cash', label: 'Cash' }]} />
           <FilterDropdown label="Status" value={paymentForm.status} onChange={(v) => setPaymentForm((p) => ({ ...p, status: v }))} options={[{ value: 'completed', label: 'Completed' }, { value: 'pending', label: 'Pending' }, { value: 'failed', label: 'Failed' }]} />
           <FormInput label="Transaction Ref" value={paymentForm.transactionRef} onChange={(e) => setPaymentForm((p) => ({ ...p, transactionRef: e.target.value }))} />
@@ -435,8 +517,9 @@ function SubscriptionBillingModulePage({ page }) {
           <FilterDropdown label="Discount Type" value={couponForm.discountType} onChange={(v) => setCouponForm((p) => ({ ...p, discountType: v }))} options={[{ value: 'percent', label: 'Percent' }, { value: 'flat', label: 'Flat' }]} />
           <FormInput label="Discount Value" type="number" value={couponForm.discountValue} onChange={(e) => setCouponForm((p) => ({ ...p, discountValue: Number(e.target.value) }))} />
           <FormInput label="Expires At" type="date" value={couponForm.expiresAt?.slice?.(0, 10) || ''} onChange={(e) => setCouponForm((p) => ({ ...p, expiresAt: e.target.value }))} />
+          <FilterDropdown label="Status" value={couponForm.active ? 'active' : 'inactive'} onChange={(v) => setCouponForm((p) => ({ ...p, active: v === 'active' }))} options={[{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }]} />
         </div>
-        <div className="actions-row"><Button onClick={async () => { try { if (!couponForm.code) return toastError('Coupon code is required'); if (couponForm._id) await updateCoupon(couponForm._id, couponForm); else await createCoupon(couponForm); toastOk('Coupon saved'); setCouponModal(false); loadData() } catch (error) { toastError(error?.response?.data?.message || 'Coupon save failed') } }}>Save Coupon</Button></div>
+        <div className="actions-row"><Button onClick={async () => { try { if (!couponForm.code) return toastError('Coupon code is required'); const payload = { ...couponForm, code: String(couponForm.code).trim().toUpperCase() }; if (payload._id) await updateCoupon(payload._id, payload); else await createCoupon(payload); toastOk('Coupon saved'); setCouponModal(false); loadData() } catch (error) { toastError(error?.response?.data?.message || 'Coupon save failed') } }}>Save Coupon</Button></div>
       </Modal>
 
       <Modal open={addonModal} title="Add-on Service" onClose={() => setAddonModal(false)}>

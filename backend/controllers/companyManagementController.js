@@ -1,4 +1,3 @@
-import crypto from 'crypto'
 import TenantCompany from '../models/TenantCompany.js'
 import asyncHandler from '../utils/asyncHandler.js'
 import User from '../models/User.js'
@@ -28,9 +27,6 @@ const pushActivity = async (company, action, description, performedBy) => {
   company.activityLogs.push({ action, description, performedBy })
   await company.save()
 }
-
-const ensureSubdocIds = (entries = []) =>
-  entries.map((entry) => ({ _id: entry._id || crypto.randomUUID().replace(/-/g, ''), ...entry }))
 
 const findBranchIndex = (branches = [], branchId) => branches.findIndex((b) => String(b._id) === String(branchId))
 
@@ -197,7 +193,7 @@ export const addBranch = asyncHandler(async (req, res) => {
   const { name, code } = req.body
   if (!name || !code) return respond(res, 400, 'name and code are required')
 
-  item.branches = ensureSubdocIds([...(item.branches || []), req.body])
+  item.branches = [...(item.branches || []), req.body]
   await item.save()
   await pushActivity(item, 'ADD_BRANCH', `Branch ${name} added`, req.user?._id)
 

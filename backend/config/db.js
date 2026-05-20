@@ -1,11 +1,16 @@
-import { getDocumentRow, getSequelize } from './pgCompat.js'
+import { ensureMongoConnection, getDocumentRow, getMongoConnectionInfo } from './pgCompat.js'
 
 const connectDB = async () => {
-  const db = getSequelize()
+  await ensureMongoConnection()
   const DocumentRow = getDocumentRow()
-  await db.authenticate()
   await DocumentRow.sync()
-  console.log('MongoDB connected successfully')
+
+  const info = getMongoConnectionInfo()
+  if (info.readyState !== 1) {
+    throw new Error(`MongoDB connection is not healthy (state: ${info.state})`)
+  }
+
+  console.log(`MongoDB connected successfully (${info.label})`)
 }
 
 export default connectDB

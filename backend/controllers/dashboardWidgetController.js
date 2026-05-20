@@ -15,15 +15,18 @@ const serialize = (item) => ({
 
 export const listDashboardWidgets = asyncHandler(async (req, res) => {
   const { sectionKey } = req.params
-  const { page = 1, limit = 10, search = '', status = 'all' } = req.query
+  const page = Math.max(Number(req.query.page || 1), 1)
+  const limit = Math.min(Math.max(Number(req.query.limit || 10), 1), 200)
+  const search = String(req.query.search || '')
+  const status = String(req.query.status || 'all')
 
   const query = { sectionKey }
   if (search) query.name = { $regex: search, $options: 'i' }
   if (status && status !== 'all') query.status = status
 
-  const skip = (Number(page) - 1) * Number(limit)
+  const skip = (page - 1) * limit
   const [items, total] = await Promise.all([
-    DashboardWidget.find(query).sort({ updatedAt: -1 }).skip(skip).limit(Number(limit)),
+    DashboardWidget.find(query).sort({ updatedAt: -1 }).skip(skip).limit(limit),
     DashboardWidget.countDocuments(query)
   ])
 
@@ -32,10 +35,10 @@ export const listDashboardWidgets = asyncHandler(async (req, res) => {
     data,
     items: data,
     pagination: {
-      page: Number(page),
-      limit: Number(limit),
+      page,
+      limit,
       total,
-      totalPages: Math.ceil(total / Number(limit))
+      totalPages: Math.max(1, Math.ceil(total / limit))
     }
   })
 })

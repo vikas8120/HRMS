@@ -34,7 +34,11 @@ import {
   listAttendance,
   getTodayAttendance,
   getMonthlyAttendance,
+  getMyAttendanceToday,
+  enrollAttendanceFace,
   markManualAttendance,
+  punchInAttendance,
+  punchOutAttendance,
   updateAttendance,
   exportAttendance,
   deleteAttendance
@@ -83,25 +87,60 @@ import {
   addHoliday,
   deleteHoliday
 } from '../controllers/adminSettingsController.js'
+import {
+  acknowledgeAnnouncement,
+  archiveAnnouncement,
+  createAnnouncement,
+  deleteAnnouncement,
+  listAnnouncements,
+  updateAnnouncement
+} from '../controllers/adminAnnouncementController.js'
+import {
+  archiveDocument,
+  createDocument,
+  deleteDocument,
+  listDocuments,
+  uploadDocumentFileHandler,
+  updateDocument,
+  verifyDocument
+} from '../controllers/adminDocumentController.js'
+import {
+  archivePerformanceReview,
+  createPerformanceReview,
+  deletePerformanceReview,
+  listPerformanceReviews,
+  updatePerformanceReview
+} from '../controllers/adminPerformanceController.js'
+import {
+  archiveRecruitmentCandidate,
+  createRecruitmentCandidate,
+  deleteRecruitmentCandidate,
+  listRecruitmentCandidates,
+  updateRecruitmentCandidate
+} from '../controllers/adminRecruitmentController.js'
+import uploadDocumentFile from '../middleware/uploadMiddleware.js'
 
 const router = Router()
 
 router.post('/auth/login', adminLogin)
 
-router.use(protectAdmin, requireRole('admin'), requireCompanyScope)
+router.use(protectAdmin, requireRole('admin', 'hr'), requireCompanyScope)
 
 router.get('/auth/me', (req, res) => {
+  const user = {
+    id: req.user.id,
+    name: req.user.name,
+    email: req.user.email,
+    role: req.user.role,
+    companyId: req.user.companyId,
+    status: req.user.status
+  }
+
   return res.status(200).json({
     success: true,
     message: 'Admin profile fetched successfully',
-    data: {
-      id: req.user.id,
-      name: req.user.name,
-      email: req.user.email,
-      role: req.user.role,
-      companyId: req.user.companyId,
-      status: req.user.status
-    }
+    user,
+    data: user
   })
 })
 
@@ -143,10 +182,14 @@ router.get('/departments/:id/employees', getDepartmentEmployees)
 
 router.get('/attendance', listAttendance)
 router.get('/attendance/today', getTodayAttendance)
+router.get('/attendance/my-today', getMyAttendanceToday)
 router.get('/attendance/monthly', getMonthlyAttendance)
 router.get('/attendance/export', exportAttendance)
 router.post('/attendance/manual', markManualAttendance)
 router.post('/attendance', markManualAttendance)
+router.post('/attendance/punch-in', punchInAttendance)
+router.post('/attendance/punch-out', punchOutAttendance)
+router.post('/attendance/face-enroll', enrollAttendanceFace)
 router.put('/attendance/:id', updateAttendance)
 router.delete('/attendance/:id', deleteAttendance)
 
@@ -188,5 +231,32 @@ router.put('/settings/leave-policy', updateLeavePolicySettings)
 router.put('/settings/payroll', updatePayrollSettings)
 router.post('/settings/holidays', addHoliday)
 router.delete('/settings/holidays/:id', deleteHoliday)
+
+router.get('/announcements', listAnnouncements)
+router.post('/announcements', createAnnouncement)
+router.put('/announcements/:id', updateAnnouncement)
+router.delete('/announcements/:id', deleteAnnouncement)
+router.patch('/announcements/:id/archive', archiveAnnouncement)
+router.patch('/announcements/:id/acknowledge', acknowledgeAnnouncement)
+
+router.get('/documents', listDocuments)
+router.post('/documents/upload', uploadDocumentFile, uploadDocumentFileHandler)
+router.post('/documents', createDocument)
+router.put('/documents/:id', updateDocument)
+router.delete('/documents/:id', deleteDocument)
+router.patch('/documents/:id/archive', archiveDocument)
+router.patch('/documents/:id/verify', verifyDocument)
+
+router.get('/performance', listPerformanceReviews)
+router.post('/performance', createPerformanceReview)
+router.put('/performance/:id', updatePerformanceReview)
+router.delete('/performance/:id', deletePerformanceReview)
+router.patch('/performance/:id/archive', archivePerformanceReview)
+
+router.get('/recruitment', listRecruitmentCandidates)
+router.post('/recruitment', createRecruitmentCandidate)
+router.put('/recruitment/:id', updateRecruitmentCandidate)
+router.delete('/recruitment/:id', deleteRecruitmentCandidate)
+router.patch('/recruitment/:id/archive', archiveRecruitmentCandidate)
 
 export default router

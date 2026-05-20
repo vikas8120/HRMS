@@ -14,6 +14,10 @@ export const protectSuperAdmin = asyncHandler(async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET)
+    if (!decoded?.id) {
+      return res.status(401).json({ message: 'Unauthorized: invalid token payload' })
+    }
+
     const user = await SuperAdmin.findById(decoded.id).select('-password')
 
     if (!user) {
@@ -26,6 +30,10 @@ export const protectSuperAdmin = asyncHandler(async (req, res, next) => {
 
     if (normalizedRole !== 'SUPER_ADMIN' || !allowedByToken) {
       return res.status(403).json({ message: 'Forbidden: role not allowed' })
+    }
+
+    if (String(user.status || '').toLowerCase() !== 'active') {
+      return res.status(403).json({ message: `Forbidden: account is ${user.status || 'inactive'}` })
     }
 
     req.user = user
@@ -47,7 +55,9 @@ export const protectAdmin = asyncHandler(async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET)
 
-    if (!decoded?.id || decoded?.role !== 'admin' || !decoded?.companyId) {
+    const decodedRole = String(decoded?.role || '').toLowerCase()
+    const allowedRoles = new Set(['admin', 'hr'])
+    if (!decoded?.id || !allowedRoles.has(decodedRole) || !decoded?.companyId) {
       return res.status(401).json({ success: false, message: 'Unauthorized: invalid token payload' })
     }
 
@@ -61,7 +71,55 @@ export const protectAdmin = asyncHandler(async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'Forbidden: company mismatch' })
     }
 
-    if (String(user.role || '').toLowerCase() !== 'admin') {
+    if (String(user.role || '').toLowerCase() !== decodedRole || !allowedRoles.has(decodedRole)) {
+      return res.status(403).json({ success: false, message: 'Forbidden: role not allowed' })
+    }
+
+    if (String(user.status || '').toLowerCase() !== 'active') {
+      return res.status(403).json({ success: false, message: `Forbidden: account is ${user.status || 'inactive'}` })
+    }
+
+    req.user = {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      companyId: user.companyId,
+      status: user.status
+    }
+
+    next()
+  } catch (_error) {
+    return res.status(401).json({ success: false, message: 'Unauthorized: invalid or expired token' })
+  }
+})
+
+export const protectCompanyUser = asyncHandler(async (req, res, next) => {
+  const authHeader = req.headers.authorization
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ success: false, message: 'Unauthorized: token missing' })
+  }
+
+  const token = authHeader.split(' ')[1]
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET)
+    const allowedRoles = new Set(['admin', 'hr', 'manager', 'employee'])
+    const decodedRole = String(decoded?.role || '').toLowerCase()
+
+    if (!decoded?.id || !decoded?.companyId || !allowedRoles.has(decodedRole)) {
+      return res.status(401).json({ success: false, message: 'Unauthorized: invalid token payload' })
+    }
+
+    const user = await User.findById(decoded.id).select('-password')
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Unauthorized: user not found' })
+    }
+
+    if (String(user.companyId || '') !== String(decoded.companyId)) {
+      return res.status(403).json({ success: false, message: 'Forbidden: company mismatch' })
+    }
+
+    if (String(user.role || '').toLowerCase() !== decodedRole) {
       return res.status(403).json({ success: false, message: 'Forbidden: role not allowed' })
     }
 

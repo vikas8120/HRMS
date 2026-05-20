@@ -13,6 +13,7 @@ import {
 import { listBackupLogs, runBackupAction, runRestoreAction } from '../controllers/backupRestoreController.js'
 import { generateReport, listReportRuns } from '../controllers/reportsController.js'
 import { listSystemSettings, upsertSystemSetting } from '../controllers/systemSettingsController.js'
+import { getFeatureFlags, updateFeatureFlags } from '../controllers/featureManagementController.js'
 
 const router = Router()
 router.use(protectSuperAdmin)
@@ -35,5 +36,7 @@ router.post('/reports/generate', generateReport)
 
 router.get('/system-settings', listSystemSettings)
 router.put('/system-settings', upsertSystemSetting)
+router.get('/feature-management', getFeatureFlags)
+router.put('/feature-management', updateFeatureFlags)
 
 export default router

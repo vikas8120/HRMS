@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Download, RefreshCw } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Download, LogIn, LogOut, RefreshCw } from 'lucide-react'
 import PageHeader from '../components/ui/PageHeader'
 import FilterDropdown from '../components/ui/FilterDropdown'
 import Button from '../components/ui/Button'
@@ -12,12 +12,18 @@ import {
   getAttendance,
   getTodayAttendance,
   getMonthlyAttendance,
+  getMyTodayAttendance,
+  enrollAttendanceFace,
   markManualAttendance,
+  punchInAttendance,
+  punchOutAttendance,
   updateAttendance,
   exportAttendance,
   getDepartments,
   getEmployees
 } from '../api/adminAttendanceApi'
+import { useAuth } from '../hooks/useAuth'
+import { detectFaceDescriptor, detectFaceDescriptorFromImageFile, ensureFaceModels } from '../utils/faceRecognition'
 
 const initialForm = {
   employeeId: '',
@@ -37,6 +43,7 @@ const statusOptions = [
 ]
 
 function CompanyAdminAttendancePage() {
+  const { user } = useAuth()
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [rows, setRows] = useState([])
@@ -63,6 +70,17 @@ function CompanyAdminAttendancePage() {
   const [formErrors, setFormErrors] = useState({})
 
   const [toast, setToast] = useState(null)
+  const [selfAttendance, setSelfAttendance] = useState(null)
+  const [selfLoading, setSelfLoading] = useState(false)
+  const [faceBusy, setFaceBusy] = useState(false)
+  const [faceModalOpen, setFaceModalOpen] = useState(false)
+  const [faceModalMode, setFaceModalMode] = useState('enroll')
+  const [faceStreamError, setFaceStreamError] = useState('')
+  const [faceVideoReady, setFaceVideoReady] = useState(false)
+  const [faceEnrollMode, setFaceEnrollMode] = useState('camera')
+  const faceVideoRef = useRef(null)
+  const faceStreamRef = useRef(null)
+  const facePhotoInputRef = useRef(null)
 
   const deptMap = useMemo(() => Object.fromEntries(departments.map((d) => [String(d.id || d._id), d.name || 'Department'])), [departments])
 
@@ -103,6 +121,50 @@ function CompanyAdminAttendancePage() {
     }
   }
 
+  const loadSelfAttendance = async () => {
+    setSelfLoading(true)
+    try {
+      const res = await getMyTodayAttendance()
+      setSelfAttendance(res?.data || null)
+    } catch (_err) {
+      setSelfAttendance(null)
+    } finally {
+      setSelfLoading(false)
+    }
+  }
+
+  const stopFaceStream = () => {
+    if (faceStreamRef.current) {
+      faceStreamRef.current.getTracks().forEach((track) => track.stop())
+      faceStreamRef.current = null
+    }
+    setFaceVideoReady(false)
+  }
+
+  const closeFaceModal = () => {
+    stopFaceStream()
+    setFaceModalOpen(false)
+    setFaceStreamError('')
+  }
+
+  const openFaceModal = async (mode) => {
+    setFaceModalMode(mode)
+    setFaceStreamError('')
+    setFaceModalOpen(true)
+    try {
+      await ensureFaceModels()
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false })
+      faceStreamRef.current = stream
+      if (faceVideoRef.current) {
+        faceVideoRef.current.srcObject = stream
+        await faceVideoRef.current.play()
+      }
+      setFaceVideoReady(true)
+    } catch (err) {
+      setFaceStreamError(err?.message || 'Unable to open camera')
+    }
+  }
+
   const loadAttendance = async ({ keepLoading = false } = {}) => {
     if (!keepLoading) setLoading(true)
     setError('')
@@ -127,6 +189,8 @@ function CompanyAdminAttendancePage() {
     loadMeta()
     loadAttendance()
     loadSummary()
+    loadSelfAttendance()
+    return () => stopFaceStream()
   }, [])
 
   const applyFilters = async () => {
@@ -263,6 +327,84 @@ function CompanyAdminAttendancePage() {
     }
   }
 
+  const onPunchIn = async () => {
+    await openFaceModal('punch-in')
+  }
+
+  const onPunchOut = async () => {
+    await openFaceModal('punch-out')
+  }
+
+  const onEnrollFace = async () => {
+    setFaceEnrollMode('camera')
+    await openFaceModal('enroll')
+  }
+
+  const captureAndSubmitFace = async () => {
+    setFaceBusy(true)
+    try {
+      const videoEl = faceVideoRef.current
+      if (!videoEl || !faceVideoReady) {
+        throw new Error('Camera not ready')
+      }
+      const descriptor = await detectFaceDescriptor(videoEl)
+      if (!descriptor) {
+        throw new Error('Face not detected. Keep your face centered and try again.')
+      }
+
+      if (faceModalMode === 'enroll') {
+        const res = await enrollAttendanceFace(descriptor)
+        setToast({ type: 'success', message: res?.message || 'Face enrolled successfully' })
+      } else if (faceModalMode === 'punch-in') {
+        const res = await punchInAttendance(descriptor)
+        setSelfAttendance(res?.data || null)
+        setToast({ type: 'success', message: res?.message || 'Punch in recorded' })
+      } else if (faceModalMode === 'punch-out') {
+        const res = await punchOutAttendance(descriptor)
+        setSelfAttendance(res?.data || null)
+        setToast({ type: 'success', message: res?.message || 'Punch out recorded' })
+      }
+
+      await loadSelfAttendance()
+      await loadAttendance({ keepLoading: true })
+      await loadSummary()
+      closeFaceModal()
+    } catch (err) {
+      setToast({ type: 'error', message: err?.response?.data?.message || err?.message || 'Face capture failed' })
+    } finally {
+      setFaceBusy(false)
+    }
+  }
+
+  const onEnrollFromPhoto = async (event) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    setFaceBusy(true)
+    try {
+      const descriptor = await detectFaceDescriptorFromImageFile(file)
+      if (!descriptor) throw new Error('No clear face found in selected photo')
+      const res = await enrollAttendanceFace(descriptor)
+      setToast({ type: 'success', message: res?.message || 'Face enrolled from photo successfully' })
+      await loadSelfAttendance()
+      closeFaceModal()
+    } catch (err) {
+      setToast({ type: 'error', message: err?.response?.data?.message || err?.message || 'Photo enrollment failed' })
+    } finally {
+      if (facePhotoInputRef.current) facePhotoInputRef.current.value = ''
+      setFaceBusy(false)
+    }
+  }
+
+  const faceEnrolled = Boolean(selfAttendance?.faceEnrolled)
+  const canPunchIn = !selfAttendance?.checkIn
+  const canPunchOut = Boolean(selfAttendance?.checkIn) && !selfAttendance?.checkOut
+  const selfStatus = String(selfAttendance?.status || 'not-marked').toLowerCase()
+  const selfStatusClass = selfStatus === 'present' ? 'badge-active'
+    : selfStatus === 'late' ? 'badge-warning'
+      : selfStatus === 'absent' ? 'badge-inactive'
+        : selfStatus === 'leave' ? 'badge-info'
+          : 'badge-neutral'
+
   return (
     <section className="section-layout">
       <PageHeader
@@ -274,6 +416,32 @@ function CompanyAdminAttendancePage() {
       />
 
       {toast ? <div className={`toast ${toast.type === 'success' ? 'toast-success' : 'toast-error'}`}>{toast.message}</div> : null}
+
+      <div className="panel self-attendance-card">
+        <div className="self-attendance-glow" aria-hidden="true" />
+        <div className="panel-head self-attendance-head">
+          <div>
+            <h3>My Attendance (Today)</h3>
+            <p className="self-attendance-subtitle">Track your daily punch-in and punch-out in real time.</p>
+          </div>
+          <div className="actions-row self-attendance-actions">
+            <Button variant="ghost" className="attendance-action-refresh" onClick={loadSelfAttendance} disabled={selfLoading}>{selfLoading ? 'Refreshing...' : 'Refresh'}</Button>
+            <Button variant="ghost" onClick={onEnrollFace} disabled={faceBusy}>{faceBusy ? 'Capturing...' : (faceEnrolled ? 'Re-Enroll Face' : 'Enroll Face')}</Button>
+            <Button className="attendance-action-punch-in" onClick={onPunchIn} disabled={!canPunchIn || faceBusy}><LogIn size={18} /> Punch In</Button>
+            <Button variant="ghost" className="attendance-action-punch-out" onClick={onPunchOut} disabled={!canPunchOut || faceBusy}><LogOut size={18} /> Punch Out</Button>
+          </div>
+        </div>
+        <div className="self-attendance-grid">
+          <div className="self-attendance-item"><span>User</span><strong>{user?.name || '-'}</strong></div>
+          <div className="self-attendance-item"><span>Role</span><strong>{user?.role || '-'}</strong></div>
+          <div className="self-attendance-item"><span>Date</span><strong>{selfAttendance?.date || new Date().toISOString().slice(0, 10)}</strong></div>
+          <div className="self-attendance-item"><span>Status</span><strong><span className={`badge ${selfStatusClass}`}>{selfAttendance?.status || 'not-marked'}</span></strong></div>
+          <div className="self-attendance-item"><span>Face Verification</span><strong>{faceEnrolled ? 'Enrolled' : 'Not Enrolled'}</strong></div>
+          <div className="self-attendance-item"><span>Check In</span><strong>{selfAttendance?.checkIn ? new Date(selfAttendance.checkIn).toLocaleTimeString() : '--:--'}</strong></div>
+          <div className="self-attendance-item"><span>Check Out</span><strong>{selfAttendance?.checkOut ? new Date(selfAttendance.checkOut).toLocaleTimeString() : '--:--'}</strong></div>
+          <div className="self-attendance-item"><span>Working Hours</span><strong>{selfAttendance?.workingHours ?? 0}</strong></div>
+        </div>
+      </div>
 
       <div className="stats-grid">
         {cards.map((card) => <StatCard key={card.title} title={card.title} value={card.value} trend={card.trend} />)}
@@ -393,6 +561,33 @@ function CompanyAdminAttendancePage() {
 
           <Button type="submit" disabled={submitting}>{submitting ? 'Updating...' : 'Update Attendance'}</Button>
         </form>
+      </Modal>
+
+      <Modal open={faceModalOpen} title={faceModalMode === 'enroll' ? 'Enroll Face' : faceModalMode === 'punch-in' ? 'Punch In Face Verification' : 'Punch Out Face Verification'} onClose={closeFaceModal}>
+        <div className="modal-form">
+          <p className="self-attendance-subtitle">Keep face in center and good light, then capture.</p>
+          {faceModalMode === 'enroll' ? (
+            <div className="actions-row">
+              <Button variant={faceEnrollMode === 'camera' ? 'primary' : 'ghost'} onClick={() => setFaceEnrollMode('camera')} disabled={faceBusy}>Use Camera</Button>
+              <Button variant={faceEnrollMode === 'photo' ? 'primary' : 'ghost'} onClick={() => setFaceEnrollMode('photo')} disabled={faceBusy}>Use Photo</Button>
+            </div>
+          ) : null}
+          {faceStreamError ? <p className="error">{faceStreamError}</p> : null}
+          {faceModalMode === 'enroll' && faceEnrollMode === 'photo' ? (
+            <div className="form-input-wrap">
+              <label>Upload employee/manager face photo</label>
+              <input ref={facePhotoInputRef} type="file" accept="image/*" className="form-input" onChange={onEnrollFromPhoto} disabled={faceBusy} />
+            </div>
+          ) : (
+            <video ref={faceVideoRef} autoPlay playsInline muted style={{ width: '100%', borderRadius: 12, border: '1px solid var(--line)', background: '#0b1020' }} />
+          )}
+          <div className="actions-row">
+            <Button variant="ghost" onClick={closeFaceModal} disabled={faceBusy}>Cancel</Button>
+            {faceModalMode === 'enroll' && faceEnrollMode === 'photo' ? null : (
+              <Button onClick={captureAndSubmitFace} disabled={faceBusy || !faceVideoReady}>{faceBusy ? 'Processing...' : 'Capture & Verify'}</Button>
+            )}
+          </div>
+        </div>
       </Modal>
     </section>
   )

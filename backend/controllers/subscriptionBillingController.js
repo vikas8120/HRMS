@@ -26,8 +26,12 @@ const writeAudit = async (req, module, action, description, metadata = {}) => {
 
 const buildCrud = (Model, populate = '') => ({
   list: asyncHandler(async (req, res) => {
-    const { page = 1, limit = 10, search = '', status = 'all', type = 'all' } = req.query
-    const skip = (Number(page) - 1) * Number(limit)
+    const page = Math.max(Number(req.query.page || 1), 1)
+    const limit = Math.min(Math.max(Number(req.query.limit || 10), 1), 200)
+    const search = String(req.query.search || '')
+    const status = String(req.query.status || 'all')
+    const type = String(req.query.type || 'all')
+    const skip = (page - 1) * limit
     const query = {}
     if (status && status !== 'all') query.status = status
     if (type && type !== 'all') query.type = type
@@ -42,11 +46,11 @@ const buildCrud = (Model, populate = '') => ({
     }
 
     const [items, total] = await Promise.all([
-      Model.find(query).populate(populate).sort({ createdAt: -1 }).skip(skip).limit(Number(limit)),
+      Model.find(query).populate(populate).sort({ createdAt: -1 }).skip(skip).limit(limit),
       Model.countDocuments(query)
     ])
 
-    respond(res, 200, 'Records fetched successfully', { data: items, items, pagination: { page: Number(page), limit: Number(limit), total, totalPages: Math.ceil(total / Number(limit)) } })
+    respond(res, 200, 'Records fetched successfully', { data: items, items, pagination: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) } })
   }),
   create: asyncHandler(async (req, res) => {
     const item = await Model.create(req.body)

@@ -47,7 +47,7 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
       action: { $in: ['employee_added', 'leave_approved', 'payroll_generated', 'department_created'] }
     }).sort({ createdAt: -1 }).limit(10),
     TenantCompany.findById(companyId).select('companyName companyCode plan status industry email phone city state country timezone currency employeeLimit storageLimit'),
-    CompanySettings.findOne({ companyId }).select('timezone currency attendancePolicy leavePolicy payrollPolicy')
+    CompanySettings.findOne({ companyId }).select('timezone currency attendancePolicy leavePolicy payrollPolicy companyProfile officeTiming')
   ])
 
   const employeeNameMap = {}
@@ -71,7 +71,9 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
   }
 
   const presentToday = todayPresentSet.size
-  const absentToday = todayAbsentSet.size
+  const markedAbsentToday = todayAbsentSet.size
+  const unresolvedToday = Math.max(totalEmployees - presentToday - markedAbsentToday, 0)
+  const absentToday = markedAbsentToday + unresolvedToday
 
   const pendingLeaves = leaves.filter((item) => String(item.status || '').toLowerCase() === 'pending').length
   const approvedLeaves = leaves.filter((item) => String(item.status || '').toLowerCase() === 'approved').length
@@ -156,23 +158,23 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
   const payrollPendingCount = payrollRows.filter((item) => String(item.status || '').toLowerCase() !== 'paid').length
   const companyProfileSummary = {
     companyId,
-    companyName: company?.companyName || '',
+    companyName: company?.companyName || company?.name || '',
     companyCode: company?.companyCode || '',
     plan: company?.plan || '',
     status: company?.status || '',
     industry: company?.industry || '',
-    email: company?.email || '',
-    phone: company?.phone || '',
-    location: [company?.city, company?.state, company?.country].filter(Boolean).join(', '),
-    timezone: companySettings?.timezone || company?.timezone || '',
+    email: company?.email || companySettings?.companyProfile?.email || '',
+    phone: company?.phone || companySettings?.companyProfile?.phone || '',
+    location: [company?.city, company?.state, company?.country].filter(Boolean).join(', ') || companySettings?.companyProfile?.address || '',
+    timezone: companySettings?.timezone || companySettings?.officeTiming?.timezone || company?.timezone || '',
     currency: companySettings?.currency || company?.currency || '',
-    employeeLimit: Number(company?.employeeLimit || 0),
+    employeeLimit: Number(company?.employeeLimit || company?.employeeCount || 0),
     storageLimit: Number(company?.storageLimit || 0)
   }
 
   const alerts = []
   if (pendingLeaves > 0) alerts.push({ id: 'pending-leaves', severity: 'warning', title: 'Pending leave requests', message: `${pendingLeaves} leave request(s) need review` })
-  if (absentToday > 0) alerts.push({ id: 'today-absent', severity: 'info', title: 'Today attendance', message: `${absentToday} employee(s) marked absent today` })
+  if (absentToday > 0) alerts.push({ id: 'today-absent', severity: 'info', title: 'Today attendance', message: `${absentToday} employee(s) currently absent or not yet marked present today` })
   if (payrollPendingCount > 0) alerts.push({ id: 'payroll-pending', severity: 'warning', title: 'Payroll follow-up', message: `${payrollPendingCount} payroll record(s) are not marked paid` })
   if (!companySettings) alerts.push({ id: 'settings-missing', severity: 'info', title: 'Company settings', message: 'Complete company settings setup for better compliance tracking' })
 
@@ -190,6 +192,7 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
     todayAttendance: {
       present: presentToday,
       absent: absentToday,
+      markedAbsent: markedAbsentToday,
       total: totalEmployees
     },
     recentEmployees,
@@ -205,7 +208,6 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
   return res.status(200).json({
     success: true,
     message: 'Dashboard fetched successfully',
-    data: payload,
-    ...payload
+    data: payload
   })
 })

@@ -218,7 +218,7 @@ function CompanyAdminDashboardPage() {
             <EmptyState title="No attendance data" description="Attendance entries will appear here once records are marked." />
           ) : (
             <div style={{ height: 270 }}>
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={240} minHeight={220}>
                 <AreaChart data={attendanceChartData}>
                   <defs>
                     <linearGradient id="attPresent" x1="0" y1="0" x2="0" y2="1">
@@ -244,7 +244,7 @@ function CompanyAdminDashboardPage() {
             <EmptyState title="No payroll data" description="Payroll trends appear after payroll generation." />
           ) : (
             <div style={{ height: 270 }}>
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={240} minHeight={220}>
                 <BarChart data={payrollChartData}>
                   <CartesianGrid stroke="rgba(255,255,255,0.12)" strokeDasharray="4 4" />
                   <XAxis dataKey="month" tick={{ fill: 'var(--muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
@@ -264,7 +264,7 @@ function CompanyAdminDashboardPage() {
           <EmptyState title="No department data" description="Department headcount distribution will appear here." />
         ) : (
           <div style={{ height: 290 }}>
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={240} minHeight={240}>
               <PieChart>
                 <Pie data={departmentWiseEmployees} dataKey="totalEmployees" nameKey="department" cx="50%" cy="50%" outerRadius={100}>
                   {departmentWiseEmployees.map((item, index) => {

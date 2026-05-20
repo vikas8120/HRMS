@@ -6,12 +6,13 @@ import Department from '../models/Department.js'
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const ALLOWED_STATUS = new Set(['active', 'inactive'])
 
-const serializeHR = (item) => ({
+const serializeHR = (item, departmentName = null) => ({
   id: item._id,
   name: item.name,
   email: item.email,
   phone: item.phone || '',
   departmentId: item.departmentId || null,
+  departmentName: departmentName || null,
   status: item.status || 'active',
   role: item.role,
   companyId: item.companyId,
@@ -44,12 +45,18 @@ export const listHR = asyncHandler(async (req, res) => {
     User.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit),
     User.countDocuments(query)
   ])
+  const departmentIds = [...new Set(items.map((item) => String(item.departmentId || '')).filter(Boolean))]
+  const departmentRows = departmentIds.length
+    ? await Department.find({ _id: { $in: departmentIds }, companyId }).select('_id name')
+    : []
+  const departmentNameById = new Map(departmentRows.map((dept) => [String(dept._id), dept.name || 'Department']))
+  const payload = items.map((item) => serializeHR(item, departmentNameById.get(String(item.departmentId || '')) || null))
 
   return res.status(200).json({
     success: true,
     message: 'HR list fetched successfully',
-    data: items.map(serializeHR),
-    items: items.map(serializeHR),
+    data: payload,
+    items: payload,
     pagination: {
       page,
       limit,
@@ -63,8 +70,10 @@ export const getHRById = asyncHandler(async (req, res) => {
   const { id } = req.params
   const item = await User.findOne({ _id: id, companyId: req.user.companyId, role: 'hr' })
   if (!item) return res.status(404).json({ success: false, message: 'HR record not found' })
+  const dept = item.departmentId ? await Department.findOne({ _id: item.departmentId, companyId: req.user.companyId }).select('name') : null
+  const payload = serializeHR(item, dept?.name || null)
 
-  return res.status(200).json({ success: true, message: 'HR fetched successfully', data: serializeHR(item), item: serializeHR(item) })
+  return res.status(200).json({ success: true, message: 'HR fetched successfully', data: payload, item: payload })
 })
 
 export const createHR = asyncHandler(async (req, res) => {
@@ -100,7 +109,9 @@ export const createHR = asyncHandler(async (req, res) => {
     status: String(status).toLowerCase()
   })
 
-  return res.status(201).json({ success: true, message: 'HR created successfully', data: serializeHR(item), item: serializeHR(item) })
+  const dept = item.departmentId ? await Department.findOne({ _id: item.departmentId, companyId: req.user.companyId }).select('name') : null
+  const payload = serializeHR(item, dept?.name || null)
+  return res.status(201).json({ success: true, message: 'HR created successfully', data: payload, item: payload })
 })
 
 export const updateHR = asyncHandler(async (req, res) => {
@@ -127,7 +138,9 @@ export const updateHR = asyncHandler(async (req, res) => {
   }
   await item.save()
 
-  return res.status(200).json({ success: true, message: 'HR updated successfully', data: serializeHR(item), item: serializeHR(item) })
+  const dept = item.departmentId ? await Department.findOne({ _id: item.departmentId, companyId: req.user.companyId }).select('name') : null
+  const payload = serializeHR(item, dept?.name || null)
+  return res.status(200).json({ success: true, message: 'HR updated successfully', data: payload, item: payload })
 })
 
 export const updateHRStatus = asyncHandler(async (req, res) => {
@@ -145,11 +158,13 @@ export const updateHRStatus = asyncHandler(async (req, res) => {
   item.status = normalized
   await item.save()
 
+  const dept = item.departmentId ? await Department.findOne({ _id: item.departmentId, companyId: req.user.companyId }).select('name') : null
+  const payload = serializeHR(item, dept?.name || null)
   return res.status(200).json({
     success: true,
     message: `HR ${normalized === 'active' ? 'activated' : 'deactivated'} successfully`,
-    data: serializeHR(item),
-    item: serializeHR(item)
+    data: payload,
+    item: payload
   })
 })
 
@@ -159,15 +174,22 @@ export const deleteHR = asyncHandler(async (req, res) => {
   if (!item) return res.status(404).json({ success: false, message: 'HR record not found' })
 
   const linkedEmployees = await User.countDocuments({ companyId: req.user.companyId, role: 'employee', hrId: item._id })
+  let unassignedEmployees = 0
   if (linkedEmployees > 0) {
-    return res.status(400).json({
-      success: false,
-      message: 'HR cannot be deleted because employees are linked',
-      details: { linkedEmployees }
-    })
+    const updateResult = await User.updateMany(
+      { companyId: req.user.companyId, role: 'employee', hrId: item._id },
+      { $set: { hrId: null } }
+    )
+    unassignedEmployees = Number(updateResult?.modifiedCount || updateResult?.nModified || 0)
   }
 
   const result = await User.deleteOne({ _id: item._id, companyId: req.user.companyId, role: 'hr' })
   if (!result.deletedCount) return res.status(404).json({ success: false, message: 'HR record not found' })
-  return res.status(200).json({ success: true, message: 'HR deleted successfully' })
+  return res.status(200).json({
+    success: true,
+    message: unassignedEmployees > 0
+      ? `HR deleted successfully. ${unassignedEmployees} linked employee(s) were unassigned.`
+      : 'HR deleted successfully',
+    data: { unassignedEmployees }
+  })
 })

@@ -24,6 +24,8 @@ Create/update `backend/.env` (or copy `backend/.env.example`):
 ```env
 PORT=5001
 MONGO_URI=mongodb+srv://<username>:<password>@<cluster-host>/hrms_superadmin?retryWrites=true&w=majority
+# Optional fallback key if your environment uses this name
+MONGODB_URI=
 JWT_SECRET=use_a_strong_random_secret_at_least_32_characters
 JWT_EXPIRES_IN=1d
 ```
@@ -40,6 +42,11 @@ npm run start
 Or dev mode:
 ```bash
 npm run dev
+```
+
+Validate MongoDB health and required indexes:
+```bash
+npm run db:doctor
 ```
 
 ## Frontend Setup

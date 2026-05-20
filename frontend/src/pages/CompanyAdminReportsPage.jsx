@@ -341,7 +341,7 @@ function CompanyAdminReportsPage() {
               <div className="panel-head"><h3>Attendance Trend</h3></div>
               {attendanceChartData.length === 0 ? <EmptyState title="No attendance chart data" /> : (
                 <div style={{ height: 270 }}>
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={240} minHeight={220}>
                     <LineChart data={attendanceChartData}>
                       <CartesianGrid stroke="rgba(255,255,255,0.12)" strokeDasharray="4 4" />
                       <XAxis dataKey="date" tick={{ fill: 'var(--muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
@@ -360,7 +360,7 @@ function CompanyAdminReportsPage() {
               <div className="panel-head"><h3>Payroll Trend</h3></div>
               {payrollChartData.length === 0 ? <EmptyState title="No payroll chart data" /> : (
                 <div style={{ height: 270 }}>
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={240} minHeight={220}>
                     <BarChart data={payrollChartData}>
                       <CartesianGrid stroke="rgba(255,255,255,0.12)" strokeDasharray="4 4" />
                       <XAxis dataKey="period" tick={{ fill: 'var(--muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
@@ -378,7 +378,7 @@ function CompanyAdminReportsPage() {
             <div className="panel-head"><h3>Leave Status Overview</h3></div>
             {leaveChartData.every((row) => row.count === 0) ? <EmptyState title="No leave chart data" /> : (
               <div style={{ height: 260 }}>
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={240} minHeight={220}>
                   <BarChart data={leaveChartData}>
                     <CartesianGrid stroke="rgba(255,255,255,0.12)" strokeDasharray="4 4" />
                     <XAxis dataKey="status" tick={{ fill: 'var(--muted)', fontSize: 11 }} axisLine={false} tickLine={false} />

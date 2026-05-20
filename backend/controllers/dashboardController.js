@@ -5,9 +5,14 @@ import { getSequelize } from '../config/pgCompat.js'
 
 const modelFilterSql = (model) => `SELECT * FROM documents WHERE model = '${model}'`
 const toNum = (value) => Number(value || 0)
-const now = new Date()
-const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+const getTimeContext = () => {
+  const now = new Date()
+  return {
+    now,
+    startOfMonth: new Date(now.getFullYear(), now.getMonth(), 1),
+    startOfPrevMonth: new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  }
+}
 
 const countByStatus = (rows, statuses) => rows.filter((r) => statuses.includes(String(r.data?.status || '').toLowerCase())).length
 const inDateRange = (date, from, to) => {
@@ -59,9 +64,11 @@ const getRecentActivitiesCore = async ({ search = '', severity = 'all', page = 1
 }
 
 const getDashboardData = async (query = {}) => {
-  const [companies, users, subscriptions, invoices, payments, tickets, health] = await Promise.all([
+  const { now, startOfMonth, startOfPrevMonth } = getTimeContext()
+  const [companies, users, admins, subscriptions, invoices, payments, tickets, health] = await Promise.all([
     prisma.$queryRawUnsafe(modelFilterSql('TenantCompany')),
     prisma.$queryRawUnsafe(modelFilterSql('GlobalUser')),
+    prisma.$queryRawUnsafe(modelFilterSql('User')),
     prisma.$queryRawUnsafe(modelFilterSql('Subscription')),
     prisma.$queryRawUnsafe(modelFilterSql('Invoice')),
     prisma.$queryRawUnsafe(modelFilterSql('PaymentTransaction')),
@@ -70,7 +77,10 @@ const getDashboardData = async (query = {}) => {
   ])
 
   const companyRows = companies || []
-  const userRows = users || []
+  const globalUserRows = users || []
+  const adminUserRows = (admins || []).filter((r) => String(r.data?.role || '').toLowerCase() === 'admin')
+  const nonAdminUserRows = (admins || []).filter((r) => String(r.data?.role || '').toLowerCase() !== 'admin')
+  const userRows = [...globalUserRows, ...nonAdminUserRows]
   const subscriptionRows = subscriptions || []
   const invoiceRows = invoices || []
   const paymentRows = payments || []
@@ -82,6 +92,8 @@ const getDashboardData = async (query = {}) => {
   const trialCompanies = countByStatus(companyRows, ['trial'])
   const inactiveCompanies = countByStatus(companyRows, ['inactive'])
   const expiredCompanies = countByStatus(companyRows, ['expired'])
+
+  const totalAdmins = adminUserRows.length
 
   const totalUsers = userRows.length
   const activeUsers = countByStatus(userRows, ['active'])
@@ -176,6 +188,7 @@ const getDashboardData = async (query = {}) => {
     overview: {
       totalCompanies,
       activeCompanies,
+      totalAdmins,
       suspendedCompanies,
       trialCompanies,
       totalUsers,
@@ -308,9 +321,10 @@ const toCompatDoc = (row) => ({ id: row.doc_id, ...(row.data || {}), createdAt: 
 const isActiveStatus = (value) => String(value || '').toLowerCase() === 'active'
 
 const getDashboardOverviewPayload = async () => {
-  const [companiesRaw, usersRaw, subscriptionsRaw, invoicesRaw, paymentsRaw, ticketsRaw, auditRaw, leadsRaw] = await Promise.all([
+  const [companiesRaw, usersRaw, adminsRaw, subscriptionsRaw, invoicesRaw, paymentsRaw, ticketsRaw, auditRaw, leadsRaw] = await Promise.all([
     loadDocs('TenantCompany'),
     loadDocs('GlobalUser'),
+    loadDocs('User'),
     loadDocs('Subscription'),
     loadDocs('Invoice'),
     loadDocs('PaymentTransaction'),
@@ -320,7 +334,9 @@ const getDashboardOverviewPayload = async () => {
   ])
 
   const companies = (companiesRaw || []).map(toCompatDoc)
-  const users = (usersRaw || []).map(toCompatDoc)
+  const globalUsers = (usersRaw || []).map(toCompatDoc)
+  const adminUsers = (adminsRaw || []).map(toCompatDoc)
+  const users = [...globalUsers, ...adminUsers.filter((u) => String(u.role || '').toLowerCase() !== 'admin')]
   const subscriptions = (subscriptionsRaw || []).map(toCompatDoc)
   const invoices = (invoicesRaw || []).map(toCompatDoc)
   const payments = (paymentsRaw || []).map(toCompatDoc)
@@ -330,6 +346,7 @@ const getDashboardOverviewPayload = async () => {
 
   const totalCompanies = companies.length
   const activeCompanies = companies.filter((c) => isActiveStatus(c.status)).length
+  const totalAdmins = adminUsers.filter((u) => String(u.role || '').toLowerCase() === 'admin').length
   const totalUsers = users.length
   const activeUsers = users.filter((u) => isActiveStatus(u.status)).length
   const activeSubscriptions = subscriptions.filter((s) => isActiveStatus(s.status)).length
@@ -383,14 +400,7 @@ const getDashboardOverviewPayload = async () => {
   const totalLeadsForSource = [...leadSourcesMap.values()].reduce((a, b) => a + b, 0)
   const leadSources = totalLeadsForSource > 0
     ? [...leadSourcesMap.entries()].map(([source, count]) => ({ source, value: Math.round((count / totalLeadsForSource) * 100) }))
-    : [
-        { source: 'Facebook', value: 32 },
-        { source: 'Instagram', value: 18 },
-        { source: 'LinkedIn', value: 15 },
-        { source: 'Website', value: 22 },
-        { source: 'WhatsApp', value: 8 },
-        { source: 'Referral', value: 5 }
-      ]
+    : []
 
   const salesStageOrder = ['Leads', 'Demo Booked', 'Trial', 'Paid']
   const stageMap = new Map(salesStageOrder.map((s) => [s, 0]))
@@ -437,6 +447,7 @@ const getDashboardOverviewPayload = async () => {
   const stats = {
     totalCompanies,
     activeCompanies,
+    totalAdmins,
     totalUsers,
     activeUsers,
     activeSubscriptions,
@@ -475,6 +486,9 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
         activeThisMonth: data.activeUsers.activeThisMonth,
         inactive: data.activeUsers.inactive,
         blocked: data.activeUsers.blocked
+      },
+      totalAdmins: {
+        total: data.overview.totalAdmins || 0
       },
       activeSubscriptions: {
         total: data.activeSubscriptions.total,
@@ -525,6 +539,7 @@ export const getOverview = asyncHandler(async (_req, res) => {
     data: {
       ...dashboard,
       totalCompanies: legacy.totalCompanies,
+      totalAdmins: legacy.totalAdmins,
       activeUsers: legacy.activeUsers,
       activeSubscriptions: legacy.activeSubscriptions,
       monthlyRevenue: legacy.monthlyRevenue,

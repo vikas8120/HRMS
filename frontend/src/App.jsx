@@ -16,8 +16,21 @@ import CompanyAdminLeavesPage from './pages/CompanyAdminLeavesPage'
 import CompanyAdminPayrollPage from './pages/CompanyAdminPayrollPage'
 import CompanyAdminReportsPage from './pages/CompanyAdminReportsPage'
 import CompanyAdminSettingsPage from './pages/CompanyAdminSettingsPage'
+import EmployeeAttendancePage from './pages/employee/EmployeeAttendancePage'
+import EmployeeDashboardPage from './pages/employee/EmployeeDashboardPage'
+import EmployeeLeavesPage from './pages/employee/EmployeeLeavesPage'
+import EmployeePayrollPage from './pages/employee/EmployeePayrollPage'
+import EmployeeDocumentsPage from './pages/employee/EmployeeDocumentsPage'
+import EmployeeTasksPage from './pages/employee/EmployeeTasksPage'
+import EmployeeAnnouncementsPage from './pages/employee/EmployeeAnnouncementsPage'
+import EmployeeHelpdeskPage from './pages/employee/EmployeeHelpdeskPage'
+import EmployeePerformancePage from './pages/employee/EmployeePerformancePage'
+import EmployeeNotificationsPage from './pages/employee/EmployeeNotificationsPage'
+import EmployeeSettingsPage from './pages/employee/EmployeeSettingsPage'
+import EmployeeProfilePage from './pages/employee/EmployeeProfilePage'
 import { navItems } from './data/dashboardData'
 import ProtectedRoute from './routes/ProtectedRoute'
+import EmployeeLayout from './routes/EmployeeLayout'
 import SuperAdminLayout from './routes/SuperAdminLayout'
 import AdminLayout from './routes/AdminLayout'
 import RoleBasedRedirect from './routes/RoleBasedRedirect'
@@ -84,7 +97,21 @@ function App() {
       </Route>
 
       <Route element={<ProtectedRoute allowedRoles={['employee']} />}>
-        <Route path="/employee/dashboard" element={<CompanyAdminModulePage moduleName="Employee Dashboard" />} />
+        <Route element={<EmployeeLayout />}>
+          <Route path="/employee" element={<Navigate to="/employee/dashboard" replace />} />
+          <Route path="/employee/dashboard" element={<EmployeeDashboardPage />} />
+          <Route path="/employee/attendance" element={<EmployeeAttendancePage />} />
+          <Route path="/employee/leaves" element={<EmployeeLeavesPage />} />
+          <Route path="/employee/payroll" element={<EmployeePayrollPage />} />
+          <Route path="/employee/documents" element={<EmployeeDocumentsPage />} />
+          <Route path="/employee/tasks" element={<EmployeeTasksPage />} />
+          <Route path="/employee/announcements" element={<EmployeeAnnouncementsPage />} />
+          <Route path="/employee/helpdesk" element={<EmployeeHelpdeskPage />} />
+          <Route path="/employee/performance" element={<EmployeePerformancePage />} />
+          <Route path="/employee/notifications" element={<EmployeeNotificationsPage />} />
+          <Route path="/employee/settings" element={<EmployeeSettingsPage />} />
+          <Route path="/employee/profile" element={<EmployeeProfilePage />} />
+        </Route>
       </Route>
 
       <Route path="*" element={<NotFoundPage />} />
