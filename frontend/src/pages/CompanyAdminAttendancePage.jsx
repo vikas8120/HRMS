@@ -23,7 +23,6 @@ import {
   getEmployees
 } from '../api/adminAttendanceApi'
 import { useAuth } from '../hooks/useAuth'
-import { detectFaceDescriptor, detectFaceDescriptorFromImageFile, ensureFaceModels } from '../utils/faceRecognition'
 
 const initialForm = {
   employeeId: '',
@@ -41,6 +40,14 @@ const statusOptions = [
   { value: 'late', label: 'Late' },
   { value: 'leave', label: 'Leave' }
 ]
+
+let faceUtilsPromise
+const loadFaceUtils = () => {
+  if (!faceUtilsPromise) {
+    faceUtilsPromise = import('../utils/faceRecognition')
+  }
+  return faceUtilsPromise
+}
 
 function CompanyAdminAttendancePage() {
   const { user } = useAuth()
@@ -152,6 +159,7 @@ function CompanyAdminAttendancePage() {
     setFaceStreamError('')
     setFaceModalOpen(true)
     try {
+      const { ensureFaceModels } = await loadFaceUtils()
       await ensureFaceModels()
       const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false })
       faceStreamRef.current = stream
@@ -343,6 +351,7 @@ function CompanyAdminAttendancePage() {
   const captureAndSubmitFace = async () => {
     setFaceBusy(true)
     try {
+      const { detectFaceDescriptor } = await loadFaceUtils()
       const videoEl = faceVideoRef.current
       if (!videoEl || !faceVideoReady) {
         throw new Error('Camera not ready')
@@ -381,6 +390,7 @@ function CompanyAdminAttendancePage() {
     if (!file) return
     setFaceBusy(true)
     try {
+      const { detectFaceDescriptorFromImageFile } = await loadFaceUtils()
       const descriptor = await detectFaceDescriptorFromImageFile(file)
       if (!descriptor) throw new Error('No clear face found in selected photo')
       const res = await enrollAttendanceFace(descriptor)

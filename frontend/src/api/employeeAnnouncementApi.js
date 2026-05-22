@@ -13,8 +13,8 @@ export const downloadAnnouncementAttachment = (item) => {
   const url = String(item?.attachmentUrl || '').trim()
   if (!url) return false
 
-  const base = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/api'
-  const origin = base.endsWith('/api') ? base.slice(0, -4) : base
+  const apiRoot = import.meta.env.VITE_API_URL || 'http://localhost:5001'
+  const origin = apiRoot.replace(/\/$/, '')
   const href = /^https?:\/\//i.test(url) ? url : `${origin}${url}`
 
   const link = document.createElement('a')

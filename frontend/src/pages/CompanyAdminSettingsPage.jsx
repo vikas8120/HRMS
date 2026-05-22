@@ -18,6 +18,7 @@ import {
   updatePayrollSettings,
   updateWorkingDays
 } from '../api/adminSettingsApi'
+import { generateMoreDemoData, isDemoMode, resetDemoData } from '../mocks/demoApi'
 
 const daysOptions = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
@@ -39,6 +40,7 @@ function CompanyAdminSettingsPage() {
   const [data, setData] = useState(defaultState)
   const [holidayForm, setHolidayForm] = useState({ name: '', date: '', type: '', description: '' })
   const [validation, setValidation] = useState({})
+  const demoMode = isDemoMode()
 
   useEffect(() => {
     if (!toast) return undefined
@@ -229,6 +231,22 @@ function CompanyAdminSettingsPage() {
     } finally {
       setSectionSaving(`holidayDelete-${id}`, false)
     }
+  }
+
+  const onResetDemoData = () => {
+    resetDemoData()
+    localStorage.removeItem('token')
+    localStorage.removeItem('currentUser')
+    setToast({ type: 'success', message: 'Demo data reset successfully. Reloading...' })
+    setTimeout(() => {
+      if (typeof window !== 'undefined') window.location.href = '/login'
+    }, 700)
+  }
+
+  const onGenerateMoreDemoData = () => {
+    const result = generateMoreDemoData(30)
+    setToast({ type: 'success', message: `Generated ${result.generated} demo records across modules.` })
+    loadSettings()
   }
 
   if (loading) {
@@ -443,6 +461,21 @@ function CompanyAdminSettingsPage() {
           )}
         </div>
       </article>
+
+      {demoMode ? (
+        <article className="panel">
+          <div className="panel-head"><h3>Demo Data</h3></div>
+          <p>Reset all seeded demo records and user session to start from a clean state.</p>
+          <div className="actions-row" style={{ marginTop: 10 }}>
+            <Button variant="ghost" onClick={onGenerateMoreDemoData}>
+              <RefreshCw size={14} /> Generate More Demo Data
+            </Button>
+            <Button variant="ghost" onClick={onResetDemoData}>
+              <Trash2 size={14} /> Reset Demo Data
+            </Button>
+          </div>
+        </article>
+      ) : null}
     </section>
   )
 }

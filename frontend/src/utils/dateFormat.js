@@ -1,15 +1,14 @@
 const DEFAULT_DATE_FORMAT = 'DD-MM-YYYY'
-const STORAGE_KEY = 'hrms_date_format'
+let activeDateFormat = DEFAULT_DATE_FORMAT
 
 const pad = (value) => String(value).padStart(2, '0')
 
 const isValidDate = (value) => value instanceof Date && !Number.isNaN(value.getTime())
 
-export const getDateFormat = () => localStorage.getItem(STORAGE_KEY) || DEFAULT_DATE_FORMAT
+export const getDateFormat = () => activeDateFormat || DEFAULT_DATE_FORMAT
 
 export const setDateFormat = (format) => {
-  const safe = String(format || '').trim() || DEFAULT_DATE_FORMAT
-  localStorage.setItem(STORAGE_KEY, safe)
+  activeDateFormat = String(format || '').trim() || DEFAULT_DATE_FORMAT
 }
 
 export const formatDate = (value) => {
@@ -39,4 +38,3 @@ export const formatDateTime = (value) => {
   const ss = pad(date.getSeconds())
   return `${datePart}, ${hh}:${min}:${ss}`
 }
-

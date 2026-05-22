@@ -49,8 +49,8 @@ function HrDocumentPage() {
   const getPublicFileUrl = (value) => {
     if (!value) return ''
     if (String(value).startsWith('http://') || String(value).startsWith('https://')) return value
-    const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/api'
-    const origin = apiBase.replace(/\/api\/?$/, '')
+    const apiRoot = import.meta.env.VITE_API_URL || 'http://localhost:5001'
+    const origin = apiRoot.replace(/\/$/, '')
     return `${origin}${value.startsWith('/') ? value : `/${value}`}`
   }
 

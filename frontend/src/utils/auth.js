@@ -1,5 +1,5 @@
-const TOKEN_KEY = 'auth_token'
-const USER_KEY = 'auth_user'
+const TOKEN_KEY = 'token'
+const USER_KEY = 'currentUser'
 
 export const saveToken = (token, user = null) => {
   if (token) {
@@ -13,23 +13,11 @@ export const saveToken = (token, user = null) => {
   } else {
     localStorage.removeItem(USER_KEY)
   }
-
-  const role = String(user?.role || '').toLowerCase()
-  if (role === 'platform_admin') {
-    if (token) localStorage.setItem('super_admin_token', token)
-    else localStorage.removeItem('super_admin_token')
-    localStorage.removeItem('admin_token')
-  } else if (role) {
-    if (token) localStorage.setItem('admin_token', token)
-    else localStorage.removeItem('admin_token')
-    localStorage.removeItem('super_admin_token')
-  } else {
-    localStorage.removeItem('admin_token')
-    localStorage.removeItem('super_admin_token')
-  }
 }
 
-export const getToken = () => localStorage.getItem(TOKEN_KEY) || localStorage.getItem('admin_token') || localStorage.getItem('super_admin_token') || ''
+export const getToken = () => {
+  return localStorage.getItem(TOKEN_KEY) || ''
+}
 
 export const getCurrentUser = () => {
   const raw = localStorage.getItem(USER_KEY)
@@ -45,6 +33,4 @@ export const getCurrentUser = () => {
 export const logout = () => {
   localStorage.removeItem(TOKEN_KEY)
   localStorage.removeItem(USER_KEY)
-  localStorage.removeItem('admin_token')
-  localStorage.removeItem('super_admin_token')
 }

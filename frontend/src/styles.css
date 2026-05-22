@@ -172,6 +172,27 @@ html, body, #root, .app-shell, .content-shell, .page-content, .section-layout {
   transform: translateX(2px);
 }
 
+.menu-link-button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.sidebar-footer {
+  margin-top: 10px;
+  padding-top: 8px;
+}
+
+.menu-link.danger {
+  color: #ffd6d6;
+}
+
+.menu-link.danger:hover {
+  background: rgba(217, 72, 72, 0.22);
+}
+
 .menu-link.active,
 .submenu-link.active {
   background: rgba(255, 255, 255, 0.24);

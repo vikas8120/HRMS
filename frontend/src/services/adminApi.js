@@ -1,6 +1,5 @@
 import axiosInstance from '../api/axios'
-
-const getToken = () => localStorage.getItem('admin_token') || localStorage.getItem('super_admin_token') || ''
+import { getToken } from '../utils/auth'
 
 const withAuthHeaders = (config = {}) => {
   const token = getToken()

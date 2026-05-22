@@ -1,29 +1,59 @@
+import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { CheckCircle2, CircleDollarSign, Sparkles, Target, TrendingUp } from 'lucide-react'
 import { Area, AreaChart, CartesianGrid, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { getPremiumCrmOverview } from '../../api/premiumCrmApi'
 
-const kpis = [
-  { label: 'Revenue', value: '$2.84M', delta: '+19.8%', icon: CircleDollarSign },
-  { label: 'Active Leads', value: '12,409', delta: '+8.2%', icon: Target },
-  { label: 'Won Deals', value: '942', delta: '+12.6%', icon: CheckCircle2 },
-  { label: 'Avg. Deal Size', value: '$18.7k', delta: '+6.4%', icon: TrendingUp }
-]
-
-const trendData = [
-  { name: 'Jan', revenue: 110, leads: 60 },
-  { name: 'Feb', revenue: 128, leads: 72 },
-  { name: 'Mar', revenue: 138, leads: 74 },
-  { name: 'Apr', revenue: 160, leads: 90 },
-  { name: 'May', revenue: 178, leads: 105 },
-  { name: 'Jun', revenue: 194, leads: 120 }
-]
+const icons = [CircleDollarSign, Target, CheckCircle2, TrendingUp]
+const currency = (value) => `$${Number(value || 0).toLocaleString()}`
 
 function PremiumDashboardView() {
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [data, setData] = useState(null)
+
+  useEffect(() => {
+    let active = true
+    const load = async () => {
+      setLoading(true)
+      setError('')
+      try {
+        const res = await getPremiumCrmOverview()
+        if (!active) return
+        setData(res?.data || null)
+      } catch (err) {
+        if (!active) return
+        setError(err?.response?.data?.message || 'Failed to load dashboard data')
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+    load()
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const kpis = useMemo(() => {
+    const stats = data?.stats || {}
+    return [
+      { label: 'Revenue', value: currency(stats.monthlyRevenue), delta: 'Current month' },
+      { label: 'Active Leads', value: String((data?.salesFunnel || []).find((s) => s.stage === 'Leads')?.count || 0), delta: 'Lead stage' },
+      { label: 'Won Deals', value: String((data?.salesFunnel || []).find((s) => s.stage === 'Paid')?.count || 0), delta: 'Closed won' },
+      { label: 'Active Subscriptions', value: String(stats.activeSubscriptions || 0), delta: 'Live subscriptions' }
+    ]
+  }, [data])
+
+  const trendData = useMemo(() => (data?.revenueDeals || []).map((x) => ({ name: x.month, revenue: Number(x.revenue || 0), leads: Number(x.deals || 0) })), [data])
+
+  if (loading) return <div className="crm-glass-card">Loading dashboard...</div>
+  if (error) return <div className="crm-glass-card">{error}</div>
+
   return (
     <div className="crm-view-grid">
       <div className="crm-kpi-grid">
-        {kpis.map((k) => {
-          const Icon = k.icon
+        {kpis.map((k, i) => {
+          const Icon = icons[i % icons.length]
           return (
             <motion.div key={k.label} className="crm-glass-card crm-kpi" whileHover={{ y: -3 }}>
               <div><p>{k.label}</p><h3>{k.value}</h3><small>{k.delta}</small></div>
@@ -33,7 +63,7 @@ function PremiumDashboardView() {
         })}
       </div>
       <div className="crm-glass-card crm-chart-card">
-        <h3>Revenue & Lead Growth</h3>
+        <h3>Revenue & Deal Growth</h3>
         <ResponsiveContainer width="100%" height={260}>
           <AreaChart data={trendData}>
             <defs>
@@ -51,9 +81,9 @@ function PremiumDashboardView() {
       <div className="crm-glass-card">
         <h3>AI Insights</h3>
         <ul className="crm-list">
-          <li><Sparkles size={14} /> Best follow-up time: 11:30 AM for +17% response rate.</li>
-          <li><Sparkles size={14} /> 3 at-risk enterprise accounts need escalation.</li>
-          <li><Sparkles size={14} /> Forecast predicts 124% quota attainment this month.</li>
+          {(data?.aiInsights || []).map((insight) => (
+            <li key={insight.title}><Sparkles size={14} /> {insight.message}</li>
+          ))}
         </ul>
       </div>
     </div>

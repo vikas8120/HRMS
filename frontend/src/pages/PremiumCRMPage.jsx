@@ -223,6 +223,7 @@ function PremiumCRMPage() {
   const [active, setActive] = useState('dashboard')
 
   const content = useMemo(() => {
+    if (active === 'dashboard') return <Suspense fallback={<div className="crm-glass-card">Loading dashboard...</div>}><PremiumDashboardView /></Suspense>
     if (active === 'customers') return <CustomersReferenceView />
     if (active === 'pipeline') return <PipelineReferenceView />
     if (active === 'analytics') return <Suspense fallback={<div className="crm-glass-card">Loading analytics...</div>}><PremiumAnalyticsView /></Suspense>

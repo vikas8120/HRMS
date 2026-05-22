@@ -28,8 +28,8 @@ const resolveFileHref = (fileUrl) => {
   const url = String(fileUrl || '').trim()
   if (!url) return ''
   if (/^https?:\/\//i.test(url)) return url
-  const base = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/api'
-  const origin = base.endsWith('/api') ? base.slice(0, -4) : base
+  const apiRoot = import.meta.env.VITE_API_URL || 'http://localhost:5001'
+  const origin = apiRoot.replace(/\/$/, '')
   return `${origin}${url}`
 }
 

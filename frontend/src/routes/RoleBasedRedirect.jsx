@@ -1,6 +1,6 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
-import { getToken } from '../utils/auth'
+import { getCurrentUser, getToken } from '../utils/auth'
 
 function RoleBasedRedirect() {
   const { user, authLoading } = useAuth()
@@ -8,10 +8,13 @@ function RoleBasedRedirect() {
   if (authLoading) return <div className="panel">Checking authentication...</div>
 
   const token = getToken()
-  if (!token || !user) return <Navigate to="/login" replace />
+  const fallbackUser = getCurrentUser()
+  const resolvedUser = user || (token ? fallbackUser : null)
 
-  const role = String(user.role || '').toLowerCase()
-  if (role === 'platform_admin') return <Navigate to="/super-admin/dashboard" replace />
+  if (!resolvedUser) return <Navigate to="/login" replace />
+
+  const role = String(resolvedUser.role || '').toLowerCase()
+  if (role === 'platform_admin' || role === 'superadmin') return <Navigate to="/super-admin/dashboard" replace />
   if (role === 'admin') return <Navigate to="/admin/dashboard" replace />
   if (role === 'hr') return <Navigate to="/hr/dashboard" replace />
   if (role === 'manager') return <Navigate to="/manager/dashboard" replace />

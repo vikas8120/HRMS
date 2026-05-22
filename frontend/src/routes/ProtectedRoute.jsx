@@ -1,24 +1,14 @@
 import { Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
-import { getToken, logout } from '../utils/auth'
+import { getCurrentUser, getToken } from '../utils/auth'
 
 const roleDashboardMap = {
   platform_admin: '/super-admin/dashboard',
+  superadmin: '/super-admin/dashboard',
   admin: '/admin/dashboard',
   hr: '/hr/dashboard',
   manager: '/manager/dashboard',
   employee: '/employee/dashboard'
-}
-
-const parseTokenPayload = (token) => {
-  try {
-    const base64 = token.split('.')[1]
-    if (!base64) return null
-    const decoded = atob(base64.replace(/-/g, '+').replace(/_/g, '/'))
-    return JSON.parse(decoded)
-  } catch (_error) {
-    return null
-  }
 }
 
 function ProtectedRoute({ allowedRoles = [] }) {
@@ -27,17 +17,17 @@ function ProtectedRoute({ allowedRoles = [] }) {
   if (authLoading) return <div className="panel">Checking authentication...</div>
 
   const token = getToken()
-  if (!token) return <Navigate to="/login" replace />
-
-  const payload = parseTokenPayload(token)
-  if (!payload || (payload?.exp && Date.now() >= Number(payload.exp) * 1000)) {
-    logout()
+  if (!token) {
+    localStorage.removeItem('token')
+    localStorage.removeItem('currentUser')
     return <Navigate to="/login" replace />
   }
 
-  const role = String(user?.role || '').toLowerCase()
+  const fallbackUser = getCurrentUser()
+  const resolvedUser = user || fallbackUser
+  const role = String(resolvedUser?.role || '').toLowerCase()
+
   if (!role) {
-    logout()
     return <Navigate to="/login" replace />
   }
 

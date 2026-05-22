@@ -3,6 +3,7 @@ import PageHeader from '../../components/ui/PageHeader'
 import DataTable from '../../components/ui/DataTable'
 import SearchBar from '../../components/ui/SearchBar'
 import FilterDropdown from '../../components/ui/FilterDropdown'
+import FormInput from '../../components/ui/FormInput'
 import Button from '../../components/ui/Button'
 import EmptyState from '../../components/ui/EmptyState'
 import LoadingSkeleton from '../../components/ui/LoadingSkeleton'
@@ -65,7 +66,7 @@ function AuditSecurityModulePage({ page }) {
       setSettings(settingsRes.items)
 
       const grouped = {}
-      settingsRes.items.forEach((x) => { grouped[x.key] = JSON.stringify(x.value, null, 2) })
+      settingsRes.items.forEach((x) => { grouped[x.key] = x.value || {} })
       setEditValues(grouped)
     } catch (error) {
       toastError(error?.response?.data?.message || 'Failed to load audit & security data')
@@ -111,6 +112,141 @@ function AuditSecurityModulePage({ page }) {
   const filteredSettings = categoryFilter === 'all'
     ? settings
     : settings.filter((x) => x.group === categoryFilter)
+
+  const setSettingValue = (key, field, value) => {
+    setEditValues((prev) => ({
+      ...prev,
+      [key]: {
+        ...(prev[key] || {}),
+        [field]: value
+      }
+    }))
+  }
+
+  const renderBoolean = (settingKey, field, label) => (
+    <FilterDropdown
+      label={label}
+      value={editValues?.[settingKey]?.[field] ? 'true' : 'false'}
+      onChange={(value) => setSettingValue(settingKey, field, value === 'true')}
+      options={[
+        { value: 'true', label: 'Enabled' },
+        { value: 'false', label: 'Disabled' }
+      ]}
+    />
+  )
+
+  const renderSettingForm = (setting) => {
+    const value = editValues?.[setting.key] || {}
+
+    if (setting.key === 'password_policy') {
+      return (
+        <div className="form-grid">
+          <FormInput label="Minimum Length" type="number" value={Number(value.minLength || 0)} onChange={(e) => setSettingValue(setting.key, 'minLength', Number(e.target.value || 0))} />
+          {renderBoolean(setting.key, 'requireUppercase', 'Require Uppercase')}
+          {renderBoolean(setting.key, 'requireNumber', 'Require Number')}
+        </div>
+      )
+    }
+
+    if (setting.key === 'two_factor_auth') {
+      return (
+        <div className="form-grid">
+          {renderBoolean(setting.key, 'enabled', '2FA Enabled')}
+          <FormInput
+            label="Methods (comma separated)"
+            value={(value.methods || []).join(', ')}
+            onChange={(e) => setSettingValue(setting.key, 'methods', e.target.value.split(',').map((x) => x.trim()).filter(Boolean))}
+          />
+        </div>
+      )
+    }
+
+    if (setting.key === 'sso_settings') {
+      return (
+        <div className="form-grid">
+          {renderBoolean(setting.key, 'enabled', 'SSO Enabled')}
+          <FormInput label="Provider" value={value.provider || ''} onChange={(e) => setSettingValue(setting.key, 'provider', e.target.value)} />
+        </div>
+      )
+    }
+
+    if (setting.key === 'oauth_settings') {
+      return (
+        <div className="form-grid">
+          {renderBoolean(setting.key, 'enabled', 'OAuth Enabled')}
+          <FormInput label="Client ID" value={value.clientId || ''} onChange={(e) => setSettingValue(setting.key, 'clientId', e.target.value)} />
+          <FormInput label="Client Secret" value={value.clientSecret || ''} onChange={(e) => setSettingValue(setting.key, 'clientSecret', e.target.value)} />
+        </div>
+      )
+    }
+
+    if (setting.key === 'ip_whitelisting') {
+      return (
+        <div className="form-grid">
+          {renderBoolean(setting.key, 'enabled', 'IP Whitelisting Enabled')}
+          <FormInput
+            label="Allowed IPs (comma separated)"
+            value={(value.ips || []).join(', ')}
+            onChange={(e) => setSettingValue(setting.key, 'ips', e.target.value.split(',').map((x) => x.trim()).filter(Boolean))}
+          />
+        </div>
+      )
+    }
+
+    if (setting.key === 'session_timeout') {
+      return (
+        <div className="form-grid">
+          <FormInput label="Session Timeout (minutes)" type="number" value={Number(value.minutes || 0)} onChange={(e) => setSettingValue(setting.key, 'minutes', Number(e.target.value || 0))} />
+        </div>
+      )
+    }
+
+    if (setting.key === 'captcha_settings') {
+      return (
+        <div className="form-grid">
+          {renderBoolean(setting.key, 'enabled', 'Captcha Enabled')}
+          <FormInput label="Provider" value={value.provider || ''} onChange={(e) => setSettingValue(setting.key, 'provider', e.target.value)} />
+        </div>
+      )
+    }
+
+    if (setting.key === 'token_expiry_settings') {
+      return (
+        <div className="form-grid">
+          <FormInput label="Access Token Expiry (minutes)" type="number" value={Number(value.accessTokenMinutes || 0)} onChange={(e) => setSettingValue(setting.key, 'accessTokenMinutes', Number(e.target.value || 0))} />
+          <FormInput label="Refresh Token Expiry (days)" type="number" value={Number(value.refreshTokenDays || 0)} onChange={(e) => setSettingValue(setting.key, 'refreshTokenDays', Number(e.target.value || 0))} />
+        </div>
+      )
+    }
+
+    if (setting.key === 'threat_monitoring') {
+      return (
+        <div className="form-grid">
+          {renderBoolean(setting.key, 'enabled', 'Threat Monitoring Enabled')}
+          <FilterDropdown
+            label="Alert Level"
+            value={value.alertLevel || 'medium'}
+            onChange={(alertLevel) => setSettingValue(setting.key, 'alertLevel', alertLevel)}
+            options={[
+              { value: 'low', label: 'Low' },
+              { value: 'medium', label: 'Medium' },
+              { value: 'high', label: 'High' }
+            ]}
+          />
+        </div>
+      )
+    }
+
+    return (
+      <div className="form-grid">
+        <FormInput
+          label="Value"
+          value={typeof value === 'string' ? value : ''}
+          onChange={(e) => setEditValues((prev) => ({ ...prev, [setting.key]: e.target.value }))}
+        />
+      </div>
+    )
+  }
 
   return (
     <section className="section-layout">
@@ -160,17 +296,15 @@ function AuditSecurityModulePage({ page }) {
           <div key={s._id} className="panel" style={{ marginBottom: '10px' }}>
             <h4 style={{ marginTop: 0 }}>{s.group} / {s.key}</h4>
             <p style={{ color: 'var(--muted)' }}>{s.description || 'Configuration setting'}</p>
-            <textarea className="form-input" rows={6} value={editValues[s.key] || ''} onChange={(e) => setEditValues((p) => ({ ...p, [s.key]: e.target.value }))} />
+            {renderSettingForm(s)}
             <div className="actions-row" style={{ marginTop: '8px' }}>
               <Button onClick={async () => {
                 try {
-                  const parsed = JSON.parse(editValues[s.key] || '{}')
-                  const res = await saveSecuritySetting({ key: s.key, group: s.group, value: parsed, description: s.description })
+                  const res = await saveSecuritySetting({ key: s.key, group: s.group, value: editValues[s.key], description: s.description })
                   toastOk(res?.message || `${s.key} saved`)
                   load()
                 } catch (error) {
-                  if (error instanceof SyntaxError) toastError('Invalid JSON format')
-                  else toastError(error?.response?.data?.message || 'Failed to save security setting')
+                  toastError(error?.response?.data?.message || 'Failed to save security setting')
                 }
               }}>Save Setting</Button>
             </div>

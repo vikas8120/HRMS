@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Navigate, Outlet } from 'react-router-dom'
-import api from '../api/axios'
+import { getToken } from '../utils/auth'
 
 const parseTokenPayload = (token) => {
   try {
@@ -34,19 +34,19 @@ function AdminProtectedRoute() {
 
   useEffect(() => {
     const verifyAdminAccess = async () => {
-      const adminToken = localStorage.getItem('admin_token')
-      const fallbackToken = localStorage.getItem('super_admin_token')
-      const token = adminToken || fallbackToken
+      const token = getToken()
 
       if (!token) {
+        localStorage.removeItem('token')
+        localStorage.removeItem('currentUser')
         setAuthState({ loading: false, allow: false, redirect: '/login' })
         return
       }
 
       const payload = parseTokenPayload(token)
       if (!payload || isTokenExpired(payload)) {
-        localStorage.removeItem('admin_token')
-        localStorage.removeItem('super_admin_token')
+        localStorage.removeItem('token')
+        localStorage.removeItem('currentUser')
         setAuthState({ loading: false, allow: false, redirect: '/login' })
         return
       }
@@ -61,26 +61,7 @@ function AdminProtectedRoute() {
         })
         return
       }
-
-      try {
-        const response = await api.get('/admin/auth/me')
-        const apiRole = normalizeRole(response?.data?.data?.role || response?.data?.role)
-
-        if (apiRole === 'admin') {
-          setAuthState({ loading: false, allow: true, redirect: '' })
-          return
-        }
-
-        setAuthState({
-          loading: false,
-          allow: false,
-          redirect: roleRedirectMap[apiRole] || '/login'
-        })
-      } catch (_error) {
-        localStorage.removeItem('admin_token')
-        localStorage.removeItem('super_admin_token')
-        setAuthState({ loading: false, allow: false, redirect: '/login' })
-      }
+      setAuthState({ loading: false, allow: true, redirect: '' })
     }
 
     verifyAdminAccess()

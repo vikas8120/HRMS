@@ -1,28 +1,50 @@
+import { useEffect, useMemo, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { getPremiumCrmOverview } from '../../api/premiumCrmApi'
 
-const retentionData = [
-  { name: 'Q1', retention: 92, churn: 8 },
-  { name: 'Q2', retention: 94, churn: 6 },
-  { name: 'Q3', retention: 95, churn: 5 },
-  { name: 'Q4', retention: 96, churn: 4 }
-]
-
-const segmentData = [
-  { name: 'Enterprise', value: 42, color: '#6C63FF' },
-  { name: 'SMB', value: 31, color: '#8B5CF6' },
-  { name: 'Mid Market', value: 27, color: '#06B6D4' }
-]
-
-const trendData = [
-  { name: 'Jan', revenue: 110 },
-  { name: 'Feb', revenue: 128 },
-  { name: 'Mar', revenue: 138 },
-  { name: 'Apr', revenue: 160 },
-  { name: 'May', revenue: 178 },
-  { name: 'Jun', revenue: 194 }
-]
+const stageColors = ['#6C63FF', '#8B5CF6', '#06B6D4', '#10B981']
 
 function PremiumAnalyticsView() {
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [data, setData] = useState(null)
+
+  useEffect(() => {
+    let active = true
+    const load = async () => {
+      setLoading(true)
+      setError('')
+      try {
+        const res = await getPremiumCrmOverview()
+        if (!active) return
+        setData(res?.data || null)
+      } catch (err) {
+        if (!active) return
+        setError(err?.response?.data?.message || 'Failed to load analytics data')
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+    load()
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const retentionData = useMemo(() => {
+    const total = (data?.stats?.activeUsers || 0) + ((data?.stats?.totalUsers || 0) - (data?.stats?.activeUsers || 0))
+    const retention = total > 0 ? Math.round(((data?.stats?.activeUsers || 0) / total) * 100) : 0
+    return [
+      { name: 'Current', retention, churn: Math.max(0, 100 - retention) }
+    ]
+  }, [data])
+
+  const segmentData = useMemo(() => (data?.leadSources || []).map((item, idx) => ({ name: item.source, value: item.value, color: stageColors[idx % stageColors.length] })), [data])
+  const trendData = useMemo(() => (data?.revenueDeals || []).map((x) => ({ name: x.month, revenue: Number(x.revenue || 0) })), [data])
+
+  if (loading) return <div className="crm-glass-card">Loading analytics...</div>
+  if (error) return <div className="crm-glass-card">{error}</div>
+
   return (
     <div className="crm-view-grid">
       <div className="crm-glass-card crm-chart-card">
@@ -39,7 +61,7 @@ function PremiumAnalyticsView() {
         </ResponsiveContainer>
       </div>
       <div className="crm-glass-card crm-chart-card">
-        <h3>Segment Split</h3>
+        <h3>Lead Source Split</h3>
         <ResponsiveContainer width="100%" height={220}>
           <PieChart>
             <Pie data={segmentData} cx="50%" cy="50%" dataKey="value" outerRadius={75}>
@@ -50,7 +72,7 @@ function PremiumAnalyticsView() {
         </ResponsiveContainer>
       </div>
       <div className="crm-glass-card crm-chart-card">
-        <h3>AI Forecasting</h3>
+        <h3>Revenue Trend</h3>
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={trendData}>
             <CartesianGrid strokeDasharray="3 3" stroke="#33415566" />

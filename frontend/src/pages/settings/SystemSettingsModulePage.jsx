@@ -120,8 +120,23 @@ function SystemSettingsModulePage({ page }) {
         return <FilterDropdown label="Maintenance Mode" value={current.enabled ? 'enabled' : 'disabled'} onChange={(v) => updateValue(setting.key, 'enabled', v === 'enabled')} options={[{ value: 'disabled', label: 'Disabled' }, { value: 'enabled', label: 'Enabled' }]} />
       case 'application_version':
         return <FormInput label="Application Version" value={current.version || ''} onChange={(e) => updateValue(setting.key, 'version', e.target.value)} />
+      case 'qa_system':
+        return <FilterDropdown label="QA System" value={current.on ? 'on' : 'off'} onChange={(v) => updateValue(setting.key, 'on', v === 'on')} options={[{ value: 'on', label: 'On' }, { value: 'off', label: 'Off' }]} />
       default:
-        return <textarea className="form-input" rows={4} value={JSON.stringify(current || {}, null, 2)} readOnly />
+        return (
+          <FormInput
+            label="Value (text)"
+            value={typeof current === 'string' ? current : JSON.stringify(current || {})}
+            onChange={(e) => {
+              const raw = e.target.value
+              try {
+                updateValue(setting.key, '__raw__', JSON.parse(raw))
+              } catch {
+                updateValue(setting.key, '__raw__', raw)
+              }
+            }}
+          />
+        )
     }
   }
 
@@ -161,7 +176,7 @@ function SystemSettingsModulePage({ page }) {
                     const payload = {
                       key: s.key,
                       group: s.group,
-                      value: values[s.key] || {},
+                      value: values[s.key]?.__raw__ !== undefined ? values[s.key].__raw__ : (values[s.key] || {}),
                       description: s.description || ''
                     }
                     const res = await saveSystemSetting(payload)
