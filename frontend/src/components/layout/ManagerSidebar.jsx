@@ -1,5 +1,5 @@
-import { Menu, Search } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { Menu } from 'lucide-react'
+import { useMemo } from 'react'
 import { NavLink } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { managerNavItems } from '../../data/managerPortalData'
@@ -51,7 +51,6 @@ function SidebarSection({ items, isCompact, onClose }) {
 }
 
 function ManagerSidebar({ isCollapsed, isMobileOpen, isMobile, onToggle, onClose }) {
-  const [menuSearch, setMenuSearch] = useState('')
   const isCompact = !isMobile && isCollapsed
 
   const sidebarClass = useMemo(() => {
@@ -61,12 +60,9 @@ function ManagerSidebar({ isCollapsed, isMobileOpen, isMobile, onToggle, onClose
     return classes.join(' ')
   }, [isCompact, isMobileOpen])
 
-  const normalizedSearch = menuSearch.trim().toLowerCase()
   const filteredItems = useMemo(() => {
-    if (isCompact) return managerNavItems
-    if (!normalizedSearch) return managerNavItems
-    return managerNavItems.filter((item) => item.label.toLowerCase().includes(normalizedSearch))
-  }, [isCompact, normalizedSearch])
+    return managerNavItems
+  }, [])
 
   return (
     <aside className={sidebarClass}>
@@ -95,18 +91,6 @@ function ManagerSidebar({ isCollapsed, isMobileOpen, isMobile, onToggle, onClose
           <Menu size={18} />
         </button>
       </div>
-
-      {!isCompact ? (
-        <motion.div className="sidebar-search-wrap" whileFocus={{ scale: 1.01 }}>
-          <Search size={15} />
-          <input
-            className="sidebar-search-input"
-            value={menuSearch}
-            onChange={(event) => setMenuSearch(event.target.value)}
-            placeholder="Search modules"
-          />
-        </motion.div>
-      ) : null}
 
       <nav id="manager-sidebar-nav">
         <SidebarSection items={filteredItems} isCompact={isCompact} onClose={onClose} />

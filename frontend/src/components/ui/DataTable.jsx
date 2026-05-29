@@ -14,6 +14,9 @@ function DataTable({
   showViewAction = true,
   showEditAction = true,
   showDeleteAction = true,
+  viewLabel = 'View',
+  editLabel = 'Edit',
+  deleteLabel = 'Delete',
   defaultSortKey = '',
   defaultSortDirection = 'asc',
   emptyTitle,
@@ -100,9 +103,9 @@ function DataTable({
               {showActions ? (
                 <td>
                   <div className="table-actions">
-                    {showViewAction ? <button className="text-btn action-view" title="View company" aria-label="View company" onClick={() => onView?.(row)}>View</button> : null}
-                    {showEditAction ? <button className="text-btn action-edit" title="Edit company" aria-label="Edit company" onClick={() => onEdit?.(row)}>Edit</button> : null}
-                    {showDeleteAction ? <button className="text-btn danger action-delete" title="Delete company" aria-label="Delete company" onClick={() => onDelete?.(row)}>Delete</button> : null}
+                    {showViewAction ? <button className="text-btn action-view" title={viewLabel} aria-label={viewLabel} onClick={() => onView?.(row)}>{viewLabel}</button> : null}
+                    {showEditAction ? <button className="text-btn action-edit" title={editLabel} aria-label={editLabel} onClick={() => onEdit?.(row)}>{editLabel}</button> : null}
+                    {showDeleteAction ? <button className="text-btn danger action-delete" title={deleteLabel} aria-label={deleteLabel} onClick={() => onDelete?.(row)}>{deleteLabel}</button> : null}
                   </div>
                 </td>
               ) : null}

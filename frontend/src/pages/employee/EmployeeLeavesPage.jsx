@@ -178,7 +178,8 @@ function EmployeeLeavesPage() {
     { value: 'all', label: 'All Leave Types' },
     { value: 'casual', label: 'Casual' },
     { value: 'sick', label: 'Sick' },
-    { value: 'earned', label: 'Earned' }
+    { value: 'earned', label: 'Earned' },
+    { value: 'work-from-home', label: 'Work From Home' }
   ]
 
   const rows = leaves.map((item) => ({

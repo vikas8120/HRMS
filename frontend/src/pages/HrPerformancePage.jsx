@@ -254,10 +254,23 @@ function HrPerformancePage() {
         <div className="actions-row">
           {items.slice(0, 6).map((x) => (
             <div key={x.id} className="inline-action-card">
-              <span>{x.goal.slice(0, 48) || 'Performance Goal'}</span>
+              <span>{(x.goal || '').slice(0, 48) || 'Performance Goal'}</span>
               <div className="actions-row">
                 <Button variant="ghost" onClick={() => openEdit({ id: x.id })}>Open</Button>
-                <Button variant="ghost" onClick={async () => { await archivePerformanceReview(x.id); setToast({ type: 'success', message: 'Review archived' }); load() }}>Archive</Button>
+                <Button
+                  variant="ghost"
+                  onClick={async () => {
+                    try {
+                      await archivePerformanceReview(x.id)
+                      setToast({ type: 'success', message: 'Review archived' })
+                      await load()
+                    } catch (error) {
+                      setToast({ type: 'error', message: error?.response?.data?.message || 'Failed to archive review' })
+                    }
+                  }}
+                >
+                  Archive
+                </Button>
               </div>
             </div>
           ))}

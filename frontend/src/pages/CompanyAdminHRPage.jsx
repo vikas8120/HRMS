@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import PageHeader from '../components/ui/PageHeader'
 import Button from '../components/ui/Button'
 import FilterDropdown from '../components/ui/FilterDropdown'
@@ -88,60 +88,26 @@ const statusOptions = [
 ]
 
 function CompanyAdminHRPage() {
-  const [moduleKey, setModuleKey] = useState(modules[0].key)
-  const [submodule, setSubmodule] = useState('')
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('all')
 
-  const activeModule = useMemo(() => modules.find((item) => item.key === moduleKey) || modules[0], [moduleKey])
-  const activeSubmodule = submodule || activeModule.submodules[0]
+  const defaultModule = modules[0]
+  const defaultSubmodule = defaultModule.submodules[0]
 
   return (
     <section className="section-layout">
       <PageHeader
         title="HR Management"
         description="Unified HR workspace with full module architecture aligned to Admin/Super Admin UI."
-        breadcrumb={['Company Admin', 'HR Management', activeModule.label]}
+        breadcrumb={['Company Admin', 'HR Management']}
         primaryActionLabel="Add Record"
       />
-
-      <div className="panel">
-        <div className="panel-head"><h3>HR Modules</h3></div>
-        <div className="tabs-row">
-          {modules.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              className={`chip-btn ${item.key === activeModule.key ? 'active' : ''}`}
-              onClick={() => { setModuleKey(item.key); setSubmodule('') }}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="panel">
-        <div className="panel-head"><h3>{activeModule.label} Sub Modules</h3></div>
-        <div className="tabs-row">
-          {activeModule.submodules.map((item) => (
-            <button
-              key={item}
-              type="button"
-              className={`chip-btn ${item === activeSubmodule ? 'active' : ''}`}
-              onClick={() => setSubmodule(item)}
-            >
-              {item}
-            </button>
-          ))}
-        </div>
-      </div>
 
       <div className="panel filters-panel">
         <div className="filters-row">
           <div className="search-wrap">
             <label>Search</label>
-            <SearchBar value={search} onChange={setSearch} placeholder={`Search in ${activeSubmodule}`} />
+            <SearchBar value={search} onChange={setSearch} placeholder={`Search in ${defaultSubmodule}`} />
           </div>
           <FilterDropdown label="Status" value={status} onChange={setStatus} options={statusOptions} />
         </div>
@@ -149,15 +115,15 @@ function CompanyAdminHRPage() {
 
       <div className="panel">
         <div className="panel-head">
-          <h3>{activeSubmodule}</h3>
+          <h3>{defaultSubmodule}</h3>
           <div className="actions-row">
             <Button variant="ghost">Export</Button>
             <Button>Create</Button>
           </div>
         </div>
-        <p style={{ marginTop: 0 }}>{activeModule.summary}</p>
+        <p style={{ marginTop: 0 }}>{defaultModule.summary}</p>
         <EmptyState
-          title={`${activeSubmodule} module shell is ready`}
+          title={`${defaultSubmodule} module shell is ready`}
           description="UI is ready in Admin style. Next we will implement API, table, forms, and actions for this sub-module."
         />
       </div>

@@ -5,6 +5,7 @@ import Button from '../../components/ui/Button'
 import DataTable from '../../components/ui/DataTable'
 import LoadingSkeleton from '../../components/ui/LoadingSkeleton'
 import EmptyState from '../../components/ui/EmptyState'
+import Modal from '../../components/ui/Modal'
 import { CalendarCheck2, CalendarClock, Clock3, FileText, RefreshCw } from 'lucide-react'
 import {
   employeeCheckIn,
@@ -12,6 +13,7 @@ import {
   getEmployeeAttendanceHistory,
   getEmployeeAttendanceMonthly,
   getEmployeeAttendanceToday,
+  resetEmployeeAttendanceToday,
   requestEmployeeAttendanceRegularization
 } from '../../api/employeeAttendanceApi'
 
@@ -24,9 +26,21 @@ const formatDate = (value) => {
 
 const formatTime = (value) => {
   if (!value) return '-'
+  const raw = String(value).trim()
+  if (!raw || raw === '-' || raw.toLowerCase() === 'null' || raw.toLowerCase() === 'undefined') return '-'
+  if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(raw)) return raw.slice(0, 5)
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '-'
   return date.toISOString().slice(11, 16)
+}
+
+const hasMarkedTime = (value) => {
+  if (value === null || value === undefined) return false
+  const raw = String(value).trim()
+  if (!raw || raw === '-' || raw.toLowerCase() === 'null' || raw.toLowerCase() === 'undefined') return false
+  if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(raw)) return true
+  const date = new Date(raw)
+  return !Number.isNaN(date.getTime())
 }
 
 function EmployeeAttendancePage() {
@@ -46,10 +60,20 @@ function EmployeeAttendancePage() {
   const [regularizationType, setRegularizationType] = useState('missed-check-in')
   const [regularizationReason, setRegularizationReason] = useState('')
   const [submittingRegularization, setSubmittingRegularization] = useState(false)
+  const [checkInModalOpen, setCheckInModalOpen] = useState(false)
+  const [checkInPurpose, setCheckInPurpose] = useState('mark-attendance')
+  const [submittingCheckIn, setSubmittingCheckIn] = useState(false)
+  const [resettingToday, setResettingToday] = useState(false)
 
   const showMessage = (setter, message) => {
     setter(message)
     setTimeout(() => setter(''), 2600)
+  }
+
+  const notifyDashboardRefresh = () => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('employee-attendance-updated'))
+    }
   }
 
   const loadAttendance = async () => {
@@ -77,13 +101,39 @@ function EmployeeAttendancePage() {
     loadAttendance()
   }, [month, historyView])
 
-  const onCheckIn = async () => {
+  const purposeLabelMap = {
+    'mark-attendance': 'Mark Attendance',
+    'work-from-home': 'Work From Home',
+    'field-visit': 'Field Visit',
+    meeting: 'Client/Team Meeting',
+    other: 'Other'
+  }
+
+  const onOpenCheckIn = () => {
+    if (checkedIn) return
+    setCheckInPurpose('mark-attendance')
+    setCheckInModalOpen(true)
+  }
+
+  const onConfirmCheckIn = async () => {
+    if (!checkInPurpose) {
+      showMessage(setError, 'Please select check-in purpose')
+      return
+    }
+    setSubmittingCheckIn(true)
     try {
-      const response = await employeeCheckIn()
-      showMessage(setSuccess, response?.message || 'Check-in successful')
+      const response = await employeeCheckIn({
+        purpose: checkInPurpose,
+        purposeLabel: purposeLabelMap[checkInPurpose] || checkInPurpose
+      })
+      showMessage(setSuccess, response?.message || `Check-in successful (${purposeLabelMap[checkInPurpose] || checkInPurpose})`)
+      setCheckInModalOpen(false)
       await loadAttendance()
+      notifyDashboardRefresh()
     } catch (err) {
       showMessage(setError, err?.response?.data?.message || 'Check-in failed')
+    } finally {
+      setSubmittingCheckIn(false)
     }
   }
 
@@ -92,10 +142,28 @@ function EmployeeAttendancePage() {
       const response = await employeeCheckOut()
       showMessage(setSuccess, response?.message || 'Check-out successful')
       await loadAttendance()
+      notifyDashboardRefresh()
     } catch (err) {
       showMessage(setError, err?.response?.data?.message || 'Check-out failed')
     }
   }
+
+  const onResetToday = async () => {
+    setResettingToday(true)
+    try {
+      const response = await resetEmployeeAttendanceToday()
+      showMessage(setSuccess, response?.message || 'Today attendance reset successfully')
+      await loadAttendance()
+      notifyDashboardRefresh()
+    } catch (err) {
+      showMessage(setError, err?.response?.data?.message || 'Failed to reset today attendance')
+    } finally {
+      setResettingToday(false)
+    }
+  }
+
+  const checkedIn = hasMarkedTime(today?.checkIn)
+  const checkedOut = hasMarkedTime(today?.checkOut)
 
   const onSubmitRegularization = async () => {
     if (!regularizationReason.trim()) {
@@ -163,8 +231,9 @@ function EmployeeAttendancePage() {
           <h3>Today Attendance Status</h3>
           <div className="actions-row">
             <Button variant="ghost" onClick={loadAttendance}><RefreshCw size={14} /> Refresh</Button>
-            <Button onClick={onCheckIn} disabled={Boolean(today?.checkIn)}>Check-In</Button>
-            <Button onClick={onCheckOut} disabled={!today?.checkIn || Boolean(today?.checkOut)}>Check-Out</Button>
+            <Button variant="ghost" onClick={onResetToday} disabled={resettingToday}>{resettingToday ? 'Resetting...' : 'Reset Today'}</Button>
+            <Button onClick={onOpenCheckIn} disabled={checkedIn}>Check-In</Button>
+            <Button onClick={onCheckOut} disabled={!checkedIn || checkedOut}>Check-Out</Button>
           </div>
         </div>
         {loading ? <LoadingSkeleton rows={2} /> : (
@@ -259,6 +328,25 @@ function EmployeeAttendancePage() {
           </div>
         </div>
       </div>
+
+      <Modal open={checkInModalOpen} title="Select Check-In Purpose" onClose={() => setCheckInModalOpen(false)}>
+        <div className="modal-form">
+          <label className="form-input-wrap">
+            <span>Purpose</span>
+            <select className="form-input" value={checkInPurpose} onChange={(e) => setCheckInPurpose(e.target.value)} disabled={submittingCheckIn}>
+              <option value="mark-attendance">Mark Attendance</option>
+              <option value="work-from-home">Work From Home</option>
+              <option value="field-visit">Field Visit</option>
+              <option value="meeting">Client/Team Meeting</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+          <div className="actions-row">
+            <Button variant="ghost" onClick={() => setCheckInModalOpen(false)} disabled={submittingCheckIn}>Cancel</Button>
+            <Button onClick={onConfirmCheckIn} disabled={submittingCheckIn}>{submittingCheckIn ? 'Checking In...' : 'Confirm Check-In'}</Button>
+          </div>
+        </div>
+      </Modal>
     </section>
   )
 }

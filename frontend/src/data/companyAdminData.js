@@ -6,6 +6,11 @@ import {
   Building2,
   CalendarCheck2,
   CalendarClock,
+  BarChart3,
+  MessageSquare,
+  CircleAlert,
+  ShieldAlert,
+  BookOpen,
   Wallet,
   FileText,
   Settings
@@ -19,6 +24,11 @@ export const companyAdminNavItems = [
   { label: 'Department Management', icon: Building2, path: '/admin/departments' },
   { label: 'Attendance', icon: CalendarCheck2, path: '/admin/attendance' },
   { label: 'Leave Management', icon: CalendarClock, path: '/admin/leaves' },
+  { label: 'Performance', icon: BarChart3, path: '/admin/performance' },
+  { label: 'Feedback', icon: MessageSquare, path: '/admin/feedback' },
+  { label: 'Complaint Box', icon: CircleAlert, path: '/admin/complaint-box' },
+  { label: 'Grievance', icon: ShieldAlert, path: '/admin/grievance' },
+  { label: 'Policy', icon: BookOpen, path: '/admin/policy' },
   { label: 'Payroll', icon: Wallet, path: '/admin/payroll' },
   { label: 'Reports', icon: FileText, path: '/admin/reports' },
   { label: 'Company Settings', icon: Settings, path: '/admin/settings' }
@@ -60,6 +70,12 @@ export const companyAdminStatsByModule = {
     { title: 'Approved Today', value: '16', trend: '8 casual, 6 sick, 2 PTO' },
     { title: 'Declined', value: '3', trend: 'Policy mismatch' },
     { title: 'Planned Leaves', value: '28', trend: 'Next 30 days' }
+  ],
+  Performance: [
+    { title: 'Open Reviews', value: '41', trend: '12 due this week' },
+    { title: 'Finalized', value: '128', trend: '86% completion rate' },
+    { title: 'Avg Score', value: '3.9 / 5', trend: '+0.2 vs last cycle' },
+    { title: 'High Performers', value: '52', trend: 'Score 4.0 and above' }
   ],
   Payroll: [
     { title: 'Payroll Cycle', value: 'May 2026', trend: 'In processing' },

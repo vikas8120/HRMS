@@ -1,11 +1,14 @@
 import {
+  MessageSquareHeart,
+  ShieldAlert,
+  CircleAlert,
   ClipboardCheck,
   FileSpreadsheet,
-  Files,
   Home,
   LogOut,
   Menu,
   Megaphone,
+  BookOpen,
   Settings,
   Bell,
   UserRound
@@ -16,11 +19,13 @@ import { useAuth } from '../../hooks/useAuth'
 const employeeItems = [
   { label: 'Dashboard', path: '/employee/dashboard', icon: Home },
   { label: 'Profile', path: '/employee/profile', icon: UserRound },
+  { label: 'Feedback', path: '/employee/feedback', icon: MessageSquareHeart },
+  { label: 'Grievance', path: '/employee/grievance', icon: CircleAlert },
+  { label: 'Complaint Box', path: '/employee/complaint-box', icon: ShieldAlert },
   { label: 'Attendance', path: '/employee/attendance', icon: ClipboardCheck },
   { label: 'Leaves', path: '/employee/leaves', icon: FileSpreadsheet },
-  { label: 'Payroll', path: '/employee/payroll', icon: FileSpreadsheet },
-  { label: 'Tasks', path: '/employee/tasks', icon: ClipboardCheck },
-  { label: 'Documents', path: '/employee/documents', icon: Files },
+  { label: 'Salary Slip', path: '/employee/payroll', icon: FileSpreadsheet },
+  { label: 'Policy', path: '/employee/policy', icon: BookOpen },
   { label: 'Announcements', path: '/employee/announcements', icon: Megaphone },
   { label: 'Notifications', path: '/employee/notifications', icon: Bell },
   { label: 'Settings', path: '/employee/settings', icon: Settings }
@@ -29,7 +34,7 @@ const employeeItems = [
 function EmployeeSidebar({ isCollapsed, isMobileOpen, isMobile, onToggle, onClose }) {
   const { logout } = useAuth()
   const isCompact = !isMobile && isCollapsed
-  const sidebarClass = ['sidebar', isMobileOpen ? 'sidebar-open' : '', isCompact ? 'sidebar-collapsed' : ''].filter(Boolean).join(' ')
+  const sidebarClass = ['sidebar', 'employee-sidebar', isMobileOpen ? 'sidebar-open' : '', isCompact ? 'sidebar-collapsed' : ''].filter(Boolean).join(' ')
 
   const handleLinkClick = () => {
     onClose?.()
@@ -63,6 +68,7 @@ function EmployeeSidebar({ isCollapsed, isMobileOpen, isMobile, onToggle, onClos
               className={({ isActive }) => `menu-link ${isCompact ? 'menu-link-icon-only' : ''} ${isActive ? 'active' : ''}`}
               onClick={handleLinkClick}
               title={isCompact ? item.label : undefined}
+              data-label={item.label}
             >
               <Icon size={16} />
               {!isCompact ? <span>{item.label}</span> : null}

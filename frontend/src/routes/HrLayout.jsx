@@ -1,9 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import HrSidebar from '../components/layout/HrSidebar'
 import HrNavbar from '../components/layout/HrNavbar'
-import HrBreadcrumb from '../components/layout/HrBreadcrumb'
-import { hrNavItems } from '../data/hrPortalData'
 
 const MOBILE_BREAKPOINT_QUERY = '(max-width: 980px)'
 
@@ -58,16 +56,8 @@ function HrLayout() {
 
   const closeSidebar = () => setIsMobileOpen(false)
 
-  const activeModule = useMemo(
-    () => hrNavItems.find((item) => pathname === item.path || pathname.startsWith(`${item.path}/`)),
-    [pathname]
-  )
-  const moduleClass = activeModule?.label
-    ? `module-${activeModule.label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
-    : 'module-hr-dashboard'
-
   return (
-    <div className={`app-shell ${moduleClass} ${isSidebarCollapsed && !isMobile ? 'sidebar-collapsed' : ''}`}>
+    <div className={`app-shell manager-shell employee-shell ${isSidebarCollapsed && !isMobile ? 'sidebar-collapsed' : ''}`}>
       <HrSidebar
         isCollapsed={isSidebarCollapsed}
         isMobileOpen={isMobileOpen}
@@ -78,7 +68,6 @@ function HrLayout() {
       {isMobile && isMobileOpen ? <button className="sidebar-backdrop" aria-label="Close sidebar" onClick={closeSidebar} /> : null}
       <div className="content-shell">
         <HrNavbar />
-        <HrBreadcrumb />
         <div className="page-content">
           <Outlet />
         </div>
@@ -88,4 +77,3 @@ function HrLayout() {
 }
 
 export default HrLayout
-

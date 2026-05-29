@@ -19,8 +19,7 @@ const filterOptions = [
   { value: 'attendance', label: 'Attendance' },
   { value: 'leave', label: 'Leave' },
   { value: 'payroll', label: 'Payroll' },
-  { value: 'task', label: 'Task' },
-  { value: 'system', label: 'System' }
+  { value: 'task', label: 'Task' }
 ]
 
 const formatDate = (value) => {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import PageHeader from '../../components/ui/PageHeader'
 import Button from '../../components/ui/Button'
 import LoadingSkeleton from '../../components/ui/LoadingSkeleton'
@@ -26,6 +26,23 @@ function ManagerProfileSettingsPage() {
   const [profileImageFile, setProfileImageFile] = useState(null)
   const [profileImagePreview, setProfileImagePreview] = useState('')
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
+
+  const profileHighlights = useMemo(() => {
+    if (!profile) return []
+    const pick = (...values) => values.find((value) => String(value || '').trim())
+    const mapped = [
+      { label: 'Manager ID', value: pick(profile.managerId, profile.employeeId, profile.userId, profile.id) || '' },
+      { label: 'Phone', value: pick(profile.phone, profile.contact?.phone, profile.personalInfo?.phone) || '' },
+      { label: 'Designation', value: pick(profile.designation, profile.jobDetails?.designation) || '' },
+      { label: 'Department', value: pick(profile.departmentName, profile.department, profile.jobDetails?.department) || '' },
+      { label: 'Team Size', value: profile.teamSize != null ? String(profile.teamSize) : String(profile.teamMembersCount || '') },
+      { label: 'Reporting To', value: pick(profile.reportingManager, profile.reportingTo, profile.jobDetails?.reportingTo) || '' },
+      { label: 'Work Location', value: pick(profile.workLocation, profile.location, profile.jobDetails?.workLocation) || '' },
+      { label: 'Address', value: pick(profile.address, profile.contact?.address, profile.personalInfo?.address) || '' },
+      { label: 'Last Login', value: profile.lastLogin ? String(profile.lastLogin).slice(0, 19).replace('T', ' ') : '' }
+    ]
+    return mapped.filter((item) => String(item.value || '').trim())
+  }, [profile])
 
   useEffect(() => {
     if (!toast) return undefined
@@ -132,11 +149,11 @@ function ManagerProfileSettingsPage() {
   }
 
   return (
-    <section className="section-layout">
+    <section className="section-layout manager-profile-settings-page">
       <PageHeader
-        title="Profile Settings"
+        title="Profile"
         description="Manage personal details, password, and account login activity."
-        breadcrumb={['Manager Portal', 'Profile Settings']}
+        breadcrumb={['Manager Portal', 'Profile']}
       />
 
       {toast ? <div className={`toast ${toast.type === 'success' ? 'toast-success' : 'toast-error'}`}>{toast.message}</div> : null}
@@ -173,17 +190,13 @@ function ManagerProfileSettingsPage() {
             </div>
           </div>
           <div className="manager-profile-grid">
-            <div className="inline-action-card"><strong>Phone</strong><span>{profile.phone || '-'}</span></div>
-            <div className="inline-action-card"><strong>Designation</strong><span>{profile.designation || '-'}</span></div>
-            <div className="inline-action-card"><strong>Address</strong><span>{profile.address || '-'}</span></div>
-            <div className="inline-action-card"><strong>Company ID</strong><span>{profile.companyId || '-'}</span></div>
-            <div className="inline-action-card"><strong>Department ID</strong><span>{profile.departmentId || '-'}</span></div>
-            <div className="inline-action-card"><strong>Last Login</strong><span>{profile.lastLogin ? String(profile.lastLogin).slice(0, 19).replace('T', ' ') : '-'}</span></div>
-          </div>
-          <div className="modal-form">
-            <div className="actions-row">
-              <Button onClick={() => setActiveTab('Edit Profile')}>Edit Profile</Button>
-            </div>
+            {profileHighlights.length === 0 ? (
+              <div className="inline-action-card"><strong>Profile</strong><span>Manager details will appear here once available.</span></div>
+            ) : (
+              profileHighlights.map((item) => (
+                <div key={item.label} className="inline-action-card"><strong>{item.label}</strong><span>{item.value}</span></div>
+              ))
+            )}
           </div>
         </div>
       ) : null}

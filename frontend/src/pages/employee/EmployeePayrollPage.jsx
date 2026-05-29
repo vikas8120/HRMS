@@ -2,30 +2,60 @@ import { useEffect, useMemo, useState } from 'react'
 import PageHeader from '../../components/ui/PageHeader'
 import Button from '../../components/ui/Button'
 import DataTable from '../../components/ui/DataTable'
-import Modal from '../../components/ui/Modal'
 import LoadingSkeleton from '../../components/ui/LoadingSkeleton'
 import EmptyState from '../../components/ui/EmptyState'
-import StatCard from '../../components/ui/StatCard'
+import FilterDropdown from '../../components/ui/FilterDropdown'
 import {
   downloadEmployeePayslipPdf,
-  getEmployeeLatestPayslip,
-  getEmployeePayrollById,
   getEmployeePayrollHistory
 } from '../../api/employeePayrollApi'
 
 const money = (value) => Number(value || 0).toFixed(2)
+const MONTH_OPTIONS = [
+  { value: 'all', label: 'All Months' },
+  { value: '1', label: 'January' },
+  { value: '2', label: 'February' },
+  { value: '3', label: 'March' },
+  { value: '4', label: 'April' },
+  { value: '5', label: 'May' },
+  { value: '6', label: 'June' },
+  { value: '7', label: 'July' },
+  { value: '8', label: 'August' },
+  { value: '9', label: 'September' },
+  { value: '10', label: 'October' },
+  { value: '11', label: 'November' },
+  { value: '12', label: 'December' }
+]
+
+const normalizePeriod = (item) => {
+  const monthRaw = String(item?.month ?? '')
+  const yearRaw = String(item?.year ?? '')
+
+  if (/^\d{4}-\d{1,2}$/.test(monthRaw)) {
+    const [yearPart, monthPart] = monthRaw.split('-')
+    const monthNum = Number(monthPart)
+    const yearNum = Number(yearPart)
+    return {
+      monthNum: Number.isFinite(monthNum) ? monthNum : null,
+      yearNum: Number.isFinite(yearNum) ? yearNum : null
+    }
+  }
+
+  const monthNum = Number(monthRaw)
+  const yearNum = Number(yearRaw)
+  return {
+    monthNum: Number.isFinite(monthNum) && monthNum > 0 ? monthNum : null,
+    yearNum: Number.isFinite(yearNum) && yearNum > 0 ? yearNum : null
+  }
+}
 
 function EmployeePayrollPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-
-  const [latest, setLatest] = useState(null)
   const [history, setHistory] = useState([])
-
-  const [detailsOpen, setDetailsOpen] = useState(false)
-  const [detailsLoading, setDetailsLoading] = useState(false)
-  const [selected, setSelected] = useState(null)
+  const [monthFilter, setMonthFilter] = useState('all')
+  const [yearFilter, setYearFilter] = useState('all')
 
   const showMessage = (setter, message) => {
     setter(message)
@@ -36,16 +66,11 @@ function EmployeePayrollPage() {
     setLoading(true)
     setError('')
     try {
-      const [historyRes, latestRes] = await Promise.all([
-        getEmployeePayrollHistory(),
-        getEmployeeLatestPayslip()
-      ])
+      const historyRes = await getEmployeePayrollHistory()
       setHistory(historyRes?.data || [])
-      setLatest(latestRes?.data || null)
     } catch (err) {
       setError(err?.response?.data?.message || err?.message || 'Failed to load payroll')
       setHistory([])
-      setLatest(null)
     } finally {
       setLoading(false)
     }
@@ -55,45 +80,38 @@ function EmployeePayrollPage() {
     loadPayroll()
   }, [])
 
-  const stats = useMemo(() => {
-    const breakdown = latest?.salaryBreakdown || {}
-    return [
-      { title: 'Basic Salary', value: money(breakdown.basicSalary), trend: 'Latest payslip' },
-      { title: 'Allowances', value: money(breakdown.allowances), trend: 'Latest payslip', trendTone: 'info' },
-      { title: 'Deductions', value: money(breakdown.deductions), trend: 'Latest payslip', trendTone: 'warning' },
-      { title: 'Net Salary', value: money(breakdown.netSalary), trend: String(latest?.paymentStatus || '-'), trendTone: 'success' }
-    ]
-  }, [latest])
-
-  const rows = history.map((item) => ({
+  const rows = history.map((item) => {
+    const { monthNum, yearNum } = normalizePeriod(item)
+    return ({
     id: item.id,
     month: `${item.month}/${item.year}`,
+    monthNum,
+    yearNum,
     basicSalary: money(item.salaryBreakdown?.basicSalary),
     allowances: money(item.salaryBreakdown?.allowances),
     deductions: money(item.salaryBreakdown?.deductions),
     netSalary: money(item.salaryBreakdown?.netSalary),
     paymentStatus: item.paymentStatus || '-',
     raw: item
-  }))
+    })
+  })
 
-  const viewDetails = async (row) => {
-    setDetailsOpen(true)
-    setDetailsLoading(true)
-    setSelected(null)
-    try {
-      const response = await getEmployeePayrollById(row.id)
-      setSelected(response?.data || null)
-    } catch (err) {
-      showMessage(setError, err?.response?.data?.message || 'Failed to load payslip details')
-      setSelected(null)
-    } finally {
-      setDetailsLoading(false)
-    }
-  }
+  const yearOptions = useMemo(() => {
+    const years = [...new Set(rows.map((row) => row.yearNum).filter((value) => Number.isFinite(value) && value > 0))]
+      .sort((a, b) => b - a)
+    return [{ value: 'all', label: 'All Years' }, ...years.map((year) => ({ value: String(year), label: String(year) }))]
+  }, [rows])
+
+  const filteredRows = useMemo(() => rows.filter((row) => {
+    if (monthFilter !== 'all' && Number(row.monthNum) !== Number(monthFilter)) return false
+    if (yearFilter !== 'all' && Number(row.yearNum) !== Number(yearFilter)) return false
+    return true
+  }), [rows, monthFilter, yearFilter])
 
   const downloadPayslip = async (row) => {
     try {
       await downloadEmployeePayslipPdf(row.id)
+      showMessage(setSuccess, 'Payslip generated/download started')
     } catch (err) {
       showMessage(setError, err?.response?.data?.message || 'Failed to download payslip')
     }
@@ -102,43 +120,30 @@ function EmployeePayrollPage() {
   return (
     <section className="section-layout">
       <PageHeader
-        title="Employee Payroll"
-        description="View your salary history, latest payslip, and download monthly payslips."
-        breadcrumb={['Employee Portal', 'Payroll']}
+        title="Employee Salary Slip"
+        description="View your payroll history and generate/download your own payslips."
+        breadcrumb={['Employee Portal', 'Salary Slip']}
       />
 
       {success ? <div className="panel" style={{ borderColor: 'rgba(34,197,94,0.35)' }}>{success}</div> : null}
       {error ? <div className="panel error-banner">{error}</div> : null}
 
       <div className="panel">
-        <div className="actions-row">
-          <Button variant="ghost" onClick={loadPayroll}>Refresh</Button>
-          {latest ? <Button onClick={() => downloadPayslip(latest)}>Download Latest Payslip PDF</Button> : null}
+        <div className="filters-row">
+          <FilterDropdown label="Month" value={monthFilter} onChange={setMonthFilter} options={MONTH_OPTIONS} />
+          <FilterDropdown label="Year" value={yearFilter} onChange={setYearFilter} options={yearOptions} />
+          <div className="actions-row" style={{ alignSelf: 'end' }}>
+            <Button variant="ghost" onClick={() => { setMonthFilter('all'); setYearFilter('all') }}>Clear Filters</Button>
+          </div>
+          <div className="actions-row" style={{ alignSelf: 'end' }}>
+            <Button variant="ghost" onClick={loadPayroll}>Refresh</Button>
+          </div>
         </div>
       </div>
 
-      {loading ? <LoadingSkeleton rows={4} /> : latest ? (
-        <>
-          <div className="stats-grid premium-stats-grid">
-            {stats.map((item) => <StatCard key={item.title} {...item} />)}
-          </div>
-          <div className="panel">
-            <div className="panel-head"><h3>Latest Payslip</h3></div>
-            <div className="dashboard-mini-grid">
-              <div className="inline-action-card"><strong>Month/Year:</strong> <span>{latest.month}/{latest.year}</span></div>
-              <div className="inline-action-card"><strong>Payment Status:</strong> <span>{latest.paymentStatus || '-'}</span></div>
-              {latest.attendanceSummary ? <div className="inline-action-card"><strong>Attendance:</strong> <span>{latest.attendanceSummary.attendanceDays}/{latest.attendanceSummary.workingDays}</span></div> : null}
-              {latest.attendanceSummary ? <div className="inline-action-card"><strong>Attendance Deduction:</strong> <span>{money(latest.attendanceSummary.attendanceDeduction)}</span></div> : null}
-            </div>
-          </div>
-        </>
-      ) : (
-        <EmptyState title="No latest payslip" description="No payroll record found for your account yet." />
-      )}
-
-      <div className="panel">
-        <div className="panel-head"><h3>Salary History</h3></div>
-        {loading ? <LoadingSkeleton rows={6} /> : rows.length === 0 ? <EmptyState title="No salary history" description="Your payroll history will appear here once records are generated." /> : (
+      <div className="panel employee-payroll-history">
+        <div className="panel-head"><h3>Salary Slip History</h3></div>
+        {loading ? <LoadingSkeleton rows={6} /> : filteredRows.length === 0 ? <EmptyState title="No salary history" description="No salary slips found for selected month/year." /> : (
           <DataTable
             columns={[
               { key: 'month', label: 'Month/Year' },
@@ -148,32 +153,15 @@ function EmployeePayrollPage() {
               { key: 'netSalary', label: 'Net Salary' },
               { key: 'paymentStatus', label: 'Payment Status' }
             ]}
-            rows={rows}
-            showViewAction
+            rows={filteredRows}
+            showViewAction={false}
             showEditAction
             showDeleteAction={false}
-            editLabel="Download"
-            onView={(row) => viewDetails(row.raw)}
+            editLabel="Generate"
             onEdit={(row) => downloadPayslip(row.raw)}
           />
         )}
       </div>
-
-      <Modal open={detailsOpen} title="Payslip Details" onClose={() => setDetailsOpen(false)}>
-        {detailsLoading ? <LoadingSkeleton rows={5} /> : !selected ? <EmptyState title="No details" description="Unable to load selected payslip details." /> : (
-          <div className="modal-form">
-            <div className="inline-action-card"><strong>Month/Year:</strong> <span>{selected.month}/{selected.year}</span></div>
-            <div className="inline-action-card"><strong>Basic Salary:</strong> <span>{money(selected.salaryBreakdown?.basicSalary)}</span></div>
-            <div className="inline-action-card"><strong>Allowances:</strong> <span>{money(selected.salaryBreakdown?.allowances)}</span></div>
-            <div className="inline-action-card"><strong>Deductions:</strong> <span>{money(selected.salaryBreakdown?.deductions)}</span></div>
-            <div className="inline-action-card"><strong>Net Salary:</strong> <span>{money(selected.salaryBreakdown?.netSalary)}</span></div>
-            <div className="inline-action-card"><strong>Payment Status:</strong> <span>{selected.paymentStatus || '-'}</span></div>
-            {selected.attendanceSummary ? <div className="inline-action-card"><strong>Working Days:</strong> <span>{selected.attendanceSummary.workingDays}</span></div> : null}
-            {selected.attendanceSummary ? <div className="inline-action-card"><strong>Attendance Days:</strong> <span>{selected.attendanceSummary.attendanceDays}</span></div> : null}
-            {selected.attendanceSummary ? <div className="inline-action-card"><strong>Attendance Deduction:</strong> <span>{money(selected.attendanceSummary.attendanceDeduction)}</span></div> : null}
-          </div>
-        )}
-      </Modal>
     </section>
   )
 }

@@ -7,10 +7,14 @@ import {
   Building2,
   BriefcaseBusiness,
   TrendingUp,
-  FileText,
   Megaphone,
+  MessageSquareWarning,
+  Inbox,
+  MessageSquareText,
+  ShieldCheck,
   BarChart3,
-  Settings
+  Settings,
+  UserRound
 } from 'lucide-react'
 
 export const hrNavItems = [
@@ -22,9 +26,13 @@ export const hrNavItems = [
   { key: 'department', label: 'Department', icon: Building2, path: '/hr/department' },
   { key: 'recruitment', label: 'Recruitment', icon: BriefcaseBusiness, path: '/hr/recruitment' },
   { key: 'performance', label: 'Performance', icon: TrendingUp, path: '/hr/performance' },
-  { key: 'document', label: 'Document', icon: FileText, path: '/hr/document' },
   { key: 'announcement', label: 'Announcement', icon: Megaphone, path: '/hr/announcement' },
+  { key: 'grievance', label: 'Grievance', icon: MessageSquareWarning, path: '/hr/grievance' },
+  { key: 'complaint-box', label: 'Complaint Box', icon: Inbox, path: '/hr/complaint-box' },
+  { key: 'feedback', label: 'Feedback', icon: MessageSquareText, path: '/hr/feedback' },
+  { key: 'policy', label: 'Policy', icon: ShieldCheck, path: '/hr/policy' },
   { key: 'report', label: 'Report', icon: BarChart3, path: '/hr/report' },
+  { key: 'profile', label: 'Profile', icon: UserRound, path: '/hr/profile' },
   { key: 'settings', label: 'HR Settings', icon: Settings, path: '/hr/settings' }
 ]
 
@@ -69,11 +77,6 @@ export const hrModuleConfig = {
     description: 'Goal setting, appraisal, and reviews.',
     submodules: ['Review Cycle Setup', 'Goal/KRA Assignment', 'Self & Manager Assessment', '360 Feedback', 'Calibration', 'Rating Finalization', 'PIP Management', 'Performance Reports']
   },
-  document: {
-    title: 'Document',
-    description: 'Employee document storage and verification.',
-    submodules: ['Document Categories', 'Document Vault', 'Upload & Version Control', 'Verification Queue', 'Expiry Alerts', 'Template Library', 'Access Controls', 'Document Audit Trail']
-  },
   announcement: {
     title: 'Announcement',
     description: 'Internal communication and acknowledgements.',
@@ -84,10 +87,14 @@ export const hrModuleConfig = {
     description: 'HR operational and compliance reports.',
     submodules: ['Report Builder', 'Saved Templates', 'Scheduled Reports', 'Attendance Reports', 'Leave Reports', 'Payroll Reports', 'Compliance Reports', 'Export Center']
   },
+  profile: {
+    title: 'Profile',
+    description: 'HR profile details and account preferences.',
+    submodules: ['Personal Details', 'Contact Information', 'Security Preferences', 'Profile Preferences']
+  },
   settings: {
     title: 'HR Settings',
     description: 'HR configuration, policies, and permissions.',
     submodules: ['Organization Profile', 'Approval Matrix', 'Attendance Policy', 'Leave Policy', 'Payroll Policy', 'Notification Templates', 'Role & Permission', 'Integration Settings']
   }
 }
-

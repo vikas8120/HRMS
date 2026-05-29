@@ -3,7 +3,6 @@ import PageHeader from '../../components/ui/PageHeader'
 import Button from '../../components/ui/Button'
 import LoadingSkeleton from '../../components/ui/LoadingSkeleton'
 import EmptyState from '../../components/ui/EmptyState'
-import { useAuth } from '../../hooks/useAuth'
 import {
   changeEmployeeSettingsPassword,
   getEmployeeSettings,
@@ -12,15 +11,14 @@ import {
 } from '../../api/employeeSettingsApi'
 
 function EmployeeSettingsPage() {
-  const { logout } = useAuth()
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [data, setData] = useState(null)
 
-  const [notifications, setNotifications] = useState({ attendance: true, leave: true, payroll: true, task: true, system: true })
-  const [theme, setTheme] = useState({ theme: 'system', compactMode: false, language: 'en' })
+  const [notifications, setNotifications] = useState({ attendance: true, leave: true, payroll: true, task: true })
+  const [initialNotifications, setInitialNotifications] = useState({ attendance: true, leave: true, payroll: true, task: true })
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
 
   const showMessage = (setter, message) => {
@@ -31,9 +29,12 @@ function EmployeeSettingsPage() {
   const applyState = (payload) => {
     const next = payload?.data || null
     setData(next)
-    setNotifications(next?.notificationPreferences || { attendance: true, leave: true, payroll: true, task: true, system: true })
-    setTheme(next?.themePreferences || { theme: 'system', compactMode: false, language: 'en' })
+    const prefs = next?.notificationPreferences || { attendance: true, leave: true, payroll: true, task: true }
+    setNotifications(prefs)
+    setInitialNotifications(prefs)
   }
+
+  const hasNotificationChanges = JSON.stringify(notifications) !== JSON.stringify(initialNotifications)
 
   const loadSettings = async () => {
     setLoading(true)
@@ -57,7 +58,7 @@ function EmployeeSettingsPage() {
     setSubmitting(true)
     setError('')
     try {
-      const payload = await updateEmployeeSettings({ notificationPreferences: notifications, themePreferences: theme })
+      const payload = await updateEmployeeSettings({ notificationPreferences: notifications })
       applyState(payload)
       showMessage(setSuccess, payload?.message || '')
     } catch (err) {
@@ -119,8 +120,6 @@ function EmployeeSettingsPage() {
       <div className="panel">
         <div className="actions-row">
           <Button variant="ghost" onClick={loadSettings} disabled={submitting}>Refresh</Button>
-          <Button onClick={saveSettings} disabled={submitting}>{submitting ? 'Saving...' : 'Save Settings'}</Button>
-          <Button variant="danger" onClick={logout} disabled={submitting}>Logout</Button>
         </div>
       </div>
 
@@ -131,28 +130,13 @@ function EmployeeSettingsPage() {
         <>
           <div className="panel modal-form">
             <div className="panel-head"><h3>Notification Preferences</h3></div>
-            <label className="inline-action-card"><span>Attendance Alerts</span><input type="checkbox" checked={notifications.attendance} onChange={(e) => setNotifications((p) => ({ ...p, attendance: e.target.checked }))} /></label>
-            <label className="inline-action-card"><span>Leave Updates</span><input type="checkbox" checked={notifications.leave} onChange={(e) => setNotifications((p) => ({ ...p, leave: e.target.checked }))} /></label>
-            <label className="inline-action-card"><span>Payroll Alerts</span><input type="checkbox" checked={notifications.payroll} onChange={(e) => setNotifications((p) => ({ ...p, payroll: e.target.checked }))} /></label>
-            <label className="inline-action-card"><span>Task Updates</span><input type="checkbox" checked={notifications.task} onChange={(e) => setNotifications((p) => ({ ...p, task: e.target.checked }))} /></label>
-            <label className="inline-action-card"><span>System Notifications</span><input type="checkbox" checked={notifications.system} onChange={(e) => setNotifications((p) => ({ ...p, system: e.target.checked }))} /></label>
-          </div>
-
-          <div className="panel modal-form">
-            <div className="panel-head"><h3>Theme & Preferences</h3></div>
-            <label className="form-input-wrap">
-              <span>Theme</span>
-              <select className="form-input" value={theme.theme} onChange={(e) => setTheme((p) => ({ ...p, theme: e.target.value }))}>
-                <option value="system">System</option>
-                <option value="light">Light</option>
-                <option value="dark">Dark</option>
-              </select>
-            </label>
-            <label className="form-input-wrap">
-              <span>Language</span>
-              <input className="form-input" value={theme.language} onChange={(e) => setTheme((p) => ({ ...p, language: e.target.value }))} />
-            </label>
-            <label className="inline-action-card"><span>Compact Mode</span><input type="checkbox" checked={theme.compactMode} onChange={(e) => setTheme((p) => ({ ...p, compactMode: e.target.checked }))} /></label>
+            <label className="inline-action-card notification-pref-row"><span>Attendance Alerts</span><input type="checkbox" checked={notifications.attendance} onChange={(e) => setNotifications((p) => ({ ...p, attendance: e.target.checked }))} /></label>
+            <label className="inline-action-card notification-pref-row"><span>Leave Updates</span><input type="checkbox" checked={notifications.leave} onChange={(e) => setNotifications((p) => ({ ...p, leave: e.target.checked }))} /></label>
+            <label className="inline-action-card notification-pref-row"><span>Payroll Alerts</span><input type="checkbox" checked={notifications.payroll} onChange={(e) => setNotifications((p) => ({ ...p, payroll: e.target.checked }))} /></label>
+            <label className="inline-action-card notification-pref-row"><span>Task Updates</span><input type="checkbox" checked={notifications.task} onChange={(e) => setNotifications((p) => ({ ...p, task: e.target.checked }))} /></label>
+            <div className="actions-row" style={{ marginTop: 6 }}>
+              <Button onClick={saveSettings} disabled={submitting || !hasNotificationChanges}>{submitting ? 'Saving...' : 'Save Settings'}</Button>
+            </div>
           </div>
 
           <div className="panel modal-form">

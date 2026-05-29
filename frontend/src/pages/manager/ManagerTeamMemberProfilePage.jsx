@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   CalendarCheck2,
   CalendarClock,
-  ClipboardList,
   Download,
   FileText,
   Star,
@@ -18,7 +17,7 @@ import DataTable from '../../components/ui/DataTable'
 import StatCard from '../../components/ui/StatCard'
 import { getManagerTeamMemberDetails } from '../../api/managerTeamApi'
 
-const tabs = ['Overview', 'Attendance', 'Leaves', 'Tasks', 'Performance', 'Documents']
+const tabs = ['Overview', 'Attendance', 'Leaves', 'Performance', 'Documents']
 
 const formatDate = (value) => {
   if (!value) return '-'
@@ -59,12 +58,10 @@ function ManagerTeamMemberProfilePage() {
   const overviewCards = useMemo(() => {
     const attendance = payload?.attendanceSummary || {}
     const leaves = payload?.leaveSummary || {}
-    const tasks = payload?.taskSummary || {}
     const perf = payload?.performanceSummary || {}
     return [
       { title: 'Attendance Records', value: String(attendance.totalRecords ?? 0), trend: `Present ${attendance.presentCount ?? 0}`, icon: CalendarCheck2, trendTone: 'success' },
       { title: 'Pending Leaves', value: String(leaves.pending ?? 0), trend: `Approved ${leaves.approved ?? 0}`, icon: CalendarClock, trendTone: 'warning' },
-      { title: 'Active Tasks', value: String(tasks.active ?? 0), trend: `Completed ${tasks.completed ?? 0}`, icon: ClipboardList, trendTone: 'info' },
       { title: 'Average Score', value: String(perf.averageScore ?? 0), trend: `${perf.totalReviews ?? 0} reviews`, icon: Star, trendTone: 'info' }
     ]
   }, [payload])
@@ -83,14 +80,6 @@ function ManagerTeamMemberProfilePage() {
     status: item.status || 'pending',
     period: `${formatDate(item.startDate)} to ${formatDate(item.endDate)}`,
     reason: item.reason || '-'
-  }))
-
-  const taskRows = (payload?.tasks || []).map((item) => ({
-    id: item.id,
-    title: item.title || '-',
-    status: item.status || 'active',
-    priority: item.priority || 'medium',
-    dueDate: formatDate(item.dueDate)
   }))
 
   const performanceRows = (payload?.performance || []).map((item) => ({
@@ -198,26 +187,6 @@ function ManagerTeamMemberProfilePage() {
       )
     }
 
-    if (activeTab === 'Tasks') {
-      return (
-        <article className="panel">
-          <div className="panel-head"><h3>Task Summary</h3></div>
-          <DataTable
-            columns={[
-              { key: 'title', label: 'Task' },
-              { key: 'status', label: 'Status' },
-              { key: 'priority', label: 'Priority' },
-              { key: 'dueDate', label: 'Due Date' }
-            ]}
-            rows={taskRows}
-            showActions={false}
-            emptyTitle="No tasks"
-            emptyDescription="Tasks assigned to this employee will appear here."
-          />
-        </article>
-      )
-    }
-
     if (activeTab === 'Performance') {
       return (
         <article className="panel">
@@ -273,11 +242,9 @@ function ManagerTeamMemberProfilePage() {
       <div className="panel">
         <div className="actions-row">
           <Button variant="ghost" onClick={() => navigate('/manager/team')}><ArrowLeft size={14} /> Back</Button>
-          <Button variant="ghost" onClick={() => navigate(`/manager/tasks?create=true&employeeId=${employeeId}`)}>Assign Task</Button>
           <Button variant="ghost" onClick={() => navigate(`/manager/performance?employeeId=${employeeId}`)}>Add Performance Review</Button>
           <Button variant="ghost" onClick={() => navigate(`/manager/attendance?employeeId=${employeeId}`)}>View Full Attendance</Button>
           <Button variant="ghost" onClick={() => navigate(`/manager/leaves?employeeId=${employeeId}`)}>View Leave History</Button>
-          <Button variant="ghost" onClick={() => navigate(`/manager/tasks?employeeId=${employeeId}`)}>View Tasks</Button>
           <Button variant="ghost" onClick={downloadProfile}><Download size={14} /> Download Profile</Button>
         </div>
       </div>
@@ -301,7 +268,6 @@ function ManagerTeamMemberProfilePage() {
                 >
                   {tab === 'Attendance' ? <CalendarCheck2 size={14} /> : null}
                   {tab === 'Leaves' ? <CalendarClock size={14} /> : null}
-                  {tab === 'Tasks' ? <ClipboardList size={14} /> : null}
                   {tab === 'Performance' ? <Star size={14} /> : null}
                   {tab === 'Documents' ? <FileText size={14} /> : null}
                   {tab}

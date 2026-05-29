@@ -8,19 +8,19 @@ import Modal from '../../components/ui/Modal'
 import LoadingSkeleton from '../../components/ui/LoadingSkeleton'
 import EmptyState from '../../components/ui/EmptyState'
 import {
+  createManagerNotification,
   deleteManagerNotification,
   getManagerNotifications,
   markAllManagerNotificationsRead,
   markManagerNotificationRead
 } from '../../api/managerNotificationsApi'
 import { approveManagerLeave, rejectManagerLeave } from '../../api/managerLeaveApi'
+import { getManagerTeam } from '../../api/managerTeamApi'
 
 const tabs = [
   { label: 'All Notifications', value: 'all' },
   { label: 'Leave Notifications', value: 'leave' },
-  { label: 'Task Notifications', value: 'task' },
   { label: 'Attendance Notifications', value: 'attendance' },
-  { label: 'System Notifications', value: 'system' },
   { label: 'HR/Admin Messages', value: 'hr-admin' }
 ]
 
@@ -40,6 +40,14 @@ function ManagerNotificationsPage() {
   const [toast, setToast] = useState(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [selected, setSelected] = useState(null)
+  const [createOpen, setCreateOpen] = useState(false)
+  const [team, setTeam] = useState([])
+  const [createForm, setCreateForm] = useState({
+    employeeId: 'all',
+    category: 'attendance',
+    title: '',
+    message: ''
+  })
 
   useEffect(() => {
     if (!toast) return undefined
@@ -63,6 +71,18 @@ function ManagerNotificationsPage() {
   useEffect(() => {
     loadNotifications()
   }, [activeTab])
+
+  useEffect(() => {
+    const loadTeam = async () => {
+      try {
+        const payload = await getManagerTeam()
+        setTeam(payload?.data || [])
+      } catch (_err) {
+        setTeam([])
+      }
+    }
+    loadTeam()
+  }, [])
 
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase()
@@ -150,11 +170,38 @@ function ManagerNotificationsPage() {
     }
   }
 
+  const onCreateNotification = async () => {
+    if (!createForm.title.trim() || !createForm.message.trim()) {
+      setToast({ type: 'error', message: 'Title and message are required' })
+      return
+    }
+    setSubmitting(true)
+    try {
+      await createManagerNotification({
+        employeeId: createForm.employeeId === 'all' ? '' : createForm.employeeId,
+        category: createForm.category,
+        type: createForm.category,
+        title: createForm.title.trim(),
+        message: createForm.message.trim(),
+        isRead: false,
+        actionType: 'open_notification'
+      })
+      setCreateOpen(false)
+      setCreateForm({ employeeId: 'all', category: 'attendance', title: '', message: '' })
+      setToast({ type: 'success', message: 'Notification created successfully' })
+      await loadNotifications()
+    } catch (err) {
+      setToast({ type: 'error', message: err?.response?.data?.message || 'Failed to create notification' })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   return (
     <section className="section-layout">
       <PageHeader
         title="Notifications"
-        description="Track leave, tasks, attendance, system updates, and HR/Admin messages."
+        description="Track leave, tasks, attendance, and HR/Admin messages."
         breadcrumb={['Manager Portal', 'Notifications']}
       />
 
@@ -176,6 +223,7 @@ function ManagerNotificationsPage() {
 
         <div className="actions-row" style={{ marginTop: 10 }}>
           <Button variant="ghost" onClick={loadNotifications}><RefreshCw size={14} /> Refresh</Button>
+          <Button onClick={() => setCreateOpen(true)} disabled={submitting}>Create Notification</Button>
           <Button onClick={onMarkAllRead} disabled={submitting}>Mark All as Read ({unreadCount})</Button>
         </div>
       </div>
@@ -213,7 +261,6 @@ function ManagerNotificationsPage() {
                         {row.actionType === 'open_request' ? <button className="text-btn" onClick={() => onOpen(row)}>Open Request</button> : null}
                         {row.actionType === 'approve_leave' ? <button className="text-btn" onClick={() => onApproveLeave(row)}>Approve Leave</button> : null}
                         {row.actionType === 'approve_leave' ? <button className="text-btn danger" onClick={() => onRejectLeave(row)}>Reject Leave</button> : null}
-                        {row.actionType === 'open_task' ? <button className="text-btn" onClick={() => onOpen(row)}>Open Task</button> : null}
                         {row.actionType === 'open_attendance' ? <button className="text-btn" onClick={() => onOpen(row)}>Open Attendance</button> : null}
                       </div>
                     </td>
@@ -242,6 +289,40 @@ function ManagerNotificationsPage() {
             </div>
           </div>
         )}
+      </Modal>
+
+      <Modal open={createOpen} title="Create Notification for Employee" onClose={() => { if (!submitting) setCreateOpen(false) }}>
+        <div className="modal-form">
+          <label className="form-input-wrap">
+            <span>Employee</span>
+            <select className="form-input" value={createForm.employeeId} onChange={(e) => setCreateForm((prev) => ({ ...prev, employeeId: e.target.value }))}>
+              <option value="all">All Employees</option>
+              {team.map((item) => (
+                <option key={item.employeeId} value={item.employeeId}>{item.name}</option>
+              ))}
+            </select>
+          </label>
+          <label className="form-input-wrap">
+            <span>Category</span>
+            <select className="form-input" value={createForm.category} onChange={(e) => setCreateForm((prev) => ({ ...prev, category: e.target.value }))}>
+              <option value="attendance">Attendance</option>
+              <option value="leave">Leave</option>
+              <option value="hr-admin">HR/Admin</option>
+            </select>
+          </label>
+          <label className="form-input-wrap">
+            <span>Title</span>
+            <input className="form-input" value={createForm.title} onChange={(e) => setCreateForm((prev) => ({ ...prev, title: e.target.value }))} />
+          </label>
+          <label className="form-input-wrap">
+            <span>Message</span>
+            <textarea className="form-input" rows={4} value={createForm.message} onChange={(e) => setCreateForm((prev) => ({ ...prev, message: e.target.value }))} />
+          </label>
+          <div className="actions-row">
+            <Button variant="ghost" onClick={() => setCreateOpen(false)} disabled={submitting}>Cancel</Button>
+            <Button onClick={onCreateNotification} disabled={submitting}>{submitting ? 'Creating...' : 'Create Notification'}</Button>
+          </div>
+        </div>
       </Modal>
     </section>
   )

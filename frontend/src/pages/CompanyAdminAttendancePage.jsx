@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Download, LogIn, LogOut, RefreshCw } from 'lucide-react'
 import PageHeader from '../components/ui/PageHeader'
 import FilterDropdown from '../components/ui/FilterDropdown'
@@ -13,7 +13,6 @@ import {
   getTodayAttendance,
   getMonthlyAttendance,
   getMyTodayAttendance,
-  enrollAttendanceFace,
   markManualAttendance,
   punchInAttendance,
   punchOutAttendance,
@@ -40,14 +39,6 @@ const statusOptions = [
   { value: 'late', label: 'Late' },
   { value: 'leave', label: 'Leave' }
 ]
-
-let faceUtilsPromise
-const loadFaceUtils = () => {
-  if (!faceUtilsPromise) {
-    faceUtilsPromise = import('../utils/faceRecognition')
-  }
-  return faceUtilsPromise
-}
 
 function CompanyAdminAttendancePage() {
   const { user } = useAuth()
@@ -80,14 +71,6 @@ function CompanyAdminAttendancePage() {
   const [selfAttendance, setSelfAttendance] = useState(null)
   const [selfLoading, setSelfLoading] = useState(false)
   const [faceBusy, setFaceBusy] = useState(false)
-  const [faceModalOpen, setFaceModalOpen] = useState(false)
-  const [faceModalMode, setFaceModalMode] = useState('enroll')
-  const [faceStreamError, setFaceStreamError] = useState('')
-  const [faceVideoReady, setFaceVideoReady] = useState(false)
-  const [faceEnrollMode, setFaceEnrollMode] = useState('camera')
-  const faceVideoRef = useRef(null)
-  const faceStreamRef = useRef(null)
-  const facePhotoInputRef = useRef(null)
 
   const deptMap = useMemo(() => Object.fromEntries(departments.map((d) => [String(d.id || d._id), d.name || 'Department'])), [departments])
 
@@ -140,39 +123,6 @@ function CompanyAdminAttendancePage() {
     }
   }
 
-  const stopFaceStream = () => {
-    if (faceStreamRef.current) {
-      faceStreamRef.current.getTracks().forEach((track) => track.stop())
-      faceStreamRef.current = null
-    }
-    setFaceVideoReady(false)
-  }
-
-  const closeFaceModal = () => {
-    stopFaceStream()
-    setFaceModalOpen(false)
-    setFaceStreamError('')
-  }
-
-  const openFaceModal = async (mode) => {
-    setFaceModalMode(mode)
-    setFaceStreamError('')
-    setFaceModalOpen(true)
-    try {
-      const { ensureFaceModels } = await loadFaceUtils()
-      await ensureFaceModels()
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false })
-      faceStreamRef.current = stream
-      if (faceVideoRef.current) {
-        faceVideoRef.current.srcObject = stream
-        await faceVideoRef.current.play()
-      }
-      setFaceVideoReady(true)
-    } catch (err) {
-      setFaceStreamError(err?.message || 'Unable to open camera')
-    }
-  }
-
   const loadAttendance = async ({ keepLoading = false } = {}) => {
     if (!keepLoading) setLoading(true)
     setError('')
@@ -198,7 +148,6 @@ function CompanyAdminAttendancePage() {
     loadAttendance()
     loadSummary()
     loadSelfAttendance()
-    return () => stopFaceStream()
   }, [])
 
   const applyFilters = async () => {
@@ -336,71 +285,33 @@ function CompanyAdminAttendancePage() {
   }
 
   const onPunchIn = async () => {
-    await openFaceModal('punch-in')
-  }
-
-  const onPunchOut = async () => {
-    await openFaceModal('punch-out')
-  }
-
-  const onEnrollFace = async () => {
-    setFaceEnrollMode('camera')
-    await openFaceModal('enroll')
-  }
-
-  const captureAndSubmitFace = async () => {
     setFaceBusy(true)
     try {
-      const { detectFaceDescriptor } = await loadFaceUtils()
-      const videoEl = faceVideoRef.current
-      if (!videoEl || !faceVideoReady) {
-        throw new Error('Camera not ready')
-      }
-      const descriptor = await detectFaceDescriptor(videoEl)
-      if (!descriptor) {
-        throw new Error('Face not detected. Keep your face centered and try again.')
-      }
-
-      if (faceModalMode === 'enroll') {
-        const res = await enrollAttendanceFace(descriptor)
-        setToast({ type: 'success', message: res?.message || 'Face enrolled successfully' })
-      } else if (faceModalMode === 'punch-in') {
-        const res = await punchInAttendance(descriptor)
-        setSelfAttendance(res?.data || null)
-        setToast({ type: 'success', message: res?.message || 'Punch in recorded' })
-      } else if (faceModalMode === 'punch-out') {
-        const res = await punchOutAttendance(descriptor)
-        setSelfAttendance(res?.data || null)
-        setToast({ type: 'success', message: res?.message || 'Punch out recorded' })
-      }
-
+      const res = await punchInAttendance([])
+      setSelfAttendance(res?.data || null)
+      setToast({ type: 'success', message: res?.message || 'Punch in recorded' })
       await loadSelfAttendance()
       await loadAttendance({ keepLoading: true })
       await loadSummary()
-      closeFaceModal()
     } catch (err) {
-      setToast({ type: 'error', message: err?.response?.data?.message || err?.message || 'Face capture failed' })
+      setToast({ type: 'error', message: err?.response?.data?.message || 'Punch in failed' })
     } finally {
       setFaceBusy(false)
     }
   }
 
-  const onEnrollFromPhoto = async (event) => {
-    const file = event.target.files?.[0]
-    if (!file) return
+  const onPunchOut = async () => {
     setFaceBusy(true)
     try {
-      const { detectFaceDescriptorFromImageFile } = await loadFaceUtils()
-      const descriptor = await detectFaceDescriptorFromImageFile(file)
-      if (!descriptor) throw new Error('No clear face found in selected photo')
-      const res = await enrollAttendanceFace(descriptor)
-      setToast({ type: 'success', message: res?.message || 'Face enrolled from photo successfully' })
+      const res = await punchOutAttendance([])
+      setSelfAttendance(res?.data || null)
+      setToast({ type: 'success', message: res?.message || 'Punch out recorded' })
       await loadSelfAttendance()
-      closeFaceModal()
+      await loadAttendance({ keepLoading: true })
+      await loadSummary()
     } catch (err) {
-      setToast({ type: 'error', message: err?.response?.data?.message || err?.message || 'Photo enrollment failed' })
+      setToast({ type: 'error', message: err?.response?.data?.message || 'Punch out failed' })
     } finally {
-      if (facePhotoInputRef.current) facePhotoInputRef.current.value = ''
       setFaceBusy(false)
     }
   }
@@ -436,7 +347,6 @@ function CompanyAdminAttendancePage() {
           </div>
           <div className="actions-row self-attendance-actions">
             <Button variant="ghost" className="attendance-action-refresh" onClick={loadSelfAttendance} disabled={selfLoading}>{selfLoading ? 'Refreshing...' : 'Refresh'}</Button>
-            <Button variant="ghost" onClick={onEnrollFace} disabled={faceBusy}>{faceBusy ? 'Capturing...' : (faceEnrolled ? 'Re-Enroll Face' : 'Enroll Face')}</Button>
             <Button className="attendance-action-punch-in" onClick={onPunchIn} disabled={!canPunchIn || faceBusy}><LogIn size={18} /> Punch In</Button>
             <Button variant="ghost" className="attendance-action-punch-out" onClick={onPunchOut} disabled={!canPunchOut || faceBusy}><LogOut size={18} /> Punch Out</Button>
           </div>
@@ -573,32 +483,6 @@ function CompanyAdminAttendancePage() {
         </form>
       </Modal>
 
-      <Modal open={faceModalOpen} title={faceModalMode === 'enroll' ? 'Enroll Face' : faceModalMode === 'punch-in' ? 'Punch In Face Verification' : 'Punch Out Face Verification'} onClose={closeFaceModal}>
-        <div className="modal-form">
-          <p className="self-attendance-subtitle">Keep face in center and good light, then capture.</p>
-          {faceModalMode === 'enroll' ? (
-            <div className="actions-row">
-              <Button variant={faceEnrollMode === 'camera' ? 'primary' : 'ghost'} onClick={() => setFaceEnrollMode('camera')} disabled={faceBusy}>Use Camera</Button>
-              <Button variant={faceEnrollMode === 'photo' ? 'primary' : 'ghost'} onClick={() => setFaceEnrollMode('photo')} disabled={faceBusy}>Use Photo</Button>
-            </div>
-          ) : null}
-          {faceStreamError ? <p className="error">{faceStreamError}</p> : null}
-          {faceModalMode === 'enroll' && faceEnrollMode === 'photo' ? (
-            <div className="form-input-wrap">
-              <label>Upload employee/manager face photo</label>
-              <input ref={facePhotoInputRef} type="file" accept="image/*" className="form-input" onChange={onEnrollFromPhoto} disabled={faceBusy} />
-            </div>
-          ) : (
-            <video ref={faceVideoRef} autoPlay playsInline muted style={{ width: '100%', borderRadius: 12, border: '1px solid var(--line)', background: '#0b1020' }} />
-          )}
-          <div className="actions-row">
-            <Button variant="ghost" onClick={closeFaceModal} disabled={faceBusy}>Cancel</Button>
-            {faceModalMode === 'enroll' && faceEnrollMode === 'photo' ? null : (
-              <Button onClick={captureAndSubmitFace} disabled={faceBusy || !faceVideoReady}>{faceBusy ? 'Processing...' : 'Capture & Verify'}</Button>
-            )}
-          </div>
-        </div>
-      </Modal>
     </section>
   )
 }

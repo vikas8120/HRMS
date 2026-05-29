@@ -8,11 +8,13 @@ import Button from '../ui/Button'
 const employeeSearchItems = [
   { type: 'module', title: 'Dashboard', subtitle: 'Employee overview', route: '/employee/dashboard' },
   { type: 'module', title: 'Profile', subtitle: 'Personal details', route: '/employee/profile' },
+  { type: 'module', title: 'Feedback', subtitle: 'Submit and track feedback', route: '/employee/feedback' },
+  { type: 'module', title: 'Grievance', subtitle: 'Raise and track grievances', route: '/employee/grievance' },
+  { type: 'module', title: 'Complaint Box', subtitle: 'Raise confidential complaints', route: '/employee/complaint-box' },
   { type: 'module', title: 'Attendance', subtitle: 'Daily attendance log', route: '/employee/attendance' },
   { type: 'module', title: 'Leaves', subtitle: 'Leave requests and balance', route: '/employee/leaves' },
-  { type: 'module', title: 'Payroll', subtitle: 'Salary and payslips', route: '/employee/payroll' },
-  { type: 'module', title: 'Tasks', subtitle: 'Assigned tasks', route: '/employee/tasks' },
-  { type: 'module', title: 'Documents', subtitle: 'Uploaded documents', route: '/employee/documents' },
+  { type: 'module', title: 'Salary Slip', subtitle: 'Salary and payslips', route: '/employee/payroll' },
+  { type: 'module', title: 'Policy', subtitle: 'View and download policies', route: '/employee/policy' },
   { type: 'module', title: 'Announcements', subtitle: 'Company announcements', route: '/employee/announcements' },
   { type: 'module', title: 'Notifications', subtitle: 'Alerts and reminders', route: '/employee/notifications' },
   { type: 'module', title: 'Settings', subtitle: 'Account settings', route: '/employee/settings' }
@@ -72,6 +74,12 @@ function EmployeeNavbar() {
         <Search size={16} />
         <input
           className="search-input"
+          type="search"
+          name="hrms_global_search"
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="none"
+          spellCheck={false}
           placeholder={`Search ${activeLabel.toLowerCase()}...`}
           value={query}
           onChange={(event) => {
@@ -105,10 +113,22 @@ function EmployeeNavbar() {
         <button className="icon-btn" onClick={toggleTheme} aria-label="Toggle theme">
           {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
         </button>
-        <button className="icon-btn has-badge" aria-label="Notifications">
+        <button
+          className="icon-btn has-badge"
+          aria-label="Notifications"
+          onClick={() => navigate('/employee/notifications')}
+        >
           <Bell size={16} />
         </button>
-        <div className="profile-menu"><UserCircle2 size={18} /><span>{user?.name || 'Employee'}</span></div>
+        <button
+          type="button"
+          className="profile-menu"
+          onClick={() => navigate('/employee/profile')}
+          aria-label="Open profile"
+        >
+          <UserCircle2 size={18} />
+          <span>{user?.name || 'Employee'}</span>
+        </button>
         <Button variant="danger" onClick={logout}><LogOut size={14} /> Logout</Button>
       </div>
     </header>

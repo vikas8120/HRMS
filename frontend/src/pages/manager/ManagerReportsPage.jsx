@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Download, Printer, RefreshCw } from 'lucide-react'
+import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import PageHeader from '../../components/ui/PageHeader'
 import Button from '../../components/ui/Button'
 import SearchBar from '../../components/ui/SearchBar'
 import FilterDropdown from '../../components/ui/FilterDropdown'
+import StatCard from '../../components/ui/StatCard'
 import LoadingSkeleton from '../../components/ui/LoadingSkeleton'
 import EmptyState from '../../components/ui/EmptyState'
 import Modal from '../../components/ui/Modal'
@@ -138,6 +140,83 @@ function ManagerReportsPage() {
   const activeStatusReportType = reportType === 'custom' ? customReportSource : reportType
   const statusOptions = statusOptionsByType[activeStatusReportType] || statusOptionsByType.custom
 
+  const chartConfig = useMemo(() => {
+    const statusKeyByType = {
+      attendance: 'status',
+      leaves: 'status',
+      tasks: 'status',
+      performance: 'status',
+      custom: 'status'
+    }
+    const dateKeyByType = {
+      attendance: 'date',
+      leaves: 'startDate',
+      tasks: 'dueDate',
+      performance: 'reviewDate',
+      custom: 'date'
+    }
+    const departmentKeyByType = {
+      attendance: 'departmentId',
+      leaves: 'departmentId',
+      tasks: 'departmentId',
+      performance: 'departmentId',
+      custom: 'departmentId'
+    }
+    const statusKey = statusKeyByType[activeStatusReportType] || 'status'
+    const dateKey = dateKeyByType[activeStatusReportType] || 'date'
+    const departmentKey = departmentKeyByType[activeStatusReportType] || 'departmentId'
+
+    const statusMap = new Map()
+    const departmentMap = new Map()
+    const trendMap = new Map()
+
+    filteredRows.forEach((row) => {
+      const statusVal = String(row[statusKey] || 'unknown').toLowerCase()
+      statusMap.set(statusVal, (statusMap.get(statusVal) || 0) + 1)
+
+      const departmentVal = String(row[departmentKey] || 'N/A')
+      departmentMap.set(departmentVal, (departmentMap.get(departmentVal) || 0) + 1)
+
+      const dateVal = String(row[dateKey] || '').slice(0, 10)
+      if (dateVal) trendMap.set(dateVal, (trendMap.get(dateVal) || 0) + 1)
+    })
+
+    const statusColors = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#14b8a6', '#a855f7']
+    const statusPie = Array.from(statusMap.entries()).map(([name, value], idx) => ({
+      name,
+      value,
+      color: statusColors[idx % statusColors.length]
+    }))
+    const departmentBars = Array.from(departmentMap.entries()).map(([name, value]) => ({ name, value })).slice(0, 8)
+    const trendLine = Array.from(trendMap.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .slice(-10)
+      .map(([date, count]) => ({ date, count }))
+
+    return {
+      statusPie: statusPie.length ? statusPie : [{ name: 'no-data', value: 1, color: '#cbd5e1' }],
+      departmentBars: departmentBars.length ? departmentBars : [{ name: 'N/A', value: 0 }],
+      trendLine: trendLine.length ? trendLine : [{ date: 'N/A', count: 0 }]
+    }
+  }, [filteredRows, activeStatusReportType])
+
+  const reportInsights = useMemo(() => {
+    const total = filteredRows.length
+    const topStatus = chartConfig.statusPie
+      .filter((item) => item.name !== 'no-data')
+      .sort((a, b) => b.value - a.value)[0]
+    const topDepartment = chartConfig.departmentBars
+      .filter((item) => item.name !== 'N/A')
+      .sort((a, b) => b.value - a.value)[0]
+    return {
+      total,
+      topStatus: topStatus ? `${topStatus.name} (${topStatus.value})` : 'N/A',
+      topDepartment: topDepartment ? `${topDepartment.name} (${topDepartment.value})` : 'N/A'
+    }
+  }, [filteredRows, chartConfig])
+
+  const isLowData = filteredRows.length <= 2
+
   const filteredTeam = useMemo(
     () => (departmentId === 'all' ? team : team.filter((x) => String(x.departmentId || '') === String(departmentId))),
     [team, departmentId]
@@ -258,7 +337,7 @@ function ManagerReportsPage() {
   }
 
   return (
-    <section className="section-layout">
+    <section className="section-layout manager-reports-page">
       <PageHeader
         title="Reports"
         description="Generate manager-level operational reports using real team data."
@@ -327,13 +406,58 @@ function ManagerReportsPage() {
         {loading ? <LoadingSkeleton rows={7} /> : error ? <EmptyState title="Unable to generate report" description={error} /> : filteredRows.length === 0 ? (
           <EmptyState title="No report data" description="Generate report after selecting filters." />
         ) : (
-          <DataTable
-            columns={displayColumns}
-            rows={filteredRows.map((row, idx) => ({ id: row.id || `${idx}`, ...row }))}
-            showActions={false}
-            emptyTitle="No rows"
-            emptyDescription="No report rows found."
-          />
+          <>
+            <div className="stats-grid premium-stats-grid" style={{ marginBottom: 12 }}>
+              <StatCard title="Total Records" value={String(reportInsights.total)} trend="Rows in current report" />
+              <StatCard title="Top Status" value={reportInsights.topStatus} trend="Most frequent status" trendTone="info" />
+              <StatCard title="Top Department" value={reportInsights.topDepartment} trend="Highest row count" trendTone="info" />
+            </div>
+
+            <div className="dashboard-main-grid" style={{ marginBottom: 12 }}>
+              <article className="panel dashboard-float-card">
+                <div className="panel-head"><h3>Status Distribution</h3></div>
+                <div style={{ height: isLowData ? 170 : 240 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={chartConfig.statusPie} dataKey="value" nameKey="name" innerRadius={46} outerRadius={82} paddingAngle={3}>
+                        {chartConfig.statusPie.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
+                      </Pie>
+                      <Tooltip contentStyle={{ background: 'var(--panel-tint)', border: '1px solid var(--line)', borderRadius: 10 }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="report-status-legend">
+                  {chartConfig.statusPie.filter((item) => item.name !== 'no-data').map((entry) => (
+                    <span key={entry.name}><i style={{ background: entry.color }} /> {entry.name}: {entry.value}</span>
+                  ))}
+                </div>
+              </article>
+
+            </div>
+
+            <article className="panel dashboard-float-card" style={{ marginBottom: 12 }}>
+              <div className="panel-head"><h3>Report Trend</h3></div>
+              <div style={{ height: isLowData ? 170 : 240 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartConfig.trendLine}>
+                    <CartesianGrid stroke="rgba(255,255,255,0.12)" strokeDasharray="4 4" />
+                    <XAxis dataKey="date" tick={{ fill: 'var(--muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: 'var(--muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <Tooltip contentStyle={{ background: 'var(--panel-tint)', border: '1px solid var(--line)', borderRadius: 10 }} />
+                    <Line type="monotone" dataKey="count" stroke="#22d3ee" strokeWidth={3} dot={{ r: 3 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </article>
+
+            <DataTable
+              columns={displayColumns}
+              rows={filteredRows.map((row, idx) => ({ id: row.id || `${idx}`, ...row }))}
+              showActions={false}
+              emptyTitle="No rows"
+              emptyDescription="No report rows found."
+            />
+          </>
         )}
       </div>
 

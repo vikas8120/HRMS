@@ -41,7 +41,6 @@ function ManagerMyTeamPage() {
 
   const [search, setSearch] = useState('')
   const [department, setDepartment] = useState('all')
-  const [designation, setDesignation] = useState('all')
   const [status, setStatus] = useState('all')
   const [attendanceStatus, setAttendanceStatus] = useState('all')
 
@@ -52,7 +51,7 @@ function ManagerMyTeamPage() {
       const response = await getManagerTeam({
         search: next.search ?? search,
         department: next.department ?? department,
-        designation: next.designation ?? designation,
+        designation: 'all',
         status: next.status ?? status,
         attendanceStatus: next.attendanceStatus ?? attendanceStatus
       })
@@ -75,13 +74,8 @@ function ManagerMyTeamPage() {
     ...(filters.departments || []).map((item) => ({ value: String(item.id), label: item.name || '-' }))
   ]), [filters.departments])
 
-  const designationOptions = useMemo(() => ([
-    { value: 'all', label: 'All Designations' },
-    ...(filters.designations || []).map((item) => ({ value: item, label: item }))
-  ]), [filters.designations])
-
   return (
-    <section className="section-layout">
+    <section className="section-layout manager-my-team-page">
       <PageHeader
         title="My Team"
         description="View and manage employees assigned to you, with attendance and execution context."
@@ -96,7 +90,6 @@ function ManagerMyTeamPage() {
           </div>
 
           <FilterDropdown label="Department" value={department} onChange={setDepartment} options={departmentOptions} />
-          <FilterDropdown label="Designation" value={designation} onChange={setDesignation} options={designationOptions} />
           <FilterDropdown
             label="Status"
             value={status}
@@ -116,10 +109,9 @@ function ManagerMyTeamPage() {
           <Button variant="ghost" onClick={() => {
             setSearch('')
             setDepartment('all')
-            setDesignation('all')
             setStatus('all')
             setAttendanceStatus('all')
-            loadTeam({ search: '', department: 'all', designation: 'all', status: 'all', attendanceStatus: 'all' })
+            loadTeam({ search: '', department: 'all', status: 'all', attendanceStatus: 'all' })
           }}>
             Reset
           </Button>
@@ -165,7 +157,6 @@ function ManagerMyTeamPage() {
                         <button className="text-btn" onClick={() => navigate(`/manager/team/${item.employeeId}`)}>View Profile</button>
                         <button className="text-btn" onClick={() => navigate(`/manager/attendance?employeeId=${item.employeeId}`)}>View Attendance</button>
                         <button className="text-btn" onClick={() => navigate(`/manager/leaves?employeeId=${item.employeeId}`)}>View Leave History</button>
-                        <button className="text-btn" onClick={() => navigate(`/manager/tasks?employeeId=${item.employeeId}`)}>View Tasks</button>
                         <button className="text-btn" onClick={() => navigate(`/manager/performance?employeeId=${item.employeeId}`)}>Review Performance</button>
                         <button className="text-btn" onClick={() => navigate(`/manager/communication?employeeId=${item.employeeId}`)}>Message Employee</button>
                       </div>

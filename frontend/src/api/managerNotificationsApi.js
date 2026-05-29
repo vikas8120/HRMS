@@ -5,6 +5,9 @@ const withData = (payload) => payload?.data || payload || {}
 export const getManagerNotifications = (params = {}) =>
   api.get('/manager/notifications', { params }).then((res) => withData(res.data))
 
+export const createManagerNotification = (payload) =>
+  api.post('/manager/notifications', payload).then((res) => withData(res.data))
+
 export const markManagerNotificationRead = (notificationId) =>
   api.put(`/manager/notifications/${notificationId}/read`).then((res) => withData(res.data))
 

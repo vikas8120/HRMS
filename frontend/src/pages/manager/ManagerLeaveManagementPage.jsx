@@ -5,6 +5,8 @@ import PageHeader from '../../components/ui/PageHeader'
 import FilterDropdown from '../../components/ui/FilterDropdown'
 import SearchBar from '../../components/ui/SearchBar'
 import Button from '../../components/ui/Button'
+import StatCard from '../../components/ui/StatCard'
+import DataTable from '../../components/ui/DataTable'
 import Modal from '../../components/ui/Modal'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import LoadingSkeleton from '../../components/ui/LoadingSkeleton'
@@ -18,8 +20,6 @@ import {
   rejectManagerLeave
 } from '../../api/managerLeaveApi'
 import { getManagerTeam } from '../../api/managerTeamApi'
-
-const tabs = ['Pending Requests', 'Approved Leaves', 'Rejected Leaves', 'Leave History', 'Leave Calendar', 'My Leave Requests']
 
 const tabToStatus = {
   'Pending Requests': 'pending',
@@ -41,6 +41,7 @@ function ManagerLeaveManagementPage() {
   const [searchParams] = useSearchParams()
   const employeeIdFromQuery = searchParams.get('employeeId') || 'all'
   const [activeTab, setActiveTab] = useState('Pending Requests')
+  const [leaveView, setLeaveView] = useState('employee')
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -107,8 +108,29 @@ function ManagerLeaveManagementPage() {
     if (employeeIdFromQuery && employeeIdFromQuery !== 'all') {
       setEmployeeId(employeeIdFromQuery)
       setActiveTab('Leave History')
+      setLeaveView('employee')
     }
   }, [employeeIdFromQuery])
+
+  useEffect(() => {
+    if (activeTab === 'My Leave Requests') {
+      setLeaveView('my')
+      return
+    }
+    setLeaveView('employee')
+  }, [activeTab])
+
+  const switchToMyLeave = () => {
+    setLeaveView('my')
+    setActiveTab('My Leave Requests')
+  }
+
+  const switchToEmployeeLeave = () => {
+    setLeaveView('employee')
+    if (activeTab === 'My Leave Requests') {
+      setActiveTab('Pending Requests')
+    }
+  }
 
   useEffect(() => {
     loadLeaves()
@@ -271,123 +293,217 @@ function ManagerLeaveManagementPage() {
     return [...filteredRows].sort((a, b) => String(a.startDate || '').localeCompare(String(b.startDate || '')))
   }, [filteredRows])
 
+  const myLeaveStats = useMemo(() => {
+    const summary = rows.reduce((acc, item) => {
+      const type = String(item.leaveType || '').toLowerCase()
+      const days = Number(item.totalDays || 0)
+      if (type === 'casual') acc.casual += days
+      if (type === 'sick') acc.sick += days
+      if (type === 'earned') acc.earned += days
+      return acc
+    }, { casual: 0, sick: 0, earned: 0 })
+
+    return [
+      { title: 'Casual Balance', value: String(summary.casual), trend: 'Policy 0' },
+      { title: 'Sick Balance', value: String(summary.sick), trend: 'Policy 0' },
+      { title: 'Earned Balance', value: String(summary.earned), trend: 'Policy 0' }
+    ]
+  }, [rows])
+
+  const myLeaveRows = useMemo(() => filteredRows.map((item) => ({
+    id: item.id,
+    leaveType: item.leaveType || '-',
+    startDate: formatDate(item.startDate),
+    endDate: formatDate(item.endDate),
+    totalDays: item.totalDays || 0,
+    reason: item.reason || '-',
+    status: item.status || '-',
+    createdAt: formatDate(item.appliedDate),
+    raw: item
+  })), [filteredRows])
+
   return (
-    <section className="section-layout">
+    <section className="section-layout manager-leave-management-page">
       <PageHeader
-        title="Leave Management"
-        description="Review and action leave requests from employees assigned to you."
-        breadcrumb={['Manager Portal', 'Leave Management']}
+        title={leaveView === 'my' ? 'Employee Leaves' : 'Leave Management'}
+        description={leaveView === 'my' ? 'Apply and track your leave requests with balance and policy visibility.' : 'Review and action leave requests from employees assigned to you.'}
+        breadcrumb={leaveView === 'my' ? ['Employee Portal', 'Leaves'] : ['Manager Portal', 'Leave Management']}
         primaryActionLabel="Apply Leave"
         onPrimaryAction={() => setApplyOpen(true)}
       />
 
       {toast ? <div className={`toast ${toast.type === 'success' ? 'toast-success' : 'toast-error'}`}>{toast.message}</div> : null}
 
-      <div className="panel">
+      <div className="panel dashboard-switcher-panel">
         <div className="workspace-nav">
-          {tabs.map((tab) => (
-            <button key={tab} type="button" className={`chip-btn ${activeTab === tab ? 'active' : ''}`} onClick={() => setActiveTab(tab)}>{tab}</button>
-          ))}
-        </div>
-
-        <div className="filters-row admin-filters-grid" style={{ marginTop: 10 }}>
-          <div className="search-wrap">
-            <label>Search</label>
-            <SearchBar value={search} onChange={setSearch} placeholder="Search by employee, type, reason" />
-          </div>
-          <FilterDropdown label="Leave Type" value={leaveType} onChange={setLeaveType} options={leaveTypes} />
-          {activeTab !== 'My Leave Requests' ? <FilterDropdown label="Employee" value={employeeId} onChange={setEmployeeId} options={employeeOptions} /> : null}
-          <FilterDropdown
-            label="Status"
-            value={statusFilter}
-            onChange={setStatusFilter}
-            options={[{ value: 'all', label: 'Tab Status' }, { value: 'pending', label: 'Pending' }, { value: 'approved', label: 'Approved' }, { value: 'rejected', label: 'Rejected' }]}
-          />
-        </div>
-
-        <div className="actions-row" style={{ marginTop: 10 }}>
-          <Button variant="ghost" onClick={loadLeaves}>Filter</Button>
-          <Button variant="ghost" onClick={loadLeaves}><RefreshCw size={14} /> Refresh</Button>
-          <Button variant="ghost" onClick={exportPdf}><Download size={14} /> Export PDF</Button>
-          <Button variant="ghost" onClick={exportExcel}><Download size={14} /> Export Excel</Button>
+          <button
+            type="button"
+            className={`chip-btn ${leaveView === 'my' ? 'active' : ''}`}
+            onClick={switchToMyLeave}
+          >
+            My Leave
+          </button>
+          <button
+            type="button"
+            className={`chip-btn ${leaveView === 'employee' ? 'active' : ''}`}
+            onClick={switchToEmployeeLeave}
+          >
+            Employee Leave
+          </button>
         </div>
       </div>
 
-      <div className="panel">
-        <div className="panel-head"><h3>{activeTab}</h3></div>
-        {loading ? <LoadingSkeleton rows={7} /> : error ? <EmptyState title="Unable to load leaves" description={error} /> : activeTab === 'Leave Calendar' ? (
-          calendarRows.length === 0 ? <EmptyState title="No calendar leaves" description="Leave entries will appear here." /> : (
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Date Range</th>
-                    <th>Employee</th>
-                    <th>Type</th>
-                    <th>Status</th>
-                    <th>Total Days</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {calendarRows.map((row) => (
-                    <tr key={row.id}>
-                      <td>{formatDate(row.startDate)} to {formatDate(row.endDate)}</td>
-                      <td>{row.employeeName || '-'}</td>
-                      <td>{row.leaveType || '-'}</td>
-                      <td><span className={`badge badge-${row.status}`}>{row.status}</span></td>
-                      <td>{row.totalDays || 0}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+      {leaveView === 'my' ? (
+        <>
+          {loading ? <LoadingSkeleton rows={3} /> : (
+            <div className="stats-grid premium-stats-grid">
+              {myLeaveStats.map((item) => <StatCard key={item.title} {...item} />)}
             </div>
-          )
-        ) : filteredRows.length === 0 ? (
-          <EmptyState title="No leave records" description="Leave requests matching current filters will appear here." />
-        ) : (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Employee name</th>
-                  <th>Leave type</th>
-                  <th>Start date</th>
-                  <th>End date</th>
-                  <th>Total days</th>
-                  <th>Reason</th>
-                  <th>Status</th>
-                  <th>Applied date</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredRows.map((row) => {
-                  const canAct = String(row.status || '').toLowerCase() === 'pending'
-                  return (
-                    <tr key={row.id}>
-                      <td>{row.employeeName || '-'}</td>
-                      <td>{row.leaveType || '-'}</td>
-                      <td>{formatDate(row.startDate)}</td>
-                      <td>{formatDate(row.endDate)}</td>
-                      <td>{row.totalDays || 0}</td>
-                      <td>{row.reason || '-'}</td>
-                      <td><span className={`badge badge-${row.status}`}>{row.status || '-'}</span></td>
-                      <td>{formatDate(row.appliedDate)}</td>
-                      <td>
-                        <div className="table-actions">
-                          <button className="text-btn" onClick={() => openDetails(row.id)}>View Details</button>
-                          {canAct ? <button className="text-btn" onClick={() => confirmApprove(row.id)}>Approve</button> : null}
-                          {canAct ? <button className="text-btn danger" onClick={() => confirmReject(row.id)}>Reject</button> : null}
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+          )}
+
+          <div className="panel">
+            <div className="filters-row">
+              <FilterDropdown
+                label="Status"
+                value={statusFilter}
+                onChange={setStatusFilter}
+                options={[{ value: 'all', label: 'All Status' }, { value: 'pending', label: 'Pending' }, { value: 'approved', label: 'Approved' }, { value: 'rejected', label: 'Rejected' }]}
+              />
+              <FilterDropdown
+                label="Leave Type"
+                value={leaveType}
+                onChange={setLeaveType}
+                options={[{ value: 'all', label: 'All Leave Types' }, { value: 'casual', label: 'Casual' }, { value: 'sick', label: 'Sick' }, { value: 'earned', label: 'Earned' }, { value: 'work-from-home', label: 'Work From Home' }]}
+              />
+              <div className="actions-row" style={{ alignSelf: 'end' }}>
+                <Button variant="ghost" onClick={loadLeaves}><RefreshCw size={14} /> Refresh</Button>
+              </div>
+            </div>
           </div>
-        )}
-      </div>
+
+          <div className="panel">
+            <div className="panel-head"><h3>My Leave Requests</h3></div>
+            {loading ? <LoadingSkeleton rows={6} /> : myLeaveRows.length === 0 ? <EmptyState title="No leave requests" description="Your leave requests will appear here." /> : (
+              <DataTable
+                columns={[
+                  { key: 'leaveType', label: 'Leave Type' },
+                  { key: 'startDate', label: 'Start Date' },
+                  { key: 'endDate', label: 'End Date' },
+                  { key: 'totalDays', label: 'Total Days' },
+                  { key: 'reason', label: 'Reason', sortable: false },
+                  { key: 'status', label: 'Status' },
+                  { key: 'createdAt', label: 'Applied Date' }
+                ]}
+                rows={myLeaveRows}
+                showViewAction
+                onView={(row) => openDetails(row.raw.id)}
+              />
+            )}
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="panel">
+            <div className="filters-row admin-filters-grid" style={{ marginTop: 10 }}>
+              <div className="search-wrap">
+                <label>Search</label>
+                <SearchBar value={search} onChange={setSearch} placeholder="Search by employee, type, reason" />
+              </div>
+              <FilterDropdown label="Leave Type" value={leaveType} onChange={setLeaveType} options={leaveTypes} />
+              {activeTab !== 'My Leave Requests' ? <FilterDropdown label="Employee" value={employeeId} onChange={setEmployeeId} options={employeeOptions} /> : null}
+              <FilterDropdown
+                label="Status"
+                value={statusFilter}
+                onChange={setStatusFilter}
+                options={[{ value: 'all', label: 'Tab Status' }, { value: 'pending', label: 'Pending' }, { value: 'approved', label: 'Approved' }, { value: 'rejected', label: 'Rejected' }]}
+              />
+            </div>
+
+            <div className="actions-row" style={{ marginTop: 10 }}>
+              <Button variant="ghost" onClick={loadLeaves}>Filter</Button>
+              <Button variant="ghost" onClick={loadLeaves}><RefreshCw size={14} /> Refresh</Button>
+              <Button variant="ghost" onClick={exportPdf}><Download size={14} /> Export PDF</Button>
+              <Button variant="ghost" onClick={exportExcel}><Download size={14} /> Export Excel</Button>
+            </div>
+          </div>
+
+          <div className="panel">
+            <div className="panel-head"><h3>{activeTab}</h3></div>
+            {loading ? <LoadingSkeleton rows={7} /> : error ? <EmptyState title="Unable to load leaves" description={error} /> : activeTab === 'Leave Calendar' ? (
+              calendarRows.length === 0 ? <EmptyState title="No calendar leaves" description="Leave entries will appear here." /> : (
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Date Range</th>
+                        <th>Employee</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Total Days</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {calendarRows.map((row) => (
+                        <tr key={row.id}>
+                          <td>{formatDate(row.startDate)} to {formatDate(row.endDate)}</td>
+                          <td>{row.employeeName || '-'}</td>
+                          <td>{row.leaveType || '-'}</td>
+                          <td><span className={`badge badge-${row.status}`}>{row.status}</span></td>
+                          <td>{row.totalDays || 0}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            ) : filteredRows.length === 0 ? (
+              <EmptyState title="No leave records" description="Leave requests matching current filters will appear here." />
+            ) : (
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Employee name</th>
+                      <th>Leave type</th>
+                      <th>Start date</th>
+                      <th>End date</th>
+                      <th>Total days</th>
+                      <th>Reason</th>
+                      <th>Status</th>
+                      <th>Applied date</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredRows.map((row) => {
+                      const canAct = String(row.status || '').toLowerCase() === 'pending'
+                      return (
+                        <tr key={row.id}>
+                          <td>{row.employeeName || '-'}</td>
+                          <td>{row.leaveType || '-'}</td>
+                          <td>{formatDate(row.startDate)}</td>
+                          <td>{formatDate(row.endDate)}</td>
+                          <td>{row.totalDays || 0}</td>
+                          <td>{row.reason || '-'}</td>
+                          <td><span className={`badge badge-${row.status}`}>{row.status || '-'}</span></td>
+                          <td>{formatDate(row.appliedDate)}</td>
+                          <td>
+                            <div className="table-actions">
+                              <button className="text-btn" onClick={() => openDetails(row.id)}>View Details</button>
+                              {canAct ? <button className="text-btn" onClick={() => confirmApprove(row.id)}>Approve</button> : null}
+                              {canAct ? <button className="text-btn danger" onClick={() => confirmReject(row.id)}>Reject</button> : null}
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
       <Modal open={detailsOpen} title="Leave Details" onClose={() => setDetailsOpen(false)}>
         {detailsLoading ? <LoadingSkeleton rows={4} /> : !selectedLeave ? <EmptyState title="Details unavailable" description="Unable to fetch leave details." /> : (
@@ -432,7 +548,7 @@ function ManagerLeaveManagementPage() {
             label="Leave Type"
             value={applyForm.leaveType}
             onChange={(value) => setApplyForm((prev) => ({ ...prev, leaveType: value }))}
-            options={[{ value: 'casual', label: 'Casual' }, { value: 'sick', label: 'Sick' }, { value: 'earned', label: 'Earned' }]}
+            options={[{ value: 'casual', label: 'Casual' }, { value: 'sick', label: 'Sick' }, { value: 'earned', label: 'Earned' }, { value: 'work-from-home', label: 'Work From Home' }]}
           />
           <label className="form-input-wrap">
             <span>Start Date</span>

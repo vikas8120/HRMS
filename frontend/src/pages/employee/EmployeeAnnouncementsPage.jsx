@@ -5,9 +5,7 @@ import EmptyState from '../../components/ui/EmptyState'
 import LoadingSkeleton from '../../components/ui/LoadingSkeleton'
 import FilterDropdown from '../../components/ui/FilterDropdown'
 import Button from '../../components/ui/Button'
-import Modal from '../../components/ui/Modal'
 import {
-  downloadAnnouncementAttachment,
   getEmployeeAnnouncementById,
   getEmployeeAnnouncements,
   markEmployeeAnnouncementRead
@@ -36,12 +34,6 @@ function EmployeeAnnouncementsPage() {
 
   const [view, setView] = useState('all')
   const [items, setItems] = useState([])
-
-  const [detailsOpen, setDetailsOpen] = useState(false)
-  const [detailsLoading, setDetailsLoading] = useState(false)
-  const [selected, setSelected] = useState(null)
-
-  const [submitting, setSubmitting] = useState(false)
 
   const showMessage = (setter, message) => {
     setter(message)
@@ -74,40 +66,69 @@ function EmployeeAnnouncementsPage() {
   })), [items])
 
   const openDetails = async (row) => {
-    setDetailsOpen(true)
-    setDetailsLoading(true)
-    setSelected(null)
     try {
       const response = await getEmployeeAnnouncementById(row.id)
-      setSelected(response?.data || null)
-    } catch (err) {
-      showMessage(setError, err?.response?.data?.message || 'Failed to load announcement details')
-    } finally {
-      setDetailsLoading(false)
-    }
-  }
+      const details = response?.data || null
+      if (!details) throw new Error('No details available')
 
-  const onMarkRead = async (row) => {
-    if (row.read) return
-    setSubmitting(true)
-    try {
-      const response = await markEmployeeAnnouncementRead(row.id)
-      showMessage(setSuccess, response?.message || '')
-      await loadAnnouncements()
-      if (selected?.id === row.id) {
-        const detail = await getEmployeeAnnouncementById(row.id)
-        setSelected(detail?.data || null)
+      const html = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Announcement - ${details.title || 'Notice'}</title>
+  <style>
+    body { margin: 0; padding: 28px; background: #f3f6fc; font-family: Arial, sans-serif; color: #1d2a44; }
+    .sheet { width: 210mm; min-height: 297mm; margin: 0 auto; background: #fff; border: 1px solid #d5def0; box-shadow: 0 10px 24px rgba(17,34,68,.12); padding: 18mm 16mm; box-sizing: border-box; }
+    h1 { margin: 0 0 8px; font-size: 24px; color: #173b7a; }
+    .meta { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px 14px; margin: 14px 0 18px; font-size: 13px; }
+    .meta div { border: 1px solid #e1e8f5; border-radius: 8px; padding: 8px 10px; background: #f8fbff; }
+    .label { color: #5f7397; font-weight: 700; display: block; margin-bottom: 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+    .content { border: 1px solid #dbe4f3; border-radius: 10px; padding: 14px; line-height: 1.6; white-space: pre-wrap; }
+    .foot { margin-top: 18px; color: #60749a; font-size: 12px; }
+    .toolbar { width: 210mm; margin: 0 auto 12px; display: flex; justify-content: flex-end; gap: 8px; }
+    button { border: 1px solid #c7d6f4; background: #fff; color: #214d95; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-weight: 600; }
+    @media print {
+      body { background: #fff; padding: 0; }
+      .toolbar { display: none; }
+      .sheet { width: auto; min-height: auto; margin: 0; border: 0; box-shadow: none; padding: 12mm; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <button onclick="window.print()">Print / Save PDF</button>
+  </div>
+  <section class="sheet">
+    <h1>${details.title || '-'}</h1>
+    <div class="meta">
+      <div><span class="label">Scope</span>${details.departmentId ? 'Department' : 'Company'}</div>
+      <div><span class="label">Type</span>${details.filterType || '-'}</div>
+      <div><span class="label">Priority</span>${details.priority || '-'}</div>
+      <div><span class="label">Created On</span>${formatDate(details.createdAt)}</div>
+    </div>
+    <div class="content">${details.message || '-'}</div>
+    <div class="foot">Generated from Employee Portal Announcements</div>
+  </section>
+</body>
+</html>`
+
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+      const previewUrl = URL.createObjectURL(blob)
+      const win = window.open(previewUrl, '_blank', 'noopener,noreferrer')
+      if (!win) {
+        URL.revokeObjectURL(previewUrl)
+        showMessage(setError, 'Popup blocked. Please allow popups to view announcement PDF.')
+        return
+      }
+      setTimeout(() => URL.revokeObjectURL(previewUrl), 10000)
+
+      if (!row.read) {
+        await markEmployeeAnnouncementRead(row.id)
+        await loadAnnouncements()
       }
     } catch (err) {
-      showMessage(setError, err?.response?.data?.message || 'Failed to mark announcement as read')
-    } finally {
-      setSubmitting(false)
+      showMessage(setError, err?.response?.data?.message || err?.message || 'Failed to load announcement details')
     }
-  }
-
-  const onDownloadAttachment = (row) => {
-    const ok = downloadAnnouncementAttachment(row)
-    if (!ok) showMessage(setError, 'No attachment available')
   }
 
   return (
@@ -144,29 +165,12 @@ function EmployeeAnnouncementsPage() {
             ]}
             rows={rows}
             showViewAction
+            showEditAction={false}
             showDeleteAction={false}
             onView={openDetails}
           />
         )}
       </div>
-
-      <Modal open={detailsOpen} title="Announcement Details" onClose={() => setDetailsOpen(false)}>
-        {detailsLoading ? <LoadingSkeleton rows={5} /> : !selected ? <EmptyState title="No details" description="Unable to load selected announcement." /> : (
-          <div className="modal-form">
-            <div className="inline-action-card"><strong>Title:</strong> <span>{selected.title || '-'}</span></div>
-            <div className="inline-action-card"><strong>Message:</strong> <span>{selected.message || '-'}</span></div>
-            <div className="inline-action-card"><strong>Scope:</strong> <span>{selected.departmentId ? 'department' : 'company'}</span></div>
-            <div className="inline-action-card"><strong>Type:</strong> <span>{selected.filterType || '-'}</span></div>
-            <div className="inline-action-card"><strong>Priority:</strong> <span>{selected.priority || '-'}</span></div>
-            <div className="inline-action-card"><strong>Read:</strong> <span>{selected.read ? 'Read' : 'Unread'}</span></div>
-            <div className="inline-action-card"><strong>Created:</strong> <span>{formatDate(selected.createdAt)}</span></div>
-            <div className="actions-row">
-              {!selected.read ? <Button onClick={() => onMarkRead(selected)} disabled={submitting}>Mark as Read</Button> : null}
-              <Button variant="ghost" onClick={() => onDownloadAttachment(selected)}>Download Attachment</Button>
-            </div>
-          </div>
-        )}
-      </Modal>
     </section>
   )
 }

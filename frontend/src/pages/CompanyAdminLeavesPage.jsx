@@ -486,7 +486,7 @@ function CompanyAdminLeavesPage() {
             label="Leave Type"
             value={createForm.leaveType}
             onChange={(value) => setCreateForm((prev) => ({ ...prev, leaveType: value }))}
-            options={[{ value: 'casual', label: 'Casual' }, { value: 'sick', label: 'Sick' }, { value: 'earned', label: 'Earned' }]}
+            options={[{ value: 'casual', label: 'Casual' }, { value: 'sick', label: 'Sick' }, { value: 'earned', label: 'Earned' }, { value: 'work-from-home', label: 'Work From Home' }]}
           />
           <FormInput label="Start Date" type="date" value={createForm.startDate} onChange={(e) => setCreateForm((prev) => ({ ...prev, startDate: e.target.value }))} />
           <FormInput label="End Date" type="date" value={createForm.endDate} onChange={(e) => setCreateForm((prev) => ({ ...prev, endDate: e.target.value }))} />
@@ -513,7 +513,7 @@ function CompanyAdminLeavesPage() {
             label="Leave Type"
             value={editForm.leaveType}
             onChange={(value) => setEditForm((prev) => ({ ...prev, leaveType: value }))}
-            options={[{ value: 'casual', label: 'Casual' }, { value: 'sick', label: 'Sick' }, { value: 'earned', label: 'Earned' }]}
+            options={[{ value: 'casual', label: 'Casual' }, { value: 'sick', label: 'Sick' }, { value: 'earned', label: 'Earned' }, { value: 'work-from-home', label: 'Work From Home' }]}
           />
           <FormInput label="Start Date" type="date" value={editForm.startDate} onChange={(e) => setEditForm((prev) => ({ ...prev, startDate: e.target.value }))} />
           <FormInput label="End Date" type="date" value={editForm.endDate} onChange={(e) => setEditForm((prev) => ({ ...prev, endDate: e.target.value }))} />

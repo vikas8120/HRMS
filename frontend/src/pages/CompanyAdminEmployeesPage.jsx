@@ -22,6 +22,7 @@ import {
 } from '../api/adminEmployeeApi'
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const normalize = (value) => String(value || '').trim().toLowerCase()
 
 const initialForm = {
   name: '',
@@ -40,7 +41,7 @@ const initialForm = {
   status: 'active'
 }
 
-function CompanyAdminEmployeesPage() {
+function CompanyAdminEmployeesPage({ embedded = false, title = 'Employees', breadcrumb = ['Company Admin', 'Employees'] }) {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [rows, setRows] = useState([])
@@ -70,6 +71,10 @@ function CompanyAdminEmployeesPage() {
   const deptMap = useMemo(() => Object.fromEntries(departments.map((d) => [String(d.id || d._id), d.name || 'Department'])), [departments])
   const managerMap = useMemo(() => Object.fromEntries(managers.map((m) => [String(m.id || m._id), m.name || 'Manager'])), [managers])
   const hrMap = useMemo(() => Object.fromEntries(hrs.map((h) => [String(h.id || h._id), h.name || 'HR'])), [hrs])
+  const filteredManagers = useMemo(() => {
+    if (departmentFilter === 'all') return managers
+    return managers.filter((m) => String(m.departmentId || '') === String(departmentFilter))
+  }, [managers, departmentFilter])
 
   useEffect(() => {
     if (!toast) return undefined
@@ -106,17 +111,47 @@ function CompanyAdminEmployeesPage() {
     setError('')
 
     try {
-      const res = await getEmployees({
+      const normalizedSearch = String(searchArg || '').trim()
+      const params = {
         page: pageArg,
-        limit: 10,
-        search: searchArg,
-        status: statusArg,
-        departmentId: departmentArg,
-        managerId: managerArg
+        limit: 10
+      }
+      if (normalizedSearch) params.search = normalizedSearch
+      if (statusArg && statusArg !== 'all') params.status = statusArg
+      if (departmentArg && departmentArg !== 'all') params.departmentId = departmentArg
+      if (managerArg && managerArg !== 'all') params.managerId = managerArg
+
+      const res = await getEmployees(params)
+      const apiRows = Array.isArray(res?.data) ? res.data : []
+      const filteredRows = apiRows.filter((item) => {
+        const itemStatus = normalize(item?.status)
+        const itemDepartmentId = String(item?.departmentId || '')
+        const itemManagerId = String(item?.managerId || '')
+
+        if (statusArg && statusArg !== 'all' && itemStatus !== normalize(statusArg)) return false
+        if (departmentArg && departmentArg !== 'all' && itemDepartmentId !== String(departmentArg)) return false
+        if (managerArg && managerArg !== 'all' && itemManagerId !== String(managerArg)) return false
+
+        if (normalizedSearch) {
+          const bag = [
+            item?.employeeId,
+            item?.name,
+            item?.email,
+            item?.phone,
+            item?.designation
+          ].map(normalize).join(' ')
+          if (!bag.includes(normalize(normalizedSearch))) return false
+        }
+        return true
       })
 
-      setRows(res?.data || [])
-      setPagination(res?.pagination || { page: 1, limit: 10, total: 0, totalPages: 1 })
+      setRows(filteredRows)
+      setPagination({
+        page: 1,
+        limit: filteredRows.length || 10,
+        total: filteredRows.length,
+        totalPages: 1
+      })
     } catch (err) {
       setError(err?.response?.data?.message || 'Failed to load employees')
       setRows([])
@@ -293,14 +328,24 @@ function CompanyAdminEmployeesPage() {
 
   const onDepartmentChange = async (value) => {
     setDepartmentFilter(value)
+    setManagerFilter('all')
     setPage(1)
-    await loadEmployees({ pageArg: 1, searchArg: search, statusArg: status, departmentArg: value, managerArg: managerFilter })
+    await loadEmployees({ pageArg: 1, searchArg: search, statusArg: status, departmentArg: value, managerArg: 'all' })
   }
 
   const onManagerChange = async (value) => {
     setManagerFilter(value)
     setPage(1)
     await loadEmployees({ pageArg: 1, searchArg: search, statusArg: status, departmentArg: departmentFilter, managerArg: value })
+  }
+
+  const onResetFilters = async () => {
+    setSearch('')
+    setStatus('all')
+    setDepartmentFilter('all')
+    setManagerFilter('all')
+    setPage(1)
+    await loadEmployees({ pageArg: 1, searchArg: '', statusArg: 'all', departmentArg: 'all', managerArg: 'all' })
   }
 
   const displayRows = useMemo(
@@ -341,20 +386,22 @@ function CompanyAdminEmployeesPage() {
     URL.revokeObjectURL(url)
   }
 
-  return (
-    <section className="section-layout">
-      <PageHeader
-        title="Employees"
-        description="Manage employee profiles, assignments, and lifecycle for your company."
-        breadcrumb={['Company Admin', 'Employees']}
-        primaryActionLabel="Add Employee"
-        onPrimaryAction={() => openAdd()}
-      />
+  const content = (
+    <>
+      {!embedded ? (
+        <PageHeader
+          title={title}
+          description="Manage employee profiles, assignments, and lifecycle for your company."
+          breadcrumb={breadcrumb}
+          primaryActionLabel="Add Employee"
+          onPrimaryAction={() => openAdd()}
+        />
+      ) : null}
 
       {toast ? <div className={`toast ${toast.type === 'success' ? 'toast-success' : 'toast-error'}`}>{toast.message}</div> : null}
 
-      <div className="panel filters-panel">
-        <div className="filters-row admin-filters-grid">
+      <div className="panel filters-panel employee-filter-panel">
+        <div className="filters-row admin-filters-grid employee-filters-grid">
           <div className="search-wrap">
             <label>Search</label>
             <SearchBar value={search} onChange={setSearch} placeholder="Search by employee ID, name, or email" />
@@ -371,7 +418,7 @@ function CompanyAdminEmployeesPage() {
             label="Manager"
             value={managerFilter}
             onChange={onManagerChange}
-            options={[{ value: 'all', label: 'All Managers' }, ...managers.map((m) => ({ value: String(m.id || m._id), label: m.name || 'Manager' }))]}
+            options={[{ value: 'all', label: 'All Managers' }, ...filteredManagers.map((m) => ({ value: String(m.id || m._id), label: m.name || 'Manager' }))]}
           />
 
           <FilterDropdown
@@ -382,9 +429,10 @@ function CompanyAdminEmployeesPage() {
           />
         </div>
 
-        <div className="actions-row" style={{ marginTop: 10 }}>
+        <div className="actions-row employee-filter-actions" style={{ marginTop: 10 }}>
           <Button variant="ghost" onClick={onApplySearch}>Apply Search</Button>
           <Button variant="ghost" onClick={() => loadEmployees({ pageArg: page })}><RefreshCw size={14} /> Refresh</Button>
+          <Button variant="ghost" onClick={onResetFilters}>Reset Filters</Button>
           <Button variant="ghost" onClick={exportCsv}><Download size={14} /> Export</Button>
         </div>
       </div>
@@ -519,6 +567,14 @@ function CompanyAdminEmployeesPage() {
         onCancel={() => { if (!submitting) setConfirmOpen(false) }}
         onConfirm={onDelete}
       />
+    </>
+  )
+
+  if (embedded) return <div className="employee-management-embedded">{content}</div>
+
+  return (
+    <section className="section-layout">
+      {content}
     </section>
   )
 }

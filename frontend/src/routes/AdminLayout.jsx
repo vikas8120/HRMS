@@ -72,7 +72,7 @@ function AdminLayout() {
     : 'module-dashboard'
 
   return (
-    <div className={`app-shell ${moduleClass} ${isSidebarCollapsed && !isMobile ? 'sidebar-collapsed' : ''}`}>
+    <div className={`app-shell admin-shell ${moduleClass} ${isSidebarCollapsed && !isMobile ? 'sidebar-collapsed' : ''}`}>
       <AdminSidebar
         isCollapsed={isSidebarCollapsed}
         isMobileOpen={isMobileOpen}

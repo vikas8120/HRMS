@@ -40,7 +40,42 @@ const seedDb = () => ({
     { id: 'tic-01', ticketNo: 'TCK-1001', subject: 'Laptop issue', description: 'Keyboard not working', status: 'open', priority: 'medium', createdAt: nowIso, messages: [] }
   ],
   payroll: [
-    { id: 'pay-01', employeeId: 'emp-001', employeeName: 'John Employee', month: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`, netSalary: 78000, status: 'processed' }
+    {
+      id: 'pay-01',
+      employeeId: 'emp-001',
+      employeeName: 'John Employee',
+      month: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
+      netSalary: 78000,
+      grossSalary: 90000,
+      bonus: 4000,
+      deductions: 12000,
+      tax: 6000,
+      status: 'paid'
+    },
+    {
+      id: 'pay-02',
+      employeeId: 'emp-002',
+      employeeName: 'Sara QA',
+      month: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
+      netSalary: 72000,
+      grossSalary: 84000,
+      bonus: 3000,
+      deductions: 11000,
+      tax: 5000,
+      status: 'generated'
+    },
+    {
+      id: 'pay-03',
+      employeeId: 'emp-003',
+      employeeName: 'Mia Designer',
+      month: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
+      netSalary: 69000,
+      grossSalary: 81000,
+      bonus: 2500,
+      deductions: 10500,
+      tax: 4500,
+      status: 'pending'
+    }
   ],
   attendance: [
     { id: 'att-01', employeeId: 'emp-001', employeeName: 'John Employee', departmentId: 'dep-01', date: nowIso.slice(0, 10), checkIn: '09:34', checkOut: '18:12', status: 'present', workingHours: 8.6 }
@@ -418,23 +453,187 @@ export const handleDemoRequest = async (config) => {
   if (path === '/auth/me' && method === 'get') return ok(config, { user: currentUser })
 
   if (path === '/employee/dashboard' && method === 'get') {
+    const todayDate = new Date().toISOString().slice(0, 10)
+    const attendanceRecords = Array.isArray(db.attendance) ? db.attendance : []
+    const todayAttendance = attendanceRecords.find((item) => String(item?.date || '').slice(0, 10) === todayDate) || attendanceRecords[0] || null
+    const monthPrefix = todayDate.slice(0, 7)
+    const thisMonthRecords = attendanceRecords.filter((item) => String(item?.date || '').startsWith(monthPrefix))
+    const thisMonthAttendanceSummary = thisMonthRecords.reduce((acc, item) => {
+      const status = String(item?.status || '').toLowerCase()
+      if (status === 'present') acc.present += 1
+      else if (status === 'absent') acc.absent += 1
+      else if (status === 'late') acc.late += 1
+      else if (status === 'half-day' || status === 'halfday') acc.halfDay += 1
+      return acc
+    }, { month: monthPrefix, present: 0, absent: 0, late: 0, halfDay: 0 })
+
     return ok(config, {
       data: {
         profile: db.employees[0],
-        stats: { tasks: db.tasks.length, announcements: db.announcements.length, documents: db.documents.length },
-        announcements: db.announcements,
-        tasks: db.tasks,
-        attendanceToday: db.attendance[0]
+        todayAttendanceStatus: todayAttendance ? {
+          status: todayAttendance.status || 'absent',
+          checkIn: todayAttendance.checkIn || '',
+          checkOut: todayAttendance.checkOut || '',
+          workingHours: Number(todayAttendance.workingHours || 0)
+        } : {
+          status: 'absent',
+          checkIn: '',
+          checkOut: '',
+          workingHours: 0
+        },
+        thisMonthAttendanceSummary,
+        leaveBalance: { casual: 8, sick: 6, earned: 10 },
+        pendingLeaveRequests: db.employeeLeaves.filter((x) => x.status === 'pending').length,
+        upcomingHolidays: [
+          { name: 'Independence Day', date: `${todayDate.slice(0, 4)}-08-15` },
+          { name: 'Gandhi Jayanti', date: `${todayDate.slice(0, 4)}-10-02` }
+        ],
+        notifications: (db.announcements || []).map((item, idx) => ({
+          id: item.id || `ann-${idx + 1}`,
+          title: item.title || 'Announcement',
+          message: item.message || ''
+        }))
       }
     })
   }
 
+  if (path === '/manager/payroll/team-summary' && method === 'get') {
+    const params = config?.params || {}
+    const monthParam = String(params.month || '')
+    const yearParam = String(params.year || '')
+    const statusParam = String(params.status || 'all').toLowerCase()
+    const payrollRows = Array.isArray(db.payroll) ? db.payroll : []
+
+    const rows = payrollRows
+      .map((item, index) => {
+        const monthRaw = String(item.month || '')
+        const monthParts = monthRaw.split('-')
+        const year = item.year || monthParts[0] || String(new Date().getFullYear())
+        const month = item.monthNo || monthParts[1] || String(new Date().getMonth() + 1).padStart(2, '0')
+        const status = String(item.status || item.paymentStatus || 'generated').toLowerCase()
+        const employee = (db.employees || []).find((emp) =>
+          String(emp.employeeId || emp.id).toLowerCase() === String(item.employeeId || '').toLowerCase()
+        )
+
+        return {
+          id: item.id || `mpr-${index + 1}`,
+          employeeId: item.employeeId || employee?.employeeId || employee?.id || '',
+          employeeName: item.employeeName || employee?.name || 'Employee',
+          email: employee?.email || `${String(item.employeeName || 'employee').toLowerCase().replace(/\s+/g, '.')}@demo.com`,
+          designation: employee?.role || employee?.designation || 'Team Member',
+          year: String(year),
+          month: String(month).padStart(2, '0'),
+          grossSalary: Number(item.grossSalary || item.netSalary || 0),
+          netSalary: Number(item.netSalary || 0),
+          bonus: Number(item.bonus || 0),
+          deductions: Number(item.deductions || 0),
+          tax: Number(item.tax || 0),
+          status
+        }
+      })
+      .filter((row) => (monthParam ? row.month === monthParam : true))
+      .filter((row) => (yearParam ? row.year === yearParam : true))
+      .filter((row) => (statusParam === 'all' ? true : row.status === statusParam))
+
+    const summary = rows.reduce((acc, row) => {
+      acc.totalEmployees += 1
+      acc.totalGrossSalary += Number(row.grossSalary || 0)
+      acc.totalNetSalary += Number(row.netSalary || 0)
+      acc.totalBonus += Number(row.bonus || 0)
+      return acc
+    }, { totalEmployees: 0, totalNetSalary: 0, totalGrossSalary: 0, totalBonus: 0 })
+
+    return ok(config, { data: rows, summary })
+  }
+
+  if (path === '/manager/payroll/status' && method === 'get') {
+    const payrollRows = Array.isArray(db.payroll) ? db.payroll : []
+    const rows = payrollRows.map((item) => ({
+      status: String(item.status || item.paymentStatus || 'generated').toLowerCase()
+    }))
+    const statusSummary = rows.reduce((acc, row) => {
+      if (row.status === 'paid') acc.paid += 1
+      else if (row.status === 'pending') acc.pending += 1
+      else acc.generated += 1
+      return acc
+    }, { generated: 0, pending: 0, paid: 0 })
+    return ok(config, { data: rows, statusSummary })
+  }
+
+  if (path === '/manager/payroll/bonus-recommendation' && method === 'post') {
+    return created(config, { message: 'Bonus recommendation submitted successfully' })
+  }
+
   if (path === '/manager/dashboard' && method === 'get') {
+    const todayDate = new Date().toISOString().slice(0, 10)
+    const teamMembers = ensureArray(db.employees)
+    const attendance = ensureArray(db.attendance)
+    const leaves = ensureArray(db.employeeLeaves)
+    const tasks = ensureArray(db.tasks)
+    const performance = ensureArray(db.managerPerformance)
+    const messages = ensureArray(db.managerMessages)
+
+    const todayAttendance = attendance.filter((item) => String(item.date || '').slice(0, 10) === todayDate)
+    const presentToday = todayAttendance.filter((item) => item.status === 'present').length
+    const absentToday = Math.max(teamMembers.length - presentToday, 0)
+
+    const pendingLeaveRequests = leaves.filter((item) => item.status === 'pending')
+    const completedTasks = tasks.filter((item) => item.status === 'completed')
+    const overdueTasks = tasks.filter((item) => item.status === 'overdue')
+    const activeTasks = tasks.filter((item) => !['completed', 'cancelled'].includes(String(item.status || '').toLowerCase()))
+
+    const taskStatusMap = tasks.reduce((acc, task) => {
+      const key = String(task.status || 'unknown')
+      acc[key] = (acc[key] || 0) + 1
+      return acc
+    }, {})
+
     return ok(config, {
       data: {
-        stats: { teamSize: db.employees.length, openRequests: db.managerRequests.length, upcomingMeetings: db.managerMeetings.length },
-        recentActivities: db.managerMessages,
-        notifications: db.managerNotifications
+        cards: {
+          totalTeamMembers: teamMembers.length,
+          presentToday,
+          absentToday,
+          pendingLeaveRequests: pendingLeaveRequests.length,
+          activeTasks: activeTasks.length,
+          completedTasks: completedTasks.length,
+          overdueTasks: overdueTasks.length,
+          averageTeamPerformance: Number(
+            performance.length
+              ? (performance.reduce((sum, row) => sum + Number(row.rating || 0), 0) / performance.length).toFixed(1)
+              : 0
+          )
+        },
+        taskStatusChart: Object.entries(taskStatusMap).map(([status, count]) => ({ status, count })),
+        pendingLeaveRequestsPreview: pendingLeaveRequests.slice(0, 8).map((item) => ({
+          id: item.id,
+          employeeName: item.employeeName || teamMembers[0]?.name || 'Employee',
+          leaveType: item.type || item.leaveType || 'casual',
+          startDate: item.fromDate || item.startDate || todayDate,
+          endDate: item.toDate || item.endDate || todayDate,
+          status: item.status || 'pending'
+        })),
+        todayAttendancePreview: todayAttendance.slice(0, 8).map((item) => ({
+          id: item.id,
+          employeeName: item.employeeName || 'Employee',
+          status: item.status || 'absent',
+          checkIn: item.checkIn || '-',
+          checkOut: item.checkOut || '-'
+        })),
+        teamPerformanceSummary: performance.slice(0, 8).map((item) => ({
+          employeeId: item.employeeId,
+          employeeName: teamMembers.find((emp) => String(emp.id) === String(item.employeeId))?.name || item.employeeName || 'Employee',
+          averageScore: Number(item.rating || item.averageScore || 0),
+          reviews: Number(item.reviews || 1)
+        })),
+        recentActivities: messages.slice(0, 10).map((item, idx) => ({
+          id: item.id || `activity-${idx + 1}`,
+          module: item.module || 'manager',
+          action: item.subject || item.action || 'Update',
+          message: item.message || item.subject || 'Team update',
+          createdAt: item.createdAt || new Date().toISOString()
+        })),
+        notifications: db.managerNotifications || []
       }
     })
   }
@@ -453,8 +652,77 @@ export const handleDemoRequest = async (config) => {
     if (path.endsWith('/today') && method === 'get') return ok(config, { data: db.attendance[0] })
     if (path.endsWith('/monthly') && method === 'get') return ok(config, { data: db.attendance })
     if (path.endsWith('/history') && method === 'get') return ok(config, { data: db.attendance })
-    if (path.endsWith('/check-in') && method === 'post') return ok(config, { message: 'Checked in', data: { ...db.attendance[0], checkIn: new Date().toISOString() } })
-    if (path.endsWith('/check-out') && method === 'post') return ok(config, { message: 'Checked out', data: { ...db.attendance[0], checkOut: new Date().toISOString() } })
+    if (path.endsWith('/check-in') && method === 'post') {
+      const todayDate = new Date().toISOString().slice(0, 10)
+      const nowIsoValue = new Date().toISOString()
+      const current = db.attendance[0] || {
+        id: 'att-01',
+        employeeId: 'emp-001',
+        employeeName: 'John Employee',
+        departmentId: 'dep-01',
+        date: todayDate
+      }
+      const body = typeof config.data === 'string' ? safeParse(config.data, {}) : (config.data || {})
+      db.attendance[0] = {
+        ...current,
+        date: todayDate,
+        checkIn: nowIsoValue,
+        checkOut: '',
+        status: 'present',
+        workingHours: 0,
+        purpose: body.purpose || 'mark-attendance',
+        purposeLabel: body.purposeLabel || 'Mark Attendance'
+      }
+      saveDb(db)
+      return ok(config, { message: 'Checked in', data: db.attendance[0] })
+    }
+    if (path.endsWith('/check-out') && method === 'post') {
+      const todayDate = new Date().toISOString().slice(0, 10)
+      const nowIsoValue = new Date().toISOString()
+      const current = db.attendance[0] || {
+        id: 'att-01',
+        employeeId: 'emp-001',
+        employeeName: 'John Employee',
+        departmentId: 'dep-01',
+        date: todayDate
+      }
+      const checkInDate = current.checkIn ? new Date(current.checkIn) : null
+      const checkOutDate = new Date(nowIsoValue)
+      let workingHours = Number(current.workingHours || 0)
+      if (checkInDate && !Number.isNaN(checkInDate.getTime())) {
+        const diffMs = checkOutDate.getTime() - checkInDate.getTime()
+        workingHours = Math.max(0, Number((diffMs / (1000 * 60 * 60)).toFixed(2)))
+      }
+      db.attendance[0] = {
+        ...current,
+        date: todayDate,
+        checkOut: nowIsoValue,
+        status: 'present',
+        workingHours
+      }
+      saveDb(db)
+      return ok(config, { message: 'Checked out', data: db.attendance[0] })
+    }
+    if (path.endsWith('/reset-today') && method === 'post') {
+      const todayDate = new Date().toISOString().slice(0, 10)
+      const current = db.attendance[0] || {
+        id: 'att-01',
+        employeeId: 'emp-001',
+        employeeName: 'John Employee',
+        departmentId: 'dep-01',
+        date: todayDate
+      }
+      db.attendance[0] = {
+        ...current,
+        date: todayDate,
+        checkIn: '',
+        checkOut: '',
+        status: 'absent',
+        workingHours: 0
+      }
+      saveDb(db)
+      return ok(config, { message: 'Today attendance reset successfully', data: db.attendance[0] })
+    }
     if (path.endsWith('/regularization-request') && method === 'post') return ok(config, { message: 'Regularization request submitted' })
   }
 

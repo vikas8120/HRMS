@@ -21,7 +21,7 @@ import {
   updateManagerPerformanceReview
 } from '../../api/managerPerformanceApi'
 
-const tabs = ['Performance Dashboard', 'Add Review', 'Review History', 'Employee Performance Profile', 'Team Comparison']
+const tabs = ['Performance Dashboard', 'Review History']
 const periods = ['monthly', 'quarterly', 'yearly']
 
 const initialForm = {
@@ -107,9 +107,9 @@ function ManagerPerformanceReviewPage() {
     setLoading(true)
     setError('')
     try {
-      if (activeTab === 'Performance Dashboard' || activeTab === 'Team Comparison') await loadDashboard()
+      if (activeTab === 'Performance Dashboard') await loadDashboard()
       if (activeTab === 'Review History') await loadReviews()
-      if (activeTab === 'Employee Performance Profile') await loadEmployeeProfile()
+      if (activeTab === 'Performance Dashboard') await loadEmployeeProfile()
     } catch (err) {
       setError(err?.response?.data?.message || err?.message || 'Failed to load performance data')
     } finally {
@@ -125,7 +125,7 @@ function ManagerPerformanceReviewPage() {
     if (employeeIdFromQuery && employeeIdFromQuery !== 'all') {
       setEmployeeFilter(employeeIdFromQuery)
       setForm((prev) => ({ ...prev, employeeId: employeeIdFromQuery }))
-      setActiveTab(createFromQuery ? 'Add Review' : 'Employee Performance Profile')
+      setActiveTab(createFromQuery ? 'Add Review' : 'Performance Dashboard')
     }
   }, [employeeIdFromQuery, createFromQuery])
 
@@ -257,7 +257,6 @@ function ManagerPerformanceReviewPage() {
         <div className="actions-row" style={{ marginTop: 10 }}>
           <Button onClick={() => setActiveTab('Add Review')}>Add Review</Button>
           <Button variant="ghost" onClick={loadTabData}>Generate Report</Button>
-          <Button variant="ghost" onClick={() => setActiveTab('Team Comparison')}>Compare Employees</Button>
           <Button variant="ghost" onClick={loadTabData}><RefreshCw size={14} /> Refresh</Button>
           <Button variant="ghost" onClick={exportReviews}><Download size={14} /> Download</Button>
         </div>

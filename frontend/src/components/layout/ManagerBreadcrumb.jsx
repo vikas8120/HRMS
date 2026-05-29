@@ -2,6 +2,10 @@ import { ChevronRight, Home } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 
 const prettify = (value) => value.replace(/-/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
+const labelMap = {
+  'my-dashboard': 'My Dashboard',
+  dashboard: 'Employee Dashboard'
+}
 
 function ManagerBreadcrumb() {
   const { pathname } = useLocation()
@@ -10,7 +14,7 @@ function ManagerBreadcrumb() {
 
   const crumbItems = filteredParts.map((part, index) => {
     const to = `/manager/${filteredParts.slice(0, index + 1).join('/')}`
-    return { label: prettify(part), to, isLast: index === filteredParts.length - 1 }
+    return { label: labelMap[part] || prettify(part), to, isLast: index === filteredParts.length - 1 }
   })
 
   return (

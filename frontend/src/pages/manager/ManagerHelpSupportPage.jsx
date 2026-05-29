@@ -15,7 +15,7 @@ import {
   replyManagerSupportTicket
 } from '../../api/managerSupportApi'
 
-const tabs = ['Create Support Ticket', 'My Tickets', 'Ticket Details', 'FAQ / Help Center']
+const tabs = ['Create Support Ticket', 'My Tickets', 'Ticket Details']
 
 function ManagerHelpSupportPage() {
   const [activeTab, setActiveTab] = useState('Create Support Ticket')

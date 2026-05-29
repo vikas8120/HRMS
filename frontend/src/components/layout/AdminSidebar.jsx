@@ -1,11 +1,9 @@
-import { Menu, Search } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { Menu } from 'lucide-react'
+import { useMemo } from 'react'
 import { NavLink } from 'react-router-dom'
 import { companyAdminNavItems } from '../../data/companyAdminData'
 
 function AdminSidebar({ isCollapsed, isMobileOpen, isMobile, onToggle, onClose }) {
-  const [menuSearch, setMenuSearch] = useState('')
-
   const isCompact = !isMobile && isCollapsed
   const sidebarClass = useMemo(() => {
     const classes = ['sidebar']
@@ -13,13 +11,7 @@ function AdminSidebar({ isCollapsed, isMobileOpen, isMobile, onToggle, onClose }
     if (isCompact) classes.push('sidebar-collapsed')
     return classes.join(' ')
   }, [isCompact, isMobileOpen])
-  const normalizedSearch = menuSearch.trim().toLowerCase()
-
-  const filteredItems = useMemo(() => {
-    if (isCompact) return companyAdminNavItems
-    if (!normalizedSearch) return companyAdminNavItems
-    return companyAdminNavItems.filter((item) => item.label.toLowerCase().includes(normalizedSearch))
-  }, [isCompact, normalizedSearch])
+  const filteredItems = useMemo(() => companyAdminNavItems, [])
 
   return (
     <aside className={sidebarClass}>
@@ -38,18 +30,6 @@ function AdminSidebar({ isCollapsed, isMobileOpen, isMobile, onToggle, onClose }
         </button>
       </div>
 
-      {!isCompact ? (
-        <div className="sidebar-search-wrap">
-          <Search size={15} />
-          <input
-            className="sidebar-search-input"
-            value={menuSearch}
-            onChange={(event) => setMenuSearch(event.target.value)}
-            placeholder="Search modules"
-          />
-        </div>
-      ) : null}
-
       <nav id="company-admin-sidebar-nav">
         {filteredItems.map((item) => {
           const Icon = item.icon
@@ -59,7 +39,7 @@ function AdminSidebar({ isCollapsed, isMobileOpen, isMobile, onToggle, onClose }
                 <NavLink
                   to={item.path}
                   end={item.path === '/admin/dashboard'}
-                  className={`menu-link ${isCompact ? 'menu-link-icon-only' : ''}`}
+                  className={({ isActive }) => `menu-link ${isCompact ? 'menu-link-icon-only' : ''} ${isActive ? 'active' : ''}`}
                   onClick={onClose}
                   title={isCompact ? item.label : undefined}
                 >

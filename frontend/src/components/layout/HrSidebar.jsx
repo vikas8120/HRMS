@@ -1,25 +1,16 @@
-import { Menu, Search } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { LogOut, Menu } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { hrNavItems } from '../../data/hrPortalData'
+import { useAuth } from '../../hooks/useAuth'
 
 function HrSidebar({ isCollapsed, isMobileOpen, isMobile, onToggle, onClose }) {
-  const [menuSearch, setMenuSearch] = useState('')
+  const { logout } = useAuth()
   const isCompact = !isMobile && isCollapsed
+  const sidebarClass = ['sidebar', 'employee-sidebar', isMobileOpen ? 'sidebar-open' : '', isCompact ? 'sidebar-collapsed' : ''].filter(Boolean).join(' ')
 
-  const sidebarClass = useMemo(() => {
-    const classes = ['sidebar']
-    if (isMobileOpen) classes.push('sidebar-open')
-    if (isCompact) classes.push('sidebar-collapsed')
-    return classes.join(' ')
-  }, [isCompact, isMobileOpen])
-
-  const normalizedSearch = menuSearch.trim().toLowerCase()
-  const filteredItems = useMemo(() => {
-    if (isCompact) return hrNavItems
-    if (!normalizedSearch) return hrNavItems
-    return hrNavItems.filter((item) => item.label.toLowerCase().includes(normalizedSearch))
-  }, [isCompact, normalizedSearch])
+  const handleLinkClick = () => {
+    onClose?.()
+  }
 
   return (
     <aside className={sidebarClass}>
@@ -38,42 +29,34 @@ function HrSidebar({ isCollapsed, isMobileOpen, isMobile, onToggle, onClose }) {
         </button>
       </div>
 
-      {!isCompact ? (
-        <div className="sidebar-search-wrap">
-          <Search size={15} />
-          <input
-            className="sidebar-search-input"
-            value={menuSearch}
-            onChange={(event) => setMenuSearch(event.target.value)}
-            placeholder="Search modules"
-          />
-        </div>
-      ) : null}
-
       <nav id="hr-sidebar-nav">
-        {filteredItems.map((item) => {
+        {hrNavItems.map((item) => {
           const Icon = item.icon
           return (
-            <div key={item.path} className="menu-group">
-              <div className="menu-head-row">
-                <NavLink
-                  to={item.path}
-                  end={item.path === '/hr/dashboard'}
-                  className={`menu-link ${isCompact ? 'menu-link-icon-only' : ''}`}
-                  onClick={onClose}
-                  title={isCompact ? item.label : undefined}
-                >
-                  <Icon size={16} />
-                  {!isCompact ? <span>{item.label}</span> : null}
-                </NavLink>
-              </div>
-            </div>
+            <NavLink
+              key={item.path}
+              to={item.path}
+              end={item.path === '/hr/dashboard'}
+              className={({ isActive }) => `menu-link ${isCompact ? 'menu-link-icon-only' : ''} ${isActive ? 'active' : ''}`}
+              onClick={handleLinkClick}
+              title={isCompact ? item.label : undefined}
+              data-label={item.label}
+            >
+              <Icon size={16} />
+              {!isCompact ? <span>{item.label}</span> : null}
+            </NavLink>
           )
         })}
       </nav>
+
+      <div className="sidebar-footer">
+        <button type="button" className="menu-link menu-link-button danger" onClick={logout}>
+          <LogOut size={16} />
+          <span>Logout</span>
+        </button>
+      </div>
     </aside>
   )
 }
 
 export default HrSidebar
-

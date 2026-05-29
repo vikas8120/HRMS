@@ -9,11 +9,14 @@ export const getManagerAttendanceToday = (params = {}) =>
 export const getManagerMyAttendanceToday = () =>
   api.get('/manager/attendance/my-today').then((res) => res.data)
 
-export const managerPunchInAttendance = () =>
-  api.post('/manager/attendance/punch-in').then((res) => res.data)
+export const managerPunchInAttendance = (payload = {}) =>
+  api.post('/manager/attendance/check-in', payload).then((res) => res.data)
 
 export const managerPunchOutAttendance = () =>
-  api.post('/manager/attendance/punch-out').then((res) => res.data)
+  api.post('/manager/attendance/check-out').then((res) => res.data)
+
+export const resetManagerAttendanceToday = () =>
+  api.post('/manager/attendance/reset-today').then((res) => res.data)
 
 export const getManagerEmployeeAttendance = (employeeId, params = {}) =>
   api.get(`/manager/attendance/${employeeId}`, { params }).then((res) => res.data)

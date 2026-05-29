@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { RefreshCw, Trash2 } from 'lucide-react'
 import PageHeader from '../components/ui/PageHeader'
 import Button from '../components/ui/Button'
@@ -7,6 +8,7 @@ import LoadingSkeleton from '../components/ui/LoadingSkeleton'
 import EmptyState from '../components/ui/EmptyState'
 import StatCard from '../components/ui/StatCard'
 import FilterDropdown from '../components/ui/FilterDropdown'
+import CompanyAdminEmployeesPage from './CompanyAdminEmployeesPage'
 import {
   addHoliday,
   deleteHoliday,
@@ -33,6 +35,8 @@ const defaultState = {
 }
 
 function CompanyAdminSettingsPage() {
+  const { pathname } = useLocation()
+  const isHrProfileRoute = pathname === '/hr/profile'
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState({})
@@ -40,7 +44,16 @@ function CompanyAdminSettingsPage() {
   const [data, setData] = useState(defaultState)
   const [holidayForm, setHolidayForm] = useState({ name: '', date: '', type: '', description: '' })
   const [validation, setValidation] = useState({})
+  const [profileTab, setProfileTab] = useState('My Profile')
   const demoMode = isDemoMode()
+  const currentUser = useMemo(() => {
+    try {
+      const raw = localStorage.getItem('currentUser')
+      return raw ? JSON.parse(raw) : {}
+    } catch (_err) {
+      return {}
+    }
+  }, [])
 
   useEffect(() => {
     if (!toast) return undefined
@@ -273,16 +286,50 @@ function CompanyAdminSettingsPage() {
   }
 
   return (
-    <section className="section-layout">
+    <section className={`section-layout ${isHrProfileRoute ? 'hr-profile-page' : ''}`}>
       <PageHeader
-        title="Settings"
-        description="Manage company profile, attendance, leave, payroll, and holiday calendar."
-        breadcrumb={['Company Admin', 'Settings']}
+        title={isHrProfileRoute ? 'Profile' : 'Settings'}
+        description={isHrProfileRoute ? 'Manage your details and employee profile records.' : 'Manage company profile, attendance, leave, payroll, and holiday calendar.'}
+        breadcrumb={isHrProfileRoute ? ['HR Portal', 'Profile'] : ['Company Admin', 'Settings']}
         primaryActionLabel=""
       />
 
       {toast ? <div className={`toast ${toast.type === 'success' ? 'toast-success' : 'toast-error'}`}>{toast.message}</div> : null}
 
+      {isHrProfileRoute ? (
+        <div className="panel">
+          <div className="workspace-nav">
+            {['My Profile', 'Employee Profile'].map((tab) => (
+              <button key={tab} type="button" className={`chip-btn ${profileTab === tab ? 'active' : ''}`} onClick={() => setProfileTab(tab)}>
+                {tab}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {isHrProfileRoute && profileTab === 'My Profile' ? (
+        <article className="panel">
+          <div className="panel-head"><h3>My Profile</h3></div>
+          <div className="dashboard-mini-grid">
+            <div className="inline-action-card"><strong>Name:</strong> <span>{currentUser?.name || currentUser?.fullName || 'HR User'}</span></div>
+            <div className="inline-action-card"><strong>Email:</strong> <span>{currentUser?.email || '-'}</span></div>
+            <div className="inline-action-card"><strong>Role:</strong> <span>{currentUser?.role || 'HR'}</span></div>
+            <div className="inline-action-card"><strong>Phone:</strong> <span>{currentUser?.phone || '-'}</span></div>
+          </div>
+        </article>
+      ) : null}
+
+      {isHrProfileRoute && profileTab === 'Employee Profile' ? (
+        <CompanyAdminEmployeesPage
+          embedded
+          title="Employee Profile"
+          breadcrumb={['HR Portal', 'Profile', 'Employee Profile']}
+        />
+      ) : null}
+
+      {!isHrProfileRoute ? (
+        <>
       <div className="stats-grid">
         {stats.map((item) => <StatCard key={item.title} {...item} />)}
       </div>
@@ -475,6 +522,8 @@ function CompanyAdminSettingsPage() {
             </Button>
           </div>
         </article>
+      ) : null}
+        </>
       ) : null}
     </section>
   )
