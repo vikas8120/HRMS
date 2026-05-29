@@ -53,7 +53,7 @@ const createForm = (ctx, feedbackNo = '') => ({
   id: '',
   feedbackNo,
   managerId: ctx.managerId,
-  managerName: ctx.managerName,
+  employeeName: ctx.managerName,
   department: ctx.department,
   dateSubmitted: today(),
   feedbackCategory: 'Work Culture',
@@ -64,7 +64,8 @@ const createForm = (ctx, feedbackNo = '') => ({
 })
 
 function ManagerFeedbackPage({ portalLabel = 'Manager Portal', title = 'Feedback Module', description = 'Submit and track your feedback across categories.', primaryActionLabel = 'Submit Feedback', listTitle = 'My Feedback' }) {
-  const { user } = useAuth()
+  const auth = useAuth()
+  const user = auth?.user || null
   const managerCtx = useMemo(() => resolveManagerContext(user), [user])
 
   const [loading, setLoading] = useState(true)
@@ -91,14 +92,22 @@ function ManagerFeedbackPage({ portalLabel = 'Manager Portal', title = 'Feedback
   }
 
   const readAll = () => {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : []
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY)
+      if (!raw) return []
+      const parsed = JSON.parse(raw)
+      return Array.isArray(parsed) ? parsed : []
+    } catch (_err) {
+      return []
+    }
   }
 
   const writeAll = (nextRows) => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(nextRows))
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(nextRows))
+    } catch (_err) {
+      // ignore storage errors to keep UI functional
+    }
   }
 
   const loadRows = () => {
@@ -106,7 +115,12 @@ function ManagerFeedbackPage({ portalLabel = 'Manager Portal', title = 'Feedback
     setError('')
     try {
       const all = readAll()
-      const mine = all.filter((item) => String(item.managerId) === managerCtx.managerId)
+      const mine = all
+        .filter((item) => String(item?.managerId) === managerCtx.managerId)
+        .map((item) => ({
+          ...item,
+          employeeName: item?.employeeName || item?.managerName || managerCtx.managerName
+        }))
       setRows(mine)
     } catch (err) {
       setRows([])
@@ -117,7 +131,13 @@ function ManagerFeedbackPage({ portalLabel = 'Manager Portal', title = 'Feedback
   }
 
   useEffect(() => {
-    loadRows()
+    try {
+      loadRows()
+    } catch (err) {
+      setLoading(false)
+      setRows([])
+      setError(err?.message || 'Unable to render feedback module')
+    }
   }, [managerCtx.managerId])
 
   const openNew = () => {

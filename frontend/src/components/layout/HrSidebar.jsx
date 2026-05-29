@@ -1,4 +1,5 @@
 import { LogOut, Menu } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { NavLink } from 'react-router-dom'
 import { hrNavItems } from '../../data/hrPortalData'
 import { useAuth } from '../../hooks/useAuth'
@@ -15,7 +16,18 @@ function HrSidebar({ isCollapsed, isMobileOpen, isMobile, onToggle, onClose }) {
   return (
     <aside className={sidebarClass}>
       <div className="sidebar-header">
-        <h2 className="sidebar-title">HR Portal</h2>
+        <div className="sidebar-brand-wrap">
+          <div className="sidebar-brand-dot" />
+          <div className="sidebar-brand-copy">
+            <h2 className="sidebar-title">HR Portal</h2>
+            {!isCompact ? (
+              <div className="sidebar-workspace-meta">
+                <span className="workspace-pill">Workspace</span>
+                <span className="workspace-status"><i /> Online</span>
+              </div>
+            ) : null}
+          </div>
+        </div>
         <button
           type="button"
           className="sidebar-toggle-btn"
@@ -33,18 +45,30 @@ function HrSidebar({ isCollapsed, isMobileOpen, isMobile, onToggle, onClose }) {
         {hrNavItems.map((item) => {
           const Icon = item.icon
           return (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              end={item.path === '/hr/dashboard'}
-              className={({ isActive }) => `menu-link ${isCompact ? 'menu-link-icon-only' : ''} ${isActive ? 'active' : ''}`}
-              onClick={handleLinkClick}
-              title={isCompact ? item.label : undefined}
-              data-label={item.label}
-            >
-              <Icon size={16} />
-              {!isCompact ? <span>{item.label}</span> : null}
-            </NavLink>
+            <div key={item.path} className="menu-group">
+              <div className="menu-head-row">
+                <NavLink
+                  to={item.path}
+                  end={item.path === '/hr/dashboard'}
+                  className={({ isActive }) => `menu-link ${isCompact ? 'menu-link-icon-only' : ''} ${isActive ? 'active' : ''}`}
+                  onClick={handleLinkClick}
+                  title={isCompact ? item.label : undefined}
+                  data-label={item.label}
+                >
+                  {({ isActive }) => (
+                    <motion.div
+                      className="sidebar-item-inner"
+                      whileHover={{ y: -1 }}
+                      whileTap={{ scale: 0.985 }}
+                      transition={{ duration: 0.18, ease: 'easeOut' }}
+                    >
+                      <Icon size={17} className={`sidebar-item-icon ${isActive ? 'is-active' : ''}`} />
+                      {!isCompact ? <span>{item.label}</span> : null}
+                    </motion.div>
+                  )}
+                </NavLink>
+              </div>
+            </div>
           )
         })}
       </nav>

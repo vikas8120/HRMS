@@ -1,6 +1,15 @@
 import { Suspense, lazy } from 'react'
+
+const safeLazy = (importer) => lazy(async () => {
+  try {
+    return await importer()
+  } catch (_error) {
+    return await importer()
+  }
+})
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { navItems } from './data/dashboardData'
+import AppErrorBoundary from './components/ui/AppErrorBoundary'
 import ProtectedRoute from './routes/ProtectedRoute'
 import EmployeeLayout from './routes/EmployeeLayout'
 import SuperAdminLayout from './routes/SuperAdminLayout'
@@ -9,69 +18,71 @@ import HrLayout from './routes/HrLayout'
 import ManagerLayout from './routes/ManagerLayout'
 import RoleBasedRedirect from './routes/RoleBasedRedirect'
 
-const LoginPage = lazy(() => import('./pages/LoginPage'))
-const SectionPage = lazy(() => import('./pages/sections/SectionPage'))
-const DashboardPage = lazy(() => import('./pages/DashboardPage'))
-const UnauthorizedPage = lazy(() => import('./pages/UnauthorizedPage'))
-const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
-const CompanyAdminDashboardPage = lazy(() => import('./pages/CompanyAdminDashboardPage'))
-const CompanyAdminHRPage = lazy(() => import('./pages/CompanyAdminHRPage'))
-const CompanyAdminManagersPage = lazy(() => import('./pages/CompanyAdminManagersPage'))
-const CompanyAdminEmployeesPage = lazy(() => import('./pages/CompanyAdminEmployeesPage'))
-const CompanyAdminDepartmentsPage = lazy(() => import('./pages/CompanyAdminDepartmentsPage'))
-const CompanyAdminAttendancePage = lazy(() => import('./pages/CompanyAdminAttendancePage'))
-const CompanyAdminLeavesPage = lazy(() => import('./pages/CompanyAdminLeavesPage'))
-const CompanyAdminPerformancePage = lazy(() => import('./pages/CompanyAdminPerformancePage'))
-const CompanyAdminFeedbackPage = lazy(() => import('./pages/CompanyAdminFeedbackPage'))
-const CompanyAdminComplaintBoxPage = lazy(() => import('./pages/CompanyAdminComplaintBoxPage'))
-const CompanyAdminGrievancePage = lazy(() => import('./pages/CompanyAdminGrievancePage'))
-const CompanyAdminPolicyPage = lazy(() => import('./pages/CompanyAdminPolicyPage'))
-const CompanyAdminPayrollPage = lazy(() => import('./pages/CompanyAdminPayrollPage'))
-const CompanyAdminReportsPage = lazy(() => import('./pages/CompanyAdminReportsPage'))
-const CompanyAdminSettingsPage = lazy(() => import('./pages/CompanyAdminSettingsPage'))
-const EmployeeAttendancePage = lazy(() => import('./pages/employee/EmployeeAttendancePage'))
-const EmployeeDashboardPage = lazy(() => import('./pages/employee/EmployeeDashboardPage'))
-const EmployeeFeedbackPage = lazy(() => import('./pages/employee/feedback/EmployeeFeedbackPage'))
-const EmployeeGrievancePage = lazy(() => import('./pages/employee/grievance/EmployeeGrievancePage'))
-const EmployeeComplaintBoxPage = lazy(() => import('./pages/employee/complaint-box/EmployeeComplaintBoxPage'))
-const EmployeeLeavesPage = lazy(() => import('./pages/employee/EmployeeLeavesPage'))
-const EmployeePayrollPage = lazy(() => import('./pages/employee/EmployeePayrollPage'))
-const EmployeePolicyPage = lazy(() => import('./pages/employee/EmployeePolicyPage'))
-const EmployeeAnnouncementsPage = lazy(() => import('./pages/employee/EmployeeAnnouncementsPage'))
-const EmployeeHelpdeskPage = lazy(() => import('./pages/employee/EmployeeHelpdeskPage'))
-const EmployeePerformancePage = lazy(() => import('./pages/employee/EmployeePerformancePage'))
-const EmployeeNotificationsPage = lazy(() => import('./pages/employee/EmployeeNotificationsPage'))
-const EmployeeSettingsPage = lazy(() => import('./pages/employee/EmployeeSettingsPage'))
-const EmployeeProfilePage = lazy(() => import('./pages/employee/EmployeeProfilePage'))
-const HrDashboardPage = lazy(() => import('./pages/HrDashboardPage'))
-const HrAnnouncementPage = lazy(() => import('./pages/HrAnnouncementPage'))
-const HrPerformancePage = lazy(() => import('./pages/HrPerformancePage'))
-const HrRecruitmentPage = lazy(() => import('./pages/HrRecruitmentPage'))
-const HrGrievancePage = lazy(() => import('./pages/HrGrievancePage'))
-const HrComplaintBoxPage = lazy(() => import('./pages/HrComplaintBoxPage'))
-const HrFeedbackPage = lazy(() => import('./pages/HrFeedbackPage'))
-const HrPolicyPage = lazy(() => import('./pages/HrPolicyPage'))
-const ManagerDashboardPage = lazy(() => import('./pages/manager/ManagerDashboardPage'))
-const ManagerFeedbackPage = lazy(() => import('./pages/manager/feedback/ManagerFeedbackPage'))
-const ManagerGrievancePage = lazy(() => import('./pages/manager/grievance/ManagerGrievancePage'))
-const ManagerComplaintBoxPage = lazy(() => import('./pages/manager/complaint-box/ManagerComplaintBoxPage'))
-const ManagerPolicyPage = lazy(() => import('./pages/manager/ManagerPolicyPage'))
-const ManagerMyTeamPage = lazy(() => import('./pages/manager/ManagerMyTeamPage'))
-const ManagerLeaveManagementPage = lazy(() => import('./pages/manager/ManagerLeaveManagementPage'))
-const ManagerAttendancePage = lazy(() => import('./pages/manager/ManagerAttendancePage'))
-const ManagerPerformanceReviewPage = lazy(() => import('./pages/manager/ManagerPerformanceReviewPage'))
-const ManagerNotificationsPage = lazy(() => import('./pages/manager/ManagerNotificationsPage'))
-const ManagerProfileSettingsPage = lazy(() => import('./pages/manager/ManagerProfileSettingsPage'))
-const ManagerHelpSupportPage = lazy(() => import('./pages/manager/ManagerHelpSupportPage'))
-const ManagerReportsPage = lazy(() => import('./pages/manager/ManagerReportsPage'))
-const ManagerPayrollViewPage = lazy(() => import('./pages/manager/ManagerPayrollViewPage'))
-const ManagerTeamMemberProfilePage = lazy(() => import('./pages/manager/ManagerTeamMemberProfilePage'))
-const PremiumCRMPage = lazy(() => import('./pages/PremiumCRMPage'))
+const LoginPage = safeLazy(() => import('./pages/LoginPage'))
+const SectionPage = safeLazy(() => import('./pages/sections/SectionPage'))
+const DashboardPage = safeLazy(() => import('./pages/DashboardPage'))
+const UnauthorizedPage = safeLazy(() => import('./pages/UnauthorizedPage'))
+const NotFoundPage = safeLazy(() => import('./pages/NotFoundPage'))
+const CompanyAdminDashboardPage = safeLazy(() => import('./pages/CompanyAdminDashboardPage'))
+const CompanyAdminHRPage = safeLazy(() => import('./pages/CompanyAdminHRPage'))
+const CompanyAdminManagersPage = safeLazy(() => import('./pages/CompanyAdminManagersPage'))
+const CompanyAdminEmployeesPage = safeLazy(() => import('./pages/CompanyAdminEmployeesPage'))
+const CompanyAdminDepartmentsPage = safeLazy(() => import('./pages/CompanyAdminDepartmentsPage'))
+const CompanyAdminAttendancePage = safeLazy(() => import('./pages/CompanyAdminAttendancePage'))
+const CompanyAdminLeavesPage = safeLazy(() => import('./pages/CompanyAdminLeavesPage'))
+const CompanyAdminPerformancePage = safeLazy(() => import('./pages/CompanyAdminPerformancePage'))
+const CompanyAdminFeedbackPage = safeLazy(() => import('./pages/CompanyAdminFeedbackPage'))
+const CompanyAdminComplaintBoxPage = safeLazy(() => import('./pages/CompanyAdminComplaintBoxPage'))
+const CompanyAdminGrievancePage = safeLazy(() => import('./pages/CompanyAdminGrievancePage'))
+const CompanyAdminPolicyPage = safeLazy(() => import('./pages/CompanyAdminPolicyPage'))
+const CompanyAdminPayrollPage = safeLazy(() => import('./pages/CompanyAdminPayrollPage'))
+const CompanyAdminReportsPage = safeLazy(() => import('./pages/CompanyAdminReportsPage'))
+const CompanyAdminSettingsPage = safeLazy(() => import('./pages/CompanyAdminSettingsPage'))
+const EmployeeAttendancePage = safeLazy(() => import('./pages/employee/EmployeeAttendancePage'))
+const EmployeeDashboardPage = safeLazy(() => import('./pages/employee/EmployeeDashboardPage'))
+const EmployeeFeedbackPage = safeLazy(() => import('./pages/employee/feedback/EmployeeFeedbackPage'))
+const EmployeeGrievancePage = safeLazy(() => import('./pages/employee/grievance/EmployeeGrievancePage'))
+const EmployeeComplaintBoxPage = safeLazy(() => import('./pages/employee/complaint-box/EmployeeComplaintBoxPage'))
+const EmployeeLeavesPage = safeLazy(() => import('./pages/employee/EmployeeLeavesPage'))
+const EmployeePayrollPage = safeLazy(() => import('./pages/employee/EmployeePayrollPage'))
+const EmployeePolicyPage = safeLazy(() => import('./pages/employee/EmployeePolicyPage'))
+const EmployeeAnnouncementsPage = safeLazy(() => import('./pages/employee/EmployeeAnnouncementsPage'))
+const EmployeeHelpdeskPage = safeLazy(() => import('./pages/employee/EmployeeHelpdeskPage'))
+const EmployeePerformancePage = safeLazy(() => import('./pages/employee/EmployeePerformancePage'))
+const EmployeeNotificationsPage = safeLazy(() => import('./pages/employee/EmployeeNotificationsPage'))
+const EmployeeSettingsPage = safeLazy(() => import('./pages/employee/EmployeeSettingsPage'))
+const EmployeeProfilePage = safeLazy(() => import('./pages/employee/EmployeeProfilePage'))
+const HrDashboardPage = safeLazy(() => import('./pages/HrDashboardPage'))
+const HrAnnouncementPage = safeLazy(() => import('./pages/HrAnnouncementPage'))
+const HrPerformancePage = safeLazy(() => import('./pages/HrPerformancePage'))
+const HrRecruitmentPage = safeLazy(() => import('./pages/HrRecruitmentPage'))
+const HrGrievancePage = safeLazy(() => import('./pages/HrGrievancePage'))
+const HrComplaintBoxPage = safeLazy(() => import('./pages/HrComplaintBoxPage'))
+const HrFeedbackPage = safeLazy(() => import('./pages/HrFeedbackPage'))
+const HrPolicyPage = safeLazy(() => import('./pages/HrPolicyPage'))
+const ManagerDashboardPage = safeLazy(() => import('./pages/manager/ManagerDashboardPage'))
+const ManagerFeedbackPage = safeLazy(() => import('./pages/manager/feedback/ManagerFeedbackPage'))
+const ManagerGrievancePage = safeLazy(() => import('./pages/manager/grievance/ManagerGrievancePage'))
+const ManagerComplaintBoxPage = safeLazy(() => import('./pages/manager/complaint-box/ManagerComplaintBoxPage'))
+const ManagerPolicyPage = safeLazy(() => import('./pages/manager/ManagerPolicyPage'))
+const ManagerMyTeamPage = safeLazy(() => import('./pages/manager/ManagerMyTeamPage'))
+const ManagerLeaveManagementPage = safeLazy(() => import('./pages/manager/ManagerLeaveManagementPage'))
+const ManagerAttendancePage = safeLazy(() => import('./pages/manager/ManagerAttendancePage'))
+const ManagerPerformanceReviewPage = safeLazy(() => import('./pages/manager/ManagerPerformanceReviewPage'))
+const ManagerNotificationsPage = safeLazy(() => import('./pages/manager/ManagerNotificationsPage'))
+const ManagerProfileSettingsPage = safeLazy(() => import('./pages/manager/ManagerProfileSettingsPage'))
+const ManagerSettingsPage = safeLazy(() => import('./pages/manager/ManagerSettingsPage'))
+const ManagerHelpSupportPage = safeLazy(() => import('./pages/manager/ManagerHelpSupportPage'))
+const ManagerReportsPage = safeLazy(() => import('./pages/manager/ManagerReportsPage'))
+const ManagerPayrollViewPage = safeLazy(() => import('./pages/manager/ManagerPayrollViewPage'))
+const ManagerTeamMemberProfilePage = safeLazy(() => import('./pages/manager/ManagerTeamMemberProfilePage'))
+const PremiumCRMPage = safeLazy(() => import('./pages/PremiumCRMPage'))
 
 function App() {
   return (
-    <Suspense fallback={<div className="panel">Loading...</div>}>
-      <Routes>
+    <AppErrorBoundary>
+      <Suspense fallback={<div className="panel">Loading...</div>}>
+        <Routes>
         <Route path="/" element={<RoleBasedRedirect />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/unauthorized" element={<UnauthorizedPage />} />
@@ -168,6 +179,7 @@ function App() {
             <Route path="/manager/notifications" element={<ManagerNotificationsPage />} />
             <Route path="/manager/meetings" element={<Navigate to="/manager/dashboard" replace />} />
             <Route path="/manager/payroll" element={<ManagerPayrollViewPage />} />
+            <Route path="/manager/settings" element={<ManagerSettingsPage />} />
             <Route path="/manager/documents" element={<Navigate to="/manager/dashboard" replace />} />
             <Route path="/manager/communication" element={<Navigate to="/manager/dashboard" replace />} />
             <Route path="/manager/profile" element={<ManagerProfileSettingsPage />} />
@@ -196,8 +208,9 @@ function App() {
         </Route>
 
         <Route path="*" element={<NotFoundPage />} />
-      </Routes>
-    </Suspense>
+        </Routes>
+      </Suspense>
+    </AppErrorBoundary>
   )
 }
 

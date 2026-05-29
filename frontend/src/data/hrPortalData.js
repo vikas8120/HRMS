@@ -18,22 +18,22 @@ import {
 } from 'lucide-react'
 
 export const hrNavItems = [
-  { key: 'dashboard', label: 'HR Dashboard', icon: LayoutDashboard, path: '/hr/dashboard' },
-  { key: 'employee', label: 'Employee', icon: Users, path: '/hr/employee' },
+  { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/hr/dashboard' },
+  { key: 'profile', label: 'Profile', icon: UserRound, path: '/hr/profile' },
+  { key: 'feedback', label: 'Feedback', icon: MessageSquareText, path: '/hr/feedback' },
+  { key: 'grievance', label: 'Grievance', icon: MessageSquareWarning, path: '/hr/grievance' },
+  { key: 'complaint-box', label: 'Complaint Box', icon: Inbox, path: '/hr/complaint-box' },
   { key: 'attendance', label: 'Attendance', icon: CalendarCheck2, path: '/hr/attendance' },
   { key: 'leave', label: 'Leave', icon: CalendarClock, path: '/hr/leave' },
   { key: 'payroll', label: 'Payroll', icon: Wallet, path: '/hr/payroll' },
+  { key: 'policy', label: 'Policy', icon: ShieldCheck, path: '/hr/policy' },
+  { key: 'announcement', label: 'Announcement', icon: Megaphone, path: '/hr/announcement' },
+  { key: 'settings', label: 'HR Settings', icon: Settings, path: '/hr/settings' },
+  { key: 'employee', label: 'Employee', icon: Users, path: '/hr/employee' },
   { key: 'department', label: 'Department', icon: Building2, path: '/hr/department' },
   { key: 'recruitment', label: 'Recruitment', icon: BriefcaseBusiness, path: '/hr/recruitment' },
   { key: 'performance', label: 'Performance', icon: TrendingUp, path: '/hr/performance' },
-  { key: 'announcement', label: 'Announcement', icon: Megaphone, path: '/hr/announcement' },
-  { key: 'grievance', label: 'Grievance', icon: MessageSquareWarning, path: '/hr/grievance' },
-  { key: 'complaint-box', label: 'Complaint Box', icon: Inbox, path: '/hr/complaint-box' },
-  { key: 'feedback', label: 'Feedback', icon: MessageSquareText, path: '/hr/feedback' },
-  { key: 'policy', label: 'Policy', icon: ShieldCheck, path: '/hr/policy' },
-  { key: 'report', label: 'Report', icon: BarChart3, path: '/hr/report' },
-  { key: 'profile', label: 'Profile', icon: UserRound, path: '/hr/profile' },
-  { key: 'settings', label: 'HR Settings', icon: Settings, path: '/hr/settings' }
+  { key: 'report', label: 'Report', icon: BarChart3, path: '/hr/report' }
 ]
 
 export const hrModuleConfig = {

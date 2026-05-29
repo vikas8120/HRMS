@@ -492,7 +492,10 @@ function CompanyAdminLeavesPage() {
           <FormInput label="End Date" type="date" value={createForm.endDate} onChange={(e) => setCreateForm((prev) => ({ ...prev, endDate: e.target.value }))} />
           <div className="inline-action-card"><strong>Total Days:</strong><span>{createTotalDays || '-'}</span></div>
           <FormInput label="Reason" value={createForm.reason} onChange={(e) => setCreateForm((prev) => ({ ...prev, reason: e.target.value }))} placeholder="Enter reason" />
-          <Button type="submit" disabled={submitting}>{submitting ? (isHrUser ? 'Applying...' : 'Creating...') : (isHrUser ? 'Apply Leave' : 'Create Request')}</Button>
+          <div className="modal-actions">
+            <Button type="button" variant="ghost" onClick={() => setCreateOpen(false)} disabled={submitting}>Cancel</Button>
+            <Button type="submit" disabled={submitting}>{submitting ? 'Submitting...' : 'Submit'}</Button>
+          </div>
         </form>
       </Modal>
 
@@ -518,7 +521,10 @@ function CompanyAdminLeavesPage() {
           <FormInput label="Start Date" type="date" value={editForm.startDate} onChange={(e) => setEditForm((prev) => ({ ...prev, startDate: e.target.value }))} />
           <FormInput label="End Date" type="date" value={editForm.endDate} onChange={(e) => setEditForm((prev) => ({ ...prev, endDate: e.target.value }))} />
           <FormInput label="Reason" value={editForm.reason} onChange={(e) => setEditForm((prev) => ({ ...prev, reason: e.target.value }))} placeholder="Enter reason" />
-          <Button type="submit" disabled={submitting}>{submitting ? 'Updating...' : 'Update Request'}</Button>
+          <div className="modal-actions">
+            <Button type="button" variant="ghost" onClick={() => setEditOpen(false)} disabled={submitting}>Cancel</Button>
+            <Button type="submit" disabled={submitting}>{submitting ? 'Submitting...' : 'Submit'}</Button>
+          </div>
         </form>
       </Modal>
     </section>

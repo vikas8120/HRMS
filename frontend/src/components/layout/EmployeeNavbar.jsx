@@ -22,7 +22,9 @@ const employeeSearchItems = [
 
 function EmployeeNavbar() {
   const { theme, toggleTheme } = useTheme()
-  const { user, logout } = useAuth()
+  const auth = useAuth()
+  const user = auth?.user || null
+  const logout = auth?.logout || (() => {})
   const { pathname } = useLocation()
   const navigate = useNavigate()
 

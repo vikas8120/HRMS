@@ -113,7 +113,6 @@ function ManagerDashboardPage() {
       { title: 'Total Team Members', value: String(values.totalTeamMembers ?? 0), trend: 'Assigned to you', icon: Users, trendTone: 'info' },
       { title: 'Present Today', value: String(values.presentToday ?? 0), trend: 'Attendance status', icon: UserCheck, trendTone: 'success' },
       { title: 'Absent Today', value: String(values.absentToday ?? 0), trend: 'Needs follow-up', icon: UserMinus, trendTone: 'warning' },
-      { title: 'Overdue Tasks', value: String(values.overdueTasks ?? 0), trend: 'Past due date', icon: Clock3, trendTone: 'danger' },
       { title: 'Average Team Performance', value: String(values.averageTeamPerformance ?? 0), trend: 'Review score', icon: TrendingUp, trendTone: 'info' }
     ]
   }, [normalizedDashboard])

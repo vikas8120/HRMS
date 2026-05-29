@@ -281,7 +281,7 @@ function SuperAdminLayout() {
   const activeGroup = workspaceGroups[activeGroupIndex] || null
 
   return (
-    <div className={`app-shell ${moduleClass} ${isSidebarCollapsed && !isMobile ? 'sidebar-collapsed' : ''}`}>
+    <div className={`app-shell super-admin-shell ${moduleClass} ${isSidebarCollapsed && !isMobile ? 'sidebar-collapsed' : ''}`}>
       <Sidebar
         isCollapsed={isSidebarCollapsed}
         isMobileOpen={isMobileOpen}

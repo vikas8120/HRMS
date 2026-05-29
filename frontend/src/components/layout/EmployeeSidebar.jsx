@@ -13,6 +13,7 @@ import {
   Bell,
   UserRound
 } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 
@@ -32,7 +33,8 @@ const employeeItems = [
 ]
 
 function EmployeeSidebar({ isCollapsed, isMobileOpen, isMobile, onToggle, onClose }) {
-  const { logout } = useAuth()
+  const auth = useAuth()
+  const logout = auth?.logout || (() => {})
   const isCompact = !isMobile && isCollapsed
   const sidebarClass = ['sidebar', 'employee-sidebar', isMobileOpen ? 'sidebar-open' : '', isCompact ? 'sidebar-collapsed' : ''].filter(Boolean).join(' ')
 
@@ -43,7 +45,18 @@ function EmployeeSidebar({ isCollapsed, isMobileOpen, isMobile, onToggle, onClos
   return (
     <aside className={sidebarClass}>
       <div className="sidebar-header">
-        <h2 className="sidebar-title">Employee Portal</h2>
+        <div className="sidebar-brand-wrap">
+          <div className="sidebar-brand-dot" />
+          <div className="sidebar-brand-copy">
+            <h2 className="sidebar-title">Employee Portal</h2>
+            {!isCompact ? (
+              <div className="sidebar-workspace-meta">
+                <span className="workspace-pill">Workspace</span>
+                <span className="workspace-status"><i /> Online</span>
+              </div>
+            ) : null}
+          </div>
+        </div>
         <button
           type="button"
           className="sidebar-toggle-btn"
@@ -61,18 +74,30 @@ function EmployeeSidebar({ isCollapsed, isMobileOpen, isMobile, onToggle, onClos
         {employeeItems.map((item) => {
           const Icon = item.icon
           return (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              end={item.path === '/employee/dashboard'}
-              className={({ isActive }) => `menu-link ${isCompact ? 'menu-link-icon-only' : ''} ${isActive ? 'active' : ''}`}
-              onClick={handleLinkClick}
-              title={isCompact ? item.label : undefined}
-              data-label={item.label}
-            >
-              <Icon size={16} />
-              {!isCompact ? <span>{item.label}</span> : null}
-            </NavLink>
+            <div key={item.path} className="menu-group">
+              <div className="menu-head-row">
+                <NavLink
+                  to={item.path}
+                  end={item.path === '/employee/dashboard'}
+                  className={({ isActive }) => `menu-link ${isCompact ? 'menu-link-icon-only' : ''} ${isActive ? 'active' : ''}`}
+                  onClick={handleLinkClick}
+                  title={isCompact ? item.label : undefined}
+                  data-label={item.label}
+                >
+                  {({ isActive }) => (
+                    <motion.div
+                      className="sidebar-item-inner"
+                      whileHover={{ y: -1 }}
+                      whileTap={{ scale: 0.985 }}
+                      transition={{ duration: 0.18, ease: 'easeOut' }}
+                    >
+                      <Icon size={17} className={`sidebar-item-icon ${isActive ? 'is-active' : ''}`} />
+                      {!isCompact ? <span>{item.label}</span> : null}
+                    </motion.div>
+                  )}
+                </NavLink>
+              </div>
+            </div>
           )
         })}
       </nav>

@@ -535,7 +535,10 @@ function CompanyAdminEmployeesPage({ embedded = false, title = 'Employees', brea
 
           <FilterDropdown label="Status" value={form.status} onChange={(value) => setForm((p) => ({ ...p, status: value }))} options={[{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }]} />
 
-          <Button type="submit" disabled={submitting}>{submitting ? 'Saving...' : 'Save'}</Button>
+          <div className="modal-actions">
+            <Button type="button" variant="ghost" onClick={() => setFormOpen(false)} disabled={submitting}>Cancel</Button>
+            <Button type="submit" disabled={submitting}>{submitting ? 'Submitting...' : 'Submit'}</Button>
+          </div>
         </form>
       </Modal>
 

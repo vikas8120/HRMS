@@ -1,19 +1,49 @@
-﻿import Button from './Button'
+import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
+import Button from './Button'
 
 function Modal({ open, title, children, onClose }) {
+  useEffect(() => {
+    if (!open || typeof document === 'undefined') return undefined
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (!open || typeof window === 'undefined') return undefined
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') onClose?.()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [open, onClose])
+
   if (!open) return null
 
-  return (
-    <div className="modal-backdrop">
-      <div className="modal-card">
+  const modalContent = (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div
+        className="modal-card"
+        role="dialog"
+        aria-modal="true"
+        aria-label={title || 'Modal'}
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className="modal-head">
           <h3>{title}</h3>
-          <Button variant="ghost" className="modal-close-btn" onClick={onClose}>Close</Button>
+          <Button variant="ghost" className="modal-close-btn" onClick={onClose} aria-label="Close modal">&times;</Button>
         </div>
         <div className="modal-body">{children}</div>
       </div>
     </div>
   )
+
+  if (typeof document === 'undefined' || !document.body) return modalContent
+  return createPortal(modalContent, document.body)
 }
 
+export { Modal }
 export default Modal

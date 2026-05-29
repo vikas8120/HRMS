@@ -64,7 +64,8 @@ const createForm = (ctx, feedbackNo = '') => ({
 })
 
 function EmployeeFeedbackPage() {
-  const { user } = useAuth()
+  const auth = useAuth()
+  const user = auth?.user || null
   const employeeCtx = useMemo(() => resolveEmployeeContext(user), [user])
 
   const [loading, setLoading] = useState(true)
@@ -91,14 +92,22 @@ function EmployeeFeedbackPage() {
   }
 
   const readAll = () => {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : []
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY)
+      if (!raw) return []
+      const parsed = JSON.parse(raw)
+      return Array.isArray(parsed) ? parsed : []
+    } catch (_err) {
+      return []
+    }
   }
 
   const writeAll = (nextRows) => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(nextRows))
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(nextRows))
+    } catch (_err) {
+      // ignore storage errors and keep UI responsive
+    }
   }
 
   const loadRows = () => {
@@ -117,7 +126,13 @@ function EmployeeFeedbackPage() {
   }
 
   useEffect(() => {
-    loadRows()
+    try {
+      loadRows()
+    } catch (err) {
+      setLoading(false)
+      setRows([])
+      setError(err?.message || 'Unable to render feedback module')
+    }
   }, [employeeCtx.employeeId])
 
   const openNew = () => {

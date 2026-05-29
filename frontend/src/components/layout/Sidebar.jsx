@@ -25,7 +25,7 @@ function Sidebar({ isCollapsed, isMobileOpen, isMobile, onToggle, onClose }) {
 
   const isCompact = !isMobile && isCollapsed
   const sidebarClass = useMemo(() => {
-    const classes = ['sidebar']
+    const classes = ['sidebar', 'super-admin-sidebar']
     if (isMobileOpen) classes.push('sidebar-open')
     if (isCompact) classes.push('sidebar-collapsed')
     return classes.join(' ')
@@ -100,7 +100,7 @@ function Sidebar({ isCollapsed, isMobileOpen, isMobile, onToggle, onClose }) {
               <div className="menu-head-row">
                 <NavLink
                   to={item.path}
-                  className={`menu-link ${isCompact ? 'menu-link-icon-only' : ''}`}
+                  className={({ isActive }) => `menu-link ${isCompact ? 'menu-link-icon-only' : ''} ${isActive ? 'active' : ''}`}
                   onClick={handleLinkClick}
                   title={isCompact ? item.label : undefined}
                 >
