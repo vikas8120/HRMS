@@ -1,5 +1,5 @@
-﻿import {
-  LayoutDashboard, Building2, UserCog, CreditCard, BarChart3, Sparkles, Users, LifeBuoy,
+import {
+  LayoutDashboard, Users, Building2, UserCog, CreditCard, BarChart3, Sparkles, LifeBuoy,
   Shield, Plug, Brain, Database, FileText, Settings, Activity, Receipt, Bot
 } from 'lucide-react'
 
@@ -15,10 +15,9 @@ export const moduleRegistry = [
   { label: 'Dashboard', icon: LayoutDashboard, items: [] },
   { label: 'Company Management', icon: Building2, items: ['Company Management', 'Company Branding', 'Branch Management', 'Company Storage Usage', 'Company Domain Setup', 'Company Activity Logs', 'Company Configuration', 'Company Suspension', 'Company Reactivation'] },
   { label: 'Admin Management', icon: UserCog, items: ['Admin Management', 'Reset Password', 'Admin Access Logs', 'Admin Activity Tracking', 'Account Lock/Unlock', 'Role Assignment', 'Permission Control'] },
-  { label: 'Subscription & Billing', icon: CreditCard, items: ['Subscription Plans', 'Feature Mapping', 'Plan Limits', 'Add-on Services', 'Plan Upgrade/Downgrade', 'Auto Renewal', 'Subscription History', 'Invoice Management', 'Generate Invoice', 'Payment Tracking', 'Discount Coupons'] },
-  { label: 'Revenue & Analytics', icon: BarChart3, items: ['Monthly Revenue', 'Annual Revenue', 'MRR Analytics', 'ARR Analytics', 'Revenue Forecasting', 'Churn Analytics', 'Renewal Rate', 'Revenue by Plan', 'Top Paying Customers', 'Financial Dashboard'] },
-  { label: 'Feature Management', icon: Sparkles, items: ['Module Enable/Disable', 'Feature Flags', 'Beta Features', 'Tenant-wise Features', 'Plan-wise Features', 'API Feature Access', 'Usage Limits', 'Mobile App Access', 'White Label Control', 'AI Feature Access'] },
-  { label: 'Global Users', icon: Users, items: ['User Directory', 'User Search', 'User Status', 'User Login History', 'Active Sessions', 'Failed Login Attempts', 'User Device Tracking', 'Block User', 'Unlock User', 'Force Logout', 'Bulk Import', 'Bulk Export'] },
+  { label: 'Subscription & Billing', icon: CreditCard, items: ['Subscription Plans', 'Plan Upgrade/Downgrade', 'Subscription History', 'Invoice Management', 'Generate Invoice', 'Payment Tracking', 'Discount Coupons'] },
+  { label: 'Revenue & Analytics', icon: BarChart3, items: ['Monthly Revenue', 'Annual Revenue', 'MRR Analytics', 'ARR Analytics', 'Revenue Forecasting', 'Churn Analytics', 'Renewal Rate'] },
+  { label: 'Feature Management', icon: Sparkles, items: ['Module Enable/Disable', 'Feature Flags', 'Beta Features', 'Usage Limits', 'Mobile App Access', 'White Label Control'] },
   { label: 'Support Center', icon: LifeBuoy, items: ['Ticket Dashboard', 'Open Tickets', 'Closed Tickets', 'Escalated Tickets', 'Ticket Categories', 'Assign Support Agent', 'Priority Management', 'SLA Tracking', 'Ticket Chat', 'File Attachments', 'Internal Notes', 'Resolution Tracking'] },
   { label: 'Audit & Security', icon: Shield, items: ['Login Logs', 'User Activity Logs', 'Company Activity Logs', 'Admin Activity Logs', 'API Logs', 'Security Logs', 'Configuration Changes', 'Permission Changes', 'Billing Logs', 'IP Tracking', 'Device Logs', 'Export Logs', 'Password Policies', 'Two-Factor Authentication', 'SSO Settings', 'OAuth Settings', 'IP Whitelisting', 'Session Timeout', 'Captcha Settings', 'Token Expiry Settings', 'Threat Monitoring'] },
   { label: 'Integrations', icon: Plug, items: ['Biometric Devices', 'Google Workspace', 'Microsoft 365', 'Slack', 'Zoom', 'Teams', 'Payment Gateway', 'Accounting Software', 'Email Integration', 'SMS Gateway', 'WhatsApp API', 'Maps API', 'Webhooks', 'Third-party Marketplace'] },

@@ -1,4 +1,5 @@
-﻿import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { NavLink, useLocation } from 'react-router-dom'
 import PageHeader from '../../components/ui/PageHeader'
 import DataTable from '../../components/ui/DataTable'
 import Button from '../../components/ui/Button'
@@ -47,7 +48,15 @@ const sectionByPage = {
   'Permission Control': 'permission-control-section'
 }
 
+const adminModuleRoot = '/super-admin/admin-management'
+const adminWorkspaceItems = [
+  { label: 'Admin Management', path: `${adminModuleRoot}/admin-management` },
+  { label: 'Reset Password', path: `${adminModuleRoot}/reset-password` },
+  { label: 'Account Lock/Unlock', path: `${adminModuleRoot}/account-lock-unlock` },
+  { label: 'Admin Activity Tracking', path: `${adminModuleRoot}/admin-activity-tracking` }
+]
 function AdminManagementModulePage({ page }) {
+  const { pathname } = useLocation()
   const [admins, setAdmins] = useState([])
   const [companies, setCompanies] = useState([])
   const [roles, setRoles] = useState([])
@@ -58,7 +67,6 @@ function AdminManagementModulePage({ page }) {
 
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
-  const [roleFilter, setRoleFilter] = useState('all')
   const [companyFilter, setCompanyFilter] = useState('all')
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 })
 
@@ -92,7 +100,7 @@ function AdminManagementModulePage({ page }) {
     setLoading(true)
     try {
       const [adminsRes, companiesRes, rolesRes] = await Promise.all([
-        fetchAdmins({ page: pagination.page, limit: pagination.limit, search, status: statusFilter, role: roleFilter, company: companyFilter }),
+        fetchAdmins({ page: pagination.page, limit: pagination.limit, search, status: statusFilter, company: companyFilter }),
         fetchTenantCompanies(),
         fetchRoles()
       ])
@@ -110,7 +118,7 @@ function AdminManagementModulePage({ page }) {
   useEffect(() => {
     loadBaseData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pagination.page, search, statusFilter, roleFilter, companyFilter])
+  }, [pagination.page, search, statusFilter, companyFilter])
 
   useEffect(() => {
     fetchAccessLogs().then((res) => setAccessLogs(res.items)).catch(() => setAccessLogs([]))
@@ -121,7 +129,6 @@ function AdminManagementModulePage({ page }) {
     if (page === 'Account Lock/Unlock') {
       setSearch('')
       setStatusFilter('all')
-      setRoleFilter('all')
       setCompanyFilter('all')
       setPagination((prev) => ({ ...prev, page: 1 }))
     }
@@ -291,12 +298,6 @@ function AdminManagementModulePage({ page }) {
             options={[{ value: 'all', label: 'All' }, { value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }, { value: 'suspended', label: 'Suspended' }, { value: 'locked', label: 'Locked' }]}
           />
           <FilterDropdown
-            label="Role"
-            value={roleFilter}
-            onChange={setRoleFilter}
-            options={[{ value: 'all', label: 'All' }, ...[...new Set(admins.map((a) => a.role))].map((r) => ({ value: r, label: r }))]}
-          />
-          <FilterDropdown
             label="Company"
             value={companyFilter}
             onChange={setCompanyFilter}
@@ -347,7 +348,6 @@ function AdminManagementModulePage({ page }) {
                 <SearchBar value={search} onChange={setSearch} placeholder="Search by name, email, company" />
               </div>
               <FilterDropdown label="Status" value={statusFilter} onChange={setStatusFilter} options={[{ value: 'all', label: 'All' }, { value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }, { value: 'suspended', label: 'Suspended' }, { value: 'locked', label: 'Locked' }]} />
-              <FilterDropdown label="Role" value={roleFilter} onChange={setRoleFilter} options={[{ value: 'all', label: 'All' }, ...[...new Set(admins.map((a) => a.role))].map((r) => ({ value: r, label: r }))]} />
               <FilterDropdown label="Company" value={companyFilter} onChange={setCompanyFilter} options={[{ value: 'all', label: 'All' }, ...companies.map((c) => ({ value: c._id, label: c.companyName }))]} />
             </div>
           </div>
@@ -469,21 +469,22 @@ function AdminManagementModulePage({ page }) {
   }
 
   const renderLockUnlock = () => (
-    <div className="panel">
+    <div className="panel admin-lock-panel">
       <h3>Account Lock/Unlock</h3>
       <DataTable
         columns={adminColumns}
         rows={adminRows}
+        showActions={false}
         showViewAction={false}
         showEditAction={false}
         showDeleteAction={false}
       />
       {admins.length === 0 ? <EmptyState title="No admins found" description="Create admins first to manage account status." /> : null}
-      <div className="actions-row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+      <div className="admin-lock-actions">
         {admins.map((admin) => (
-          <div className="inline-action-card" key={admin.id}>
-            <span>{admin.name} ({admin.email})</span>
-            <div className="actions-row">
+          <div className="inline-action-card admin-lock-action-card" key={admin.id}>
+            <span className="admin-lock-identity">{admin.name} ({admin.email})</span>
+            <div className="actions-row admin-lock-action-buttons">
               <Button variant="ghost" onClick={() => updateAdminStatus(admin.id, 'locked').then(() => { setSuccess(`${admin.name} locked`); loadBaseData() }).catch((error) => setError(error?.response?.data?.message || 'Failed to lock admin'))}>Lock</Button>
               <Button variant="ghost" onClick={() => updateAdminStatus(admin.id, 'active').then(() => { setSuccess(`${admin.name} unlocked`); loadBaseData() }).catch((error) => setError(error?.response?.data?.message || 'Failed to unlock admin'))}>Unlock</Button>
               <Button variant="danger" onClick={() => updateAdminStatus(admin.id, 'suspended').then(() => { setSuccess(`${admin.name} suspended`); loadBaseData() }).catch((error) => setError(error?.response?.data?.message || 'Failed to suspend admin'))}>Suspend</Button>
@@ -631,7 +632,7 @@ function AdminManagementModulePage({ page }) {
   }
 
   return (
-    <section className="section-layout">
+    <section className="section-layout admin-management-page">
       <PageHeader
         title="Admin Management"
         description="Single-page control center for admins, security, logs, role assignment, and permissions."
@@ -639,12 +640,32 @@ function AdminManagementModulePage({ page }) {
         primaryActionLabel="Add Admin"
         onPrimaryAction={openAdd}
       />
+      <div className="workspace-subnav admin-workspace-subnav" aria-label="Admin module navigation">
+        {adminWorkspaceItems.map((item) => (
+          <NavLink
+            key={item.path}
+            to={item.path}
+            className={({ isActive }) =>
+              `workspace-nav-chip ${isActive || pathname.startsWith(`${item.path}/`) ? 'active' : ''}`
+            }
+          >
+            {item.label}
+          </NavLink>
+        ))}
+      </div>
 
       {toast.message ? <div className={`toast toast-${toast.type}`}>{toast.message}</div> : null}
 
       {renderByPage()}
 
-      <Modal open={modalOpen} title={selectedAdminId ? 'Edit Admin' : 'Add Admin'} onClose={() => setModalOpen(false)}>
+      <Modal
+        open={modalOpen}
+        title={selectedAdminId ? 'Edit Admin' : 'Add Admin'}
+        onClose={() => setModalOpen(false)}
+        modalClassName="admin-form-shell"
+        bodyClassName="admin-form-body"
+      >
+        <div className="admin-form-modal">
         <div className="form-grid">
           <FormInput label="Name" value={addEditForm.name} onChange={(e) => setAddEditForm((prev) => ({ ...prev, name: e.target.value }))} />
           <FormInput label="Email" value={addEditForm.email} onChange={(e) => setAddEditForm((prev) => ({ ...prev, email: e.target.value }))} disabled={Boolean(selectedAdminId)} />
@@ -664,6 +685,7 @@ function AdminManagementModulePage({ page }) {
           <Button variant="ghost" onClick={() => setModalOpen(false)}>Cancel</Button>
           <Button onClick={saveAddEdit}>Save</Button>
         </div>
+        </div>
       </Modal>
 
       <ConfirmDialog
@@ -678,3 +700,4 @@ function AdminManagementModulePage({ page }) {
 }
 
 export default AdminManagementModulePage
+

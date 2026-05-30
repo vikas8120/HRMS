@@ -9,7 +9,6 @@ const singlePageModules = new Set([
   'Subscription & Billing',
   'Revenue & Analytics',
   'Feature Management',
-  'Global Users',
   'Support Center',
   'Audit & Security',
   'Integrations',
@@ -61,7 +60,18 @@ function Sidebar({ isCollapsed, isMobileOpen, isMobile, onToggle, onClose }) {
   return (
     <aside className={sidebarClass}>
       <div className="sidebar-header">
-        <h2 className="sidebar-title">Super Admin</h2>
+        <div className="sidebar-brand-wrap">
+          <div className="sidebar-brand-dot" />
+          <div className="sidebar-brand-copy">
+            <h2 className="sidebar-title">Super Admin</h2>
+            {!isCompact ? (
+              <div className="sidebar-workspace-meta">
+                <span className="workspace-pill">Workspace</span>
+                <span className="workspace-status"><i /> Online</span>
+              </div>
+            ) : null}
+          </div>
+        </div>
         <button
           type="button"
           className="sidebar-toggle-btn"
@@ -75,7 +85,7 @@ function Sidebar({ isCollapsed, isMobileOpen, isMobile, onToggle, onClose }) {
         </button>
       </div>
 
-      {!isCompact ? (
+      {!isCompact && !isMobile ? (
         <div className="sidebar-search-wrap">
           <Search size={15} />
           <input
@@ -103,9 +113,12 @@ function Sidebar({ isCollapsed, isMobileOpen, isMobile, onToggle, onClose }) {
                   className={({ isActive }) => `menu-link ${isCompact ? 'menu-link-icon-only' : ''} ${isActive ? 'active' : ''}`}
                   onClick={handleLinkClick}
                   title={isCompact ? item.label : undefined}
+                  data-label={item.label}
                 >
-                  <Icon size={16} />
-                  {!isCompact ? <span>{item.label}</span> : null}
+                  <div className="sidebar-item-inner">
+                    <Icon size={17} className="sidebar-item-icon" />
+                    {!isCompact ? <span>{item.label}</span> : null}
+                  </div>
                 </NavLink>
                 {hasChildren ? (
                   <button type="button" className="menu-drop-btn" onClick={() => toggleMenu(item.label)}>
@@ -142,3 +155,4 @@ function Sidebar({ isCollapsed, isMobileOpen, isMobile, onToggle, onClose }) {
 }
 
 export default Sidebar
+

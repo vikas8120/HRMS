@@ -6,7 +6,6 @@ const AdminManagementModulePage = lazy(() => import('../admin/AdminManagementMod
 const CompanyManagementModulePage = lazy(() => import('../company/CompanyManagementModulePage'))
 const SubscriptionBillingModulePage = lazy(() => import('../subscription/SubscriptionBillingModulePage'))
 const RevenueAnalyticsModulePage = lazy(() => import('../revenue/RevenueAnalyticsModulePage'))
-const GlobalUsersModulePage = lazy(() => import('../global-users/GlobalUsersModulePage'))
 const SupportCenterModulePage = lazy(() => import('../support/SupportCenterModulePage'))
 const AuditSecurityModulePage = lazy(() => import('../audit-security/AuditSecurityModulePage'))
 const IntegrationsModulePage = lazy(() => import('../integrations/IntegrationsModulePage'))
@@ -23,7 +22,6 @@ function SectionPage({ module, page }) {
   if (module === 'Company Management') return <Suspense fallback={moduleFallback}><CompanyManagementModulePage page={page} /></Suspense>
   if (module === 'Subscription & Billing') return <Suspense fallback={moduleFallback}><SubscriptionBillingModulePage page={page} /></Suspense>
   if (module === 'Revenue & Analytics') return <Suspense fallback={moduleFallback}><RevenueAnalyticsModulePage page={page} /></Suspense>
-  if (module === 'Global Users') return <Suspense fallback={moduleFallback}><GlobalUsersModulePage page={page} /></Suspense>
   if (module === 'Support Center') return <Suspense fallback={moduleFallback}><SupportCenterModulePage page={page} /></Suspense>
   if (module === 'Audit & Security') return <Suspense fallback={moduleFallback}><AuditSecurityModulePage page={page} /></Suspense>
   if (module === 'Integrations') return <Suspense fallback={moduleFallback}><IntegrationsModulePage page={page} /></Suspense>
@@ -47,3 +45,4 @@ function SectionPage({ module, page }) {
 }
 
 export default SectionPage
+

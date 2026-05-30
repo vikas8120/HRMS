@@ -18,9 +18,21 @@ class AppErrorBoundary extends Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="panel error-banner" role="alert">
-          <strong>Something went wrong while rendering this page.</strong>
-          <div>{this.state.message}</div>
+        <div
+          role="alert"
+          style={{
+            margin: 16,
+            padding: 16,
+            borderRadius: 12,
+            border: '2px solid #ef4444',
+            background: '#fff1f2',
+            color: '#111827',
+            fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, sans-serif',
+            lineHeight: 1.4
+          }}
+        >
+          <strong style={{ display: 'block', marginBottom: 8 }}>Something went wrong while rendering this page.</strong>
+          <div style={{ whiteSpace: 'pre-wrap' }}>{this.state.message}</div>
         </div>
       )
     }

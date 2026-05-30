@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { NavLink, useLocation } from 'react-router-dom'
 import PageHeader from '../../components/ui/PageHeader'
 import DataTable from '../../components/ui/DataTable'
 import SearchBar from '../../components/ui/SearchBar'
@@ -28,8 +29,31 @@ const monthlyRevenuePage = 'Monthly Revenue'
 const annualRevenuePage = 'Annual Revenue'
 const revenueByPlanPage = 'Revenue by Plan'
 const topPayingCustomersPage = 'Top Paying Customers'
+const revenueModuleRoot = '/super-admin/revenue-and-analytics'
+const revenueWorkspaceGroups = [
+  {
+    title: 'Revenue Views',
+    path: `${revenueModuleRoot}/monthly-revenue`,
+    items: [
+      { label: 'Monthly Revenue', path: `${revenueModuleRoot}/monthly-revenue` },
+      { label: 'Annual Revenue', path: `${revenueModuleRoot}/annual-revenue` }
+    ]
+  },
+  {
+    title: 'Growth Metrics',
+    path: `${revenueModuleRoot}/mrr-analytics`,
+    items: [
+      { label: 'MRR Analytics', path: `${revenueModuleRoot}/mrr-analytics` },
+      { label: 'ARR Analytics', path: `${revenueModuleRoot}/arr-analytics` },
+      { label: 'Revenue Forecasting', path: `${revenueModuleRoot}/revenue-forecasting` },
+      { label: 'Renewal Rate', path: `${revenueModuleRoot}/renewal-rate` },
+      { label: 'Churn Analytics', path: `${revenueModuleRoot}/churn-analytics` }
+    ]
+  }
+]
 
 function RevenueAnalyticsModulePage({ page }) {
+  const { pathname } = useLocation()
   const [items, setItems] = useState([])
   const [invoices, setInvoices] = useState([])
   const [companies, setCompanies] = useState([])
@@ -49,6 +73,13 @@ function RevenueAnalyticsModulePage({ page }) {
 
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [targetId, setTargetId] = useState('')
+  const activeWorkspaceGroupIndex = useMemo(() => {
+    const foundIndex = revenueWorkspaceGroups.findIndex((group) =>
+      group.items.some((item) => pathname === item.path || pathname.startsWith(`${item.path}/`))
+    )
+    return foundIndex >= 0 ? foundIndex : 0
+  }, [pathname])
+  const activeWorkspaceGroup = revenueWorkspaceGroups[activeWorkspaceGroupIndex] || revenueWorkspaceGroups[0]
 
   const notifyError = (message) => setToast({ type: 'error', message })
   const notifySuccess = (message) => setToast({ type: 'success', message })
@@ -298,7 +329,7 @@ function RevenueAnalyticsModulePage({ page }) {
   }
 
   return (
-    <section className="section-layout">
+    <section className="section-layout revenue-analytics-page">
       <PageHeader
         title="Revenue & Analytics"
         description="Live revenue records from payment transactions with real database CRUD."
@@ -306,6 +337,32 @@ function RevenueAnalyticsModulePage({ page }) {
         primaryActionLabel={viewConfig.allowCreate ? 'Add Revenue' : undefined}
         onPrimaryAction={viewConfig.allowCreate ? openCreate : undefined}
       />
+
+      <div className="workspace-nav revenue-workspace-nav" aria-label="Revenue category navigation">
+        {revenueWorkspaceGroups.map((group) => (
+          <NavLink
+            key={group.title}
+            to={group.path}
+            className={({ isActive }) => `workspace-nav-chip ${isActive || activeWorkspaceGroup.title === group.title ? 'active' : ''}`}
+            data-group={group.title.toLowerCase()}
+          >
+            {group.title.toUpperCase()}
+          </NavLink>
+        ))}
+      </div>
+
+      <div className="workspace-subnav revenue-workspace-subnav" aria-label="Revenue module navigation">
+        {activeWorkspaceGroup.items.map((item) => (
+          <NavLink
+            key={item.path}
+            to={item.path}
+            className={({ isActive }) => `workspace-nav-chip ${isActive ? 'active' : ''}`}
+            data-group={activeWorkspaceGroup.title.toLowerCase()}
+          >
+            {item.label}
+          </NavLink>
+        ))}
+      </div>
 
       {toast.message ? <div className={`toast toast-${toast.type}`}>{toast.message}</div> : null}
 

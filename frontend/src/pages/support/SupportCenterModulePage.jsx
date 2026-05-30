@@ -1,4 +1,5 @@
-﻿import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { NavLink, useLocation } from 'react-router-dom'
 import PageHeader from '../../components/ui/PageHeader'
 import DataTable from '../../components/ui/DataTable'
 import SearchBar from '../../components/ui/SearchBar'
@@ -39,8 +40,40 @@ const sectionByPage = {
   'File Attachments': 'support-chat-section',
   'Internal Notes': 'support-chat-section'
 }
-
+const supportModuleRoot = '/super-admin/support-center'
+const supportWorkspaceGroups = [
+  {
+    title: 'Ticket Queue',
+    path: `${supportModuleRoot}/ticket-dashboard`,
+    items: [
+      { label: 'Ticket Dashboard', path: `${supportModuleRoot}/ticket-dashboard` },
+      { label: 'Open Tickets', path: `${supportModuleRoot}/open-tickets` },
+      { label: 'Closed Tickets', path: `${supportModuleRoot}/closed-tickets` },
+      { label: 'Escalated Tickets', path: `${supportModuleRoot}/escalated-tickets` }
+    ]
+  },
+  {
+    title: 'Operations',
+    path: `${supportModuleRoot}/ticket-categories`,
+    items: [
+      { label: 'Ticket Categories', path: `${supportModuleRoot}/ticket-categories` },
+      { label: 'Assign Support Agent', path: `${supportModuleRoot}/assign-support-agent` },
+      { label: 'Priority Management', path: `${supportModuleRoot}/priority-management` },
+      { label: 'SLA Tracking', path: `${supportModuleRoot}/sla-tracking` }
+    ]
+  },
+  {
+    title: 'Collaboration',
+    path: `${supportModuleRoot}/ticket-chat`,
+    items: [
+      { label: 'Ticket Chat', path: `${supportModuleRoot}/ticket-chat` },
+      { label: 'File Attachments', path: `${supportModuleRoot}/file-attachments` },
+      { label: 'Internal Notes', path: `${supportModuleRoot}/internal-notes` }
+    ]
+  }
+]
 function SupportCenterModulePage({ page }) {
+  const { pathname } = useLocation()
   const [tickets, setTickets] = useState([])
   const [categories, setCategories] = useState([])
   const [agents, setAgents] = useState([])
@@ -55,6 +88,13 @@ function SupportCenterModulePage({ page }) {
   const [ticketForm, setTicketForm] = useState({ subject: '', description: '', status: 'open', priority: 'medium', category: '', assignedAgent: '' })
   const [messageText, setMessageText] = useState('')
   const [noteText, setNoteText] = useState('')
+  const activeWorkspaceGroupIndex = useMemo(() => {
+    const foundIndex = supportWorkspaceGroups.findIndex((group) =>
+      group.items.some((item) => pathname === item.path || pathname.startsWith(`${item.path}/`))
+    )
+    return foundIndex >= 0 ? foundIndex : 0
+  }, [pathname])
+  const activeWorkspaceGroup = supportWorkspaceGroups[activeWorkspaceGroupIndex] || supportWorkspaceGroups[0]
 
   const toastError = (message) => setToast({ type: 'error', message })
   const toastOk = (message) => setToast({ type: 'success', message })
@@ -199,7 +239,7 @@ function SupportCenterModulePage({ page }) {
   const showAllSections = true
 
   return (
-    <section className="section-layout">
+    <section className="section-layout support-center-page">
       <PageHeader
         title="Support Center"
         description="Single-page workspace for ticket lifecycle, assignment, priority/SLA, chat, and resolution."
@@ -207,6 +247,30 @@ function SupportCenterModulePage({ page }) {
         primaryActionLabel="Refresh"
         onPrimaryAction={loadBase}
       />
+      <div className="workspace-nav support-workspace-nav" aria-label="Support category navigation">
+        {supportWorkspaceGroups.map((group) => (
+          <NavLink
+            key={group.title}
+            to={group.path}
+            className={({ isActive }) => `workspace-nav-chip ${isActive || activeWorkspaceGroup.title === group.title ? 'active' : ''}`}
+            data-group={group.title.toLowerCase()}
+          >
+            {group.title.toUpperCase()}
+          </NavLink>
+        ))}
+      </div>
+      <div className="workspace-subnav support-workspace-subnav" aria-label="Support module navigation">
+        {activeWorkspaceGroup.items.map((item) => (
+          <NavLink
+            key={item.path}
+            to={item.path}
+            className={({ isActive }) => `workspace-nav-chip ${isActive ? 'active' : ''}`}
+            data-group={activeWorkspaceGroup.title.toLowerCase()}
+          >
+            {item.label}
+          </NavLink>
+        ))}
+      </div>
       {toast.message ? <div className={`toast toast-${toast.type}`}>{toast.message}</div> : null}
       {showAllSections ? renderUnifiedPage() : renderByPage()}
 
@@ -219,3 +283,7 @@ function SupportCenterModulePage({ page }) {
 }
 
 export default SupportCenterModulePage
+
+
+
+

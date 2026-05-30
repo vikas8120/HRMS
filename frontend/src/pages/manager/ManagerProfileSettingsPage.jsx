@@ -13,21 +13,28 @@ function ManagerProfileSettingsPage() {
   const [profile, setProfile] = useState(null)
   const [toast, setToast] = useState(null)
 
-  const profileHighlights = useMemo(() => {
-    if (!profile) return []
+  const profileDetails = useMemo(() => {
+    if (!profile) return null
     const pick = (...values) => values.find((value) => String(value || '').trim())
-    const mapped = [
-      { label: 'Manager ID', value: pick(profile.managerId, profile.employeeId, profile.userId, profile.id) || '' },
-      { label: 'Phone', value: pick(profile.phone, profile.contact?.phone, profile.personalInfo?.phone) || '' },
-      { label: 'Designation', value: pick(profile.designation, profile.jobDetails?.designation) || '' },
-      { label: 'Department', value: pick(profile.departmentName, profile.department, profile.jobDetails?.department) || '' },
-      { label: 'Team Size', value: profile.teamSize != null ? String(profile.teamSize) : String(profile.teamMembersCount || '') },
-      { label: 'Reporting To', value: pick(profile.reportingManager, profile.reportingTo, profile.jobDetails?.reportingTo) || '' },
-      { label: 'Work Location', value: pick(profile.workLocation, profile.location, profile.jobDetails?.workLocation) || '' },
-      { label: 'Address', value: pick(profile.address, profile.contact?.address, profile.personalInfo?.address) || '' },
-      { label: 'Last Login', value: profile.lastLogin ? String(profile.lastLogin).slice(0, 19).replace('T', ' ') : '' }
-    ]
-    return mapped.filter((item) => String(item.value || '').trim())
+    const joiningDateRaw = pick(profile.joiningDate, profile.jobDetails?.joiningDate, profile.jobInformation?.joiningDate)
+
+    return {
+      phone: pick(profile.phone, profile.contact?.phone, profile.personalInfo?.phone, profile.contactInformation?.phone) || '-',
+      address: pick(profile.address, profile.contact?.address, profile.personalInfo?.address, profile.contactInformation?.address) || '-',
+      gender: pick(profile.gender, profile.personalInfo?.gender, profile.personalInformation?.gender) || '-',
+      employeeId: pick(profile.employeeId, profile.managerId, profile.userId, profile.id) || '-',
+      designation: pick(profile.designation, profile.jobDetails?.designation, profile.jobInformation?.designation) || '-',
+      departmentId: pick(profile.departmentId, profile.departmentName, profile.department, profile.jobDetails?.departmentId, profile.jobInformation?.departmentId) || '-',
+      managerId: pick(profile.reportingManagerId, profile.reportingManager, profile.reportingTo, profile.jobDetails?.reportingTo, profile.jobInformation?.managerId) || '-',
+      joiningDate: joiningDateRaw ? String(joiningDateRaw).slice(0, 10) : '-',
+      bankName: pick(profile.bankDetails?.bankName, profile.bankName) || '-',
+      accountHolder: pick(profile.bankDetails?.accountHolderName, profile.accountHolderName) || '-',
+      accountNumber: pick(profile.bankDetails?.accountNumber, profile.accountNumber) || '-',
+      ifsc: pick(profile.bankDetails?.ifscCode, profile.ifscCode) || '-',
+      emergencyName: pick(profile.emergencyContact?.name, profile.emergencyName) || '-',
+      emergencyRelation: pick(profile.emergencyContact?.relation, profile.emergencyRelation) || '-',
+      emergencyPhone: pick(profile.emergencyContact?.phone, profile.emergencyPhone) || '-'
+    }
   }, [profile])
 
   useEffect(() => {
@@ -96,13 +103,21 @@ function ManagerProfileSettingsPage() {
             </div>
           </div>
           <div className="manager-profile-grid">
-            {profileHighlights.length === 0 ? (
-              <div className="inline-action-card"><strong>Profile</strong><span>Manager details will appear here once available.</span></div>
-            ) : (
-              profileHighlights.map((item) => (
-                <div key={item.label} className="inline-action-card"><strong>{item.label}</strong><span>{item.value}</span></div>
-              ))
-            )}
+            <div className="inline-action-card"><strong>Phone</strong><span>{profileDetails?.phone || '-'}</span></div>
+            <div className="inline-action-card"><strong>Address</strong><span>{profileDetails?.address || '-'}</span></div>
+            <div className="inline-action-card"><strong>Gender</strong><span>{profileDetails?.gender || '-'}</span></div>
+            <div className="inline-action-card"><strong>Employee ID</strong><span>{profileDetails?.employeeId || '-'}</span></div>
+            <div className="inline-action-card"><strong>Designation</strong><span>{profileDetails?.designation || '-'}</span></div>
+            <div className="inline-action-card"><strong>Department ID</strong><span>{profileDetails?.departmentId || '-'}</span></div>
+            <div className="inline-action-card"><strong>Manager ID</strong><span>{profileDetails?.managerId || '-'}</span></div>
+            <div className="inline-action-card"><strong>Joining Date</strong><span>{profileDetails?.joiningDate || '-'}</span></div>
+            <div className="inline-action-card"><strong>Bank Name</strong><span>{profileDetails?.bankName || '-'}</span></div>
+            <div className="inline-action-card"><strong>Account Holder</strong><span>{profileDetails?.accountHolder || '-'}</span></div>
+            <div className="inline-action-card"><strong>Account Number</strong><span>{profileDetails?.accountNumber || '-'}</span></div>
+            <div className="inline-action-card"><strong>IFSC</strong><span>{profileDetails?.ifsc || '-'}</span></div>
+            <div className="inline-action-card"><strong>Emergency Name</strong><span>{profileDetails?.emergencyName || '-'}</span></div>
+            <div className="inline-action-card"><strong>Emergency Relation</strong><span>{profileDetails?.emergencyRelation || '-'}</span></div>
+            <div className="inline-action-card"><strong>Emergency Phone</strong><span>{profileDetails?.emergencyPhone || '-'}</span></div>
           </div>
         </div>
       ) : null}

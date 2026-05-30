@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { NavLink, useLocation } from 'react-router-dom'
 import PageHeader from '../../components/ui/PageHeader'
 import Button from '../../components/ui/Button'
 import FilterDropdown from '../../components/ui/FilterDropdown'
@@ -9,33 +10,54 @@ const defaultFlags = {
   moduleEnableDisable: true,
   featureFlags: true,
   betaFeatures: false,
-  tenantWiseFeatures: true,
-  planWiseFeatures: true,
-  apiFeatureAccess: true,
   usageLimits: true,
   mobileAppAccess: true,
-  whiteLabelControl: true,
-  aiFeatureAccess: true
+  whiteLabelControl: true
 }
 
 const labels = {
   moduleEnableDisable: 'Module Enable/Disable',
   featureFlags: 'Feature Flags',
   betaFeatures: 'Beta Features',
-  tenantWiseFeatures: 'Tenant-wise Features',
-  planWiseFeatures: 'Plan-wise Features',
-  apiFeatureAccess: 'API Feature Access',
   usageLimits: 'Usage Limits',
   mobileAppAccess: 'Mobile App Access',
-  whiteLabelControl: 'White Label Control',
-  aiFeatureAccess: 'AI Feature Access'
+  whiteLabelControl: 'White Label Control'
 }
+const featureModuleRoot = '/super-admin/feature-management'
+const featureWorkspaceGroups = [
+  {
+    title: 'Controls',
+    path: `${featureModuleRoot}/module-enable-disable`,
+    items: [
+      { label: 'Module Enable/Disable', path: `${featureModuleRoot}/module-enable-disable` },
+      { label: 'Feature Flags', path: `${featureModuleRoot}/feature-flags` },
+      { label: 'Beta Features', path: `${featureModuleRoot}/beta-features` }
+    ]
+  },
+  {
+    title: 'Limits & Channels',
+    path: `${featureModuleRoot}/usage-limits`,
+    items: [
+      { label: 'Usage Limits', path: `${featureModuleRoot}/usage-limits` },
+      { label: 'Mobile App Access', path: `${featureModuleRoot}/mobile-app-access` },
+      { label: 'White Label Control', path: `${featureModuleRoot}/white-label-control` }
+    ]
+  }
+]
 
 function FeatureManagementModulePage() {
+  const { pathname } = useLocation()
   const [flags, setFlags] = useState(defaultFlags)
   const [filter, setFilter] = useState('all')
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState({ type: '', message: '' })
+  const activeWorkspaceGroupIndex = useMemo(() => {
+    const foundIndex = featureWorkspaceGroups.findIndex((group) =>
+      group.items.some((item) => pathname === item.path || pathname.startsWith(`${item.path}/`))
+    )
+    return foundIndex >= 0 ? foundIndex : 0
+  }, [pathname])
+  const activeWorkspaceGroup = featureWorkspaceGroups[activeWorkspaceGroupIndex] || featureWorkspaceGroups[0]
 
   const load = async () => {
     setLoading(true)
@@ -76,7 +98,7 @@ function FeatureManagementModulePage() {
   }
 
   return (
-    <section className="section-layout">
+    <section className="section-layout feature-management-page">
       <PageHeader
         title="Feature Management"
         description="Manage platform feature toggles from persisted backend settings."
@@ -84,6 +106,30 @@ function FeatureManagementModulePage() {
         primaryActionLabel="Refresh"
         onPrimaryAction={load}
       />
+      <div className="workspace-nav feature-workspace-nav" aria-label="Feature category navigation">
+        {featureWorkspaceGroups.map((group) => (
+          <NavLink
+            key={group.title}
+            to={group.path}
+            className={({ isActive }) => `workspace-nav-chip ${isActive || activeWorkspaceGroup.title === group.title ? 'active' : ''}`}
+            data-group={group.title.toLowerCase()}
+          >
+            {group.title.toUpperCase()}
+          </NavLink>
+        ))}
+      </div>
+      <div className="workspace-subnav feature-workspace-subnav" aria-label="Feature module navigation">
+        {activeWorkspaceGroup.items.map((item) => (
+          <NavLink
+            key={item.path}
+            to={item.path}
+            className={({ isActive }) => `workspace-nav-chip ${isActive ? 'active' : ''}`}
+            data-group={activeWorkspaceGroup.title.toLowerCase()}
+          >
+            {item.label}
+          </NavLink>
+        ))}
+      </div>
 
       {toast.message ? <div className={`toast toast-${toast.type}`}>{toast.message}</div> : null}
 

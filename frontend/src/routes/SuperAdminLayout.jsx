@@ -42,7 +42,7 @@ const workspaceGroupsByModule = {
     },
     {
       title: 'Lifecycle',
-      items: ['Plan Upgrade/Downgrade', 'Auto Renewal', 'Subscription History']
+      items: ['Plan Upgrade/Downgrade', 'Subscription History']
     },
     {
       title: 'Billing Operations',
@@ -52,15 +52,11 @@ const workspaceGroupsByModule = {
   'Revenue & Analytics': [
     {
       title: 'Revenue Views',
-      items: ['Monthly Revenue', 'Annual Revenue', 'Revenue by Plan', 'Top Paying Customers']
+      items: ['Monthly Revenue', 'Annual Revenue']
     },
     {
       title: 'Growth Metrics',
       items: ['MRR Analytics', 'ARR Analytics', 'Revenue Forecasting', 'Renewal Rate', 'Churn Analytics']
-    },
-    {
-      title: 'Executive',
-      items: ['Financial Dashboard']
     }
   ],
   'Feature Management': [
@@ -69,26 +65,8 @@ const workspaceGroupsByModule = {
       items: ['Module Enable/Disable', 'Feature Flags', 'Beta Features']
     },
     {
-      title: 'Access',
-      items: ['Tenant-wise Features', 'Plan-wise Features', 'API Feature Access', 'AI Feature Access']
-    },
-    {
       title: 'Limits & Channels',
       items: ['Usage Limits', 'Mobile App Access', 'White Label Control']
-    }
-  ],
-  'Global Users': [
-    {
-      title: 'Directory',
-      items: ['User Directory', 'User Search', 'User Status', 'User Login History', 'User Device Tracking', 'Active Sessions']
-    },
-    {
-      title: 'Security Actions',
-      items: ['Failed Login Attempts', 'Block User', 'Unlock User', 'Force Logout']
-    },
-    {
-      title: 'Bulk Ops',
-      items: ['Bulk Import', 'Bulk Export']
     }
   ],
   'Support Center': [
@@ -279,6 +257,13 @@ function SuperAdminLayout() {
   }, [workspaceGroups, activeChildPath])
   const showGroupedNav = workspaceGroups.some((group) => group.title)
   const activeGroup = workspaceGroups[activeGroupIndex] || null
+  const hideWorkspaceNavInLayout =
+    activeModule?.label === 'Company Management' ||
+    activeModule?.label === 'Admin Management' ||
+    activeModule?.label === 'Subscription & Billing' ||
+    activeModule?.label === 'Revenue & Analytics' ||
+    activeModule?.label === 'Support Center' ||
+    activeModule?.label === 'Feature Management'
 
   return (
     <div className={`app-shell super-admin-shell ${moduleClass} ${isSidebarCollapsed && !isMobile ? 'sidebar-collapsed' : ''}`}>
@@ -294,7 +279,7 @@ function SuperAdminLayout() {
         <Navbar />
         <Breadcrumb />
 
-        {showWorkspaceNav ? (
+        {showWorkspaceNav && !hideWorkspaceNavInLayout ? (
           <div className="workspace-nav" aria-label="Workspace section navigation">
             {showGroupedNav
               ? workspaceGroups.map((group, index) => {
@@ -304,6 +289,7 @@ function SuperAdminLayout() {
                       key={group.title || `group-${index}`}
                       to={firstPath}
                       className={`workspace-nav-chip ${index === activeGroupIndex ? 'active' : ''}`}
+                      data-group={(group.title || 'group').toLowerCase()}
                     >
                       {(group.title || 'Group').toUpperCase()}
                     </NavLink>
@@ -314,6 +300,7 @@ function SuperAdminLayout() {
                   key={child.path}
                   to={child.path}
                   className={({ isActive }) => `workspace-nav-chip ${isActive ? 'active' : ''}`}
+                  data-group={(activeGroup?.title || '').toLowerCase()}
                 >
                   {child.label}
                 </NavLink>
@@ -322,7 +309,7 @@ function SuperAdminLayout() {
         ) : null}
 
         <div className="page-content">
-          {showWorkspaceNav && showGroupedNav && activeGroup?.children?.length ? (
+          {showWorkspaceNav && showGroupedNav && activeGroup?.children?.length && !hideWorkspaceNavInLayout ? (
             <div className="workspace-subnav" aria-label="Sub-module navigation">
               {activeGroup.children.map((child) => (
                 <NavLink
@@ -336,6 +323,49 @@ function SuperAdminLayout() {
             </div>
           ) : null}
           <Outlet />
+          {showWorkspaceNav && false ? (
+            <>
+              <div className="workspace-nav" aria-label="Workspace section navigation">
+                {showGroupedNav
+                  ? workspaceGroups.map((group, index) => {
+                      const firstPath = group.children[0]?.path || activeModule.path
+                      return (
+                        <NavLink
+                          key={group.title || `group-${index}`}
+                          to={firstPath}
+                          className={`workspace-nav-chip ${index === activeGroupIndex ? 'active' : ''}`}
+                          data-group={(group.title || 'group').toLowerCase()}
+                        >
+                          {(group.title || 'Group').toUpperCase()}
+                        </NavLink>
+                      )
+                    })
+                  : activeModule.children.map((child) => (
+                    <NavLink
+                      key={child.path}
+                      to={child.path}
+                      className={({ isActive }) => `workspace-nav-chip ${isActive ? 'active' : ''}`}
+                      data-group={(activeGroup?.title || '').toLowerCase()}
+                    >
+                      {child.label}
+                    </NavLink>
+                  ))}
+              </div>
+              {showGroupedNav && activeGroup?.children?.length ? (
+                <div className="workspace-subnav" aria-label="Sub-module navigation">
+                  {activeGroup.children.map((child) => (
+                    <NavLink
+                      key={child.path}
+                      to={child.path}
+                      className={({ isActive }) => `workspace-nav-chip ${isActive ? 'active' : ''}`}
+                    >
+                      {child.label}
+                    </NavLink>
+                  ))}
+                </div>
+              ) : null}
+            </>
+          ) : null}
         </div>
       </div>
     </div>

@@ -1,4 +1,5 @@
-﻿import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { NavLink } from 'react-router-dom'
 import PageHeader from '../../components/ui/PageHeader'
 import DataTable from '../../components/ui/DataTable'
 import SearchBar from '../../components/ui/SearchBar'
@@ -44,10 +45,43 @@ const currencyOptions = [
 
 const locationOptions = {
   India: {
+    'Andhra Pradesh': ['Visakhapatnam', 'Vijayawada', 'Guntur'],
+    'Arunachal Pradesh': ['Itanagar', 'Naharlagun'],
+    Assam: ['Guwahati', 'Dibrugarh', 'Silchar'],
+    Bihar: ['Patna', 'Gaya', 'Muzaffarpur'],
+    Chhattisgarh: ['Raipur', 'Bilaspur', 'Durg'],
+    Goa: ['Panaji', 'Margao', 'Vasco da Gama'],
+    Gujarat: ['Ahmedabad', 'Surat', 'Vadodara', 'Rajkot'],
+    Haryana: ['Gurugram', 'Faridabad', 'Panipat'],
+    'Himachal Pradesh': ['Shimla', 'Dharamshala', 'Solan'],
+    Jharkhand: ['Ranchi', 'Jamshedpur', 'Dhanbad'],
+    Karnataka: ['Bengaluru', 'Mysuru', 'Mangaluru', 'Hubballi'],
+    Kerala: ['Thiruvananthapuram', 'Kochi', 'Kozhikode'],
     'Madhya Pradesh': ['Bhopal', 'Indore', 'Gwalior', 'Jabalpur'],
     Maharashtra: ['Mumbai', 'Pune', 'Nagpur', 'Nashik'],
-    Karnataka: ['Bengaluru', 'Mysuru', 'Mangaluru'],
-    Delhi: ['New Delhi']
+    Manipur: ['Imphal', 'Thoubal'],
+    Meghalaya: ['Shillong', 'Tura'],
+    Mizoram: ['Aizawl', 'Lunglei'],
+    Nagaland: ['Kohima', 'Dimapur'],
+    Odisha: ['Bhubaneswar', 'Cuttack', 'Rourkela'],
+    Punjab: ['Ludhiana', 'Amritsar', 'Jalandhar'],
+    Rajasthan: ['Jaipur', 'Jodhpur', 'Udaipur'],
+    Sikkim: ['Gangtok', 'Namchi'],
+    'Tamil Nadu': ['Chennai', 'Coimbatore', 'Madurai'],
+    Telangana: ['Hyderabad', 'Warangal', 'Nizamabad'],
+    Tripura: ['Agartala', 'Udaipur'],
+    'Uttar Pradesh': ['Lucknow', 'Kanpur', 'Varanasi', 'Noida'],
+    Uttarakhand: ['Dehradun', 'Haridwar', 'Haldwani'],
+    'West Bengal': ['Kolkata', 'Siliguri', 'Durgapur'],
+    'Andaman and Nicobar Islands': ['Port Blair'],
+    Chandigarh: ['Chandigarh'],
+    'Dadra and Nagar Haveli and Daman and Diu': ['Daman', 'Silvassa'],
+    Delhi: ['New Delhi'],
+    Jammu: ['Jammu'],
+    Kashmir: ['Srinagar'],
+    Ladakh: ['Leh', 'Kargil'],
+    Lakshadweep: ['Kavaratti'],
+    Puducherry: ['Puducherry']
   },
   USA: {
     California: ['Los Angeles', 'San Francisco', 'San Diego'],
@@ -90,6 +124,35 @@ const sectionByPage = {
   'Company Reactivation': 'company-reactivate-section'
 }
 const COMPACT_ROW_LIMIT = 8
+const companyModuleRoot = '/super-admin/company-management'
+const companyWorkspaceGroups = [
+  {
+    title: 'Core',
+    path: `${companyModuleRoot}/company-management`,
+    items: [
+      { label: 'Company Management', path: `${companyModuleRoot}/company-management` },
+      { label: 'Company Branding', path: `${companyModuleRoot}/company-branding` },
+      { label: 'Company Domain Setup', path: `${companyModuleRoot}/company-domain-setup` }
+    ]
+  },
+  {
+    title: 'Operations',
+    path: `${companyModuleRoot}/branch-management`,
+    items: [
+      { label: 'Branch Management', path: `${companyModuleRoot}/branch-management` },
+      { label: 'Company Storage Usage', path: `${companyModuleRoot}/company-storage-usage` },
+      { label: 'Company Activity Logs', path: `${companyModuleRoot}/company-activity-logs` }
+    ]
+  },
+  {
+    title: 'Lifecycle',
+    path: `${companyModuleRoot}/company-suspension`,
+    items: [
+      { label: 'Company Suspension', path: `${companyModuleRoot}/company-suspension` },
+      { label: 'Company Reactivation', path: `${companyModuleRoot}/company-reactivation` }
+    ]
+  }
+]
 
 function CompanyManagementModulePage({ page }) {
   const [items, setItems] = useState([])
@@ -140,7 +203,12 @@ function CompanyManagementModulePage({ page }) {
   const isTableExpanded = (key) => Boolean(expandedTables[key])
   const toggleTable = (key) => setExpandedTables((prev) => ({ ...prev, [key]: !prev[key] }))
   const tableRows = (key, rows = []) => (isTableExpanded(key) ? rows : rows.slice(0, COMPACT_ROW_LIMIT))
-
+  const activeWorkspaceGroup = useMemo(() => {
+    const normalizedPage = String(page || '').toLowerCase()
+    return companyWorkspaceGroups.find((group) =>
+      group.items.some((item) => item.label.toLowerCase() === normalizedPage)
+    ) || companyWorkspaceGroups[0]
+  }, [page])
   const syncSelectedCompany = (company) => {
     if (!company) return
     setSelectedId(normalizeId(company.id || company._id || ''))
@@ -765,30 +833,7 @@ function CompanyManagementModulePage({ page }) {
   const renderConfig = () => (
     <div className="panel">
       <h3>Company Configuration</h3>
-      <FilterDropdown
-        label="Company"
-        value={getEffectiveCompanyId()}
-        onChange={async (value) => {
-          const nextId = normalizeId(value)
-          setSelectedId(nextId)
-          if (!nextId) {
-            setProfileData(null)
-            return
-          }
-          try {
-            await refreshCompanyProfile(nextId)
-          } catch (error) {
-            showError(error?.response?.data?.message || 'Failed to load company')
-          }
-        }}
-        options={[
-          { value: '', label: 'Select Company' },
-          ...companyRows.map((company) => ({ value: normalizeId(company.id), label: `${company.companyName} (${company.companyCode})` }))
-        ]}
-      />
-      {!profileData ? (
-        <EmptyState title="Select a company" description="Choose a company above to configure timezone, currency, limits, plan, and status." />
-      ) : (
+      {profileData ? (
         <>
           <div className="form-grid">
             <FilterDropdown label="Currency" value={configForm.currency} onChange={(value) => setConfigForm((p) => ({ ...p, currency: value }))} options={currencyOptions} />
@@ -820,7 +865,7 @@ function CompanyManagementModulePage({ page }) {
             }}>Save Configuration</Button>
           </div>
         </>
-      )}
+      ) : null}
     </div>
   )
 
@@ -844,13 +889,9 @@ function CompanyManagementModulePage({ page }) {
       <DataTable
         columns={companyColumns.filter((c) => ['companyName', 'status'].includes(c.key))}
         rows={tableRows(`suspend-reactivate-${mode}`, companyRows)}
-        onView={async (row) => {
-          setTargetCompany(row)
-          await openProfile(row)
-          showSuccess(`Loaded profile for ${row.companyName}`)
-        }}
-        showViewAction
-        onEdit={openStatusEdit}
+        showActions={false}
+        showViewAction={false}
+        showEditAction={false}
         showDeleteAction={false}
       />
       {companyRows.length > COMPACT_ROW_LIMIT ? (
@@ -860,23 +901,25 @@ function CompanyManagementModulePage({ page }) {
           </Button>
         </div>
       ) : null}
-      <p style={{ marginTop: 8, marginBottom: 8 }}>
-        <strong>Selected:</strong> {targetCompany?.companyName || 'None'}
-      </p>
-      <Button disabled={!targetCompany?.id} variant={mode === 'suspend' ? 'danger' : 'primary'} onClick={async () => {
-        try {
-          const companyId = normalizeId(targetCompany?.id)
-          if (!companyId) return showError('Select a company first')
-          const res = await updateCompanyStatus(companyId, mode === 'suspend' ? 'suspended' : 'active', suspensionReason)
-          syncSelectedCompany(res.item)
-          setTargetCompany({ id: normalizeId(res.item?.id || res.item?._id), companyName: res.item?.companyName, status: res.item?.status })
-          if (mode !== 'suspend') setSuspensionReason('')
-          showSuccess(mode === 'suspend' ? 'Company suspended' : 'Company reactivated')
-          await loadCompanies()
-        } catch (error) {
-          showError(error?.response?.data?.message || 'Failed to update company state')
-        }
-      }}>{mode === 'suspend' ? 'Confirm Suspension' : 'Confirm Reactivation'}</Button>
+      <div className="suspend-summary-bar">
+        <p>
+          <strong>Selected:</strong> {targetCompany?.companyName || 'None'}
+        </p>
+        <Button disabled={!targetCompany?.id} variant={mode === 'suspend' ? 'danger' : 'primary'} onClick={async () => {
+          try {
+            const companyId = normalizeId(targetCompany?.id)
+            if (!companyId) return showError('Select a company first')
+            const res = await updateCompanyStatus(companyId, mode === 'suspend' ? 'suspended' : 'active', suspensionReason)
+            syncSelectedCompany(res.item)
+            setTargetCompany({ id: normalizeId(res.item?.id || res.item?._id), companyName: res.item?.companyName, status: res.item?.status })
+            if (mode !== 'suspend') setSuspensionReason('')
+            showSuccess(mode === 'suspend' ? 'Company suspended' : 'Company reactivated')
+            await loadCompanies()
+          } catch (error) {
+            showError(error?.response?.data?.message || 'Failed to update company state')
+          }
+        }}>{mode === 'suspend' ? 'Confirm Suspension' : 'Confirm Reactivation'}</Button>
+      </div>
     </div>
   )
 
@@ -921,11 +964,44 @@ function CompanyManagementModulePage({ page }) {
         primaryActionLabel="Add Company"
         onPrimaryAction={openAdd}
       />
+
+      <div className="workspace-nav company-workspace-nav" aria-label="Company category navigation">
+        {companyWorkspaceGroups.map((group) => (
+          <NavLink
+            key={group.title}
+            to={group.path}
+            className={({ isActive }) => `workspace-nav-chip ${isActive || activeWorkspaceGroup.title === group.title ? 'active' : ''}`}
+            data-group={group.title.toLowerCase()}
+          >
+            {group.title.toUpperCase()}
+          </NavLink>
+        ))}
+      </div>
+
+      <div className="workspace-subnav company-workspace-subnav" aria-label="Company module navigation">
+        {activeWorkspaceGroup.items.map((item) => (
+          <NavLink
+            key={item.path}
+            to={item.path}
+            className={({ isActive }) => `workspace-nav-chip ${isActive ? 'active' : ''}`}
+            data-group={activeWorkspaceGroup.title.toLowerCase()}
+          >
+            {item.label}
+          </NavLink>
+        ))}
+      </div>
+
       {toast.message ? <div className={`toast toast-${toast.type}`}>{toast.message}</div> : null}
       {renderByPage()}
 
-      <Modal open={modalOpen} title={selectedId ? 'Edit Company' : 'Add Company'} onClose={() => setModalOpen(false)}>
-        <form onSubmit={saveCompany}>
+      <Modal
+        open={modalOpen}
+        title={selectedId ? 'Edit Company' : 'Add Company'}
+        onClose={() => setModalOpen(false)}
+        modalClassName="company-form-shell"
+        bodyClassName="company-form-body"
+      >
+        <form className="company-form-modal" onSubmit={saveCompany}>
           <div className="form-grid">
             <FormInput
               label="Company Name"
@@ -986,7 +1062,7 @@ function CompanyManagementModulePage({ page }) {
             <FormInput label="Storage Limit (GB)" type="number" value={form.storageLimit} onChange={(e) => setForm((p) => ({ ...p, storageLimit: Number(e.target.value) }))} />
             <FilterDropdown label="Status" value={form.status} onChange={(value) => setForm((p) => ({ ...p, status: value }))} options={[{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }, { value: 'suspended', label: 'Suspended' }, { value: 'trial', label: 'Trial' }, { value: 'expired', label: 'Expired' }]} />
           </div>
-          <div className="modal-actions">
+          <div className="modal-actions company-form-actions">
             <Button type="button" variant="ghost" onClick={() => setModalOpen(false)}>Cancel</Button>
             <Button type="submit">Save Company</Button>
           </div>
@@ -1057,3 +1133,5 @@ function CompanyManagementModulePage({ page }) {
 }
 
 export default CompanyManagementModulePage
+
+

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { NavLink, useLocation } from 'react-router-dom'
 import PageHeader from '../../components/ui/PageHeader'
 import DataTable from '../../components/ui/DataTable'
 import SearchBar from '../../components/ui/SearchBar'
@@ -29,7 +30,7 @@ import {
   listPlans,
   listSubscriptions,
   refundPayment,
-  setAutoRenewal,
+  
   updateAddon,
   updateCoupon,
   updatePlan,
@@ -40,21 +41,15 @@ import { fetchCompanies } from '../../api/companyManagementApi'
 import { formatDate, formatDateTime } from '../../utils/dateFormat'
 
 const submodules = new Set([
-  'Subscription Plans', 'Feature Mapping', 'Trial Plans', 'Enterprise Plan', 'Plan Limits', 'Plan Pricing', 'User Limits', 'Storage Limits', 'Add-on Services', 'Plan Upgrade/Downgrade', 'Auto Renewal', 'Subscription History', 'Invoice Management', 'Generate Invoice', 'Payment Tracking', 'Failed Payments', 'Refund Management', 'Transaction History', 'Discount Coupons'
+  'Subscription Plans', 'Plan Pricing', 'User Limits', 'Storage Limits', 'Plan Upgrade/Downgrade', 'Subscription History', 'Invoice Management', 'Generate Invoice', 'Payment Tracking', 'Failed Payments', 'Refund Management', 'Transaction History', 'Discount Coupons'
 ])
 
 const sectionByPage = {
   'Subscription Plans': 'subscription-plans-section',
-  'Feature Mapping': 'subscription-plans-section',
-  'Plan Limits': 'subscription-plans-section',
-  'Trial Plans': 'subscription-plans-section',
-  'Enterprise Plan': 'subscription-plans-section',
   'Plan Pricing': 'subscription-plans-section',
   'User Limits': 'subscription-plans-section',
   'Storage Limits': 'subscription-plans-section',
-  'Add-on Services': 'subscription-addons-section',
   'Plan Upgrade/Downgrade': 'subscription-operations-section',
-  'Auto Renewal': 'subscription-operations-section',
   'Subscription History': 'subscription-operations-section',
   'Invoice Management': 'subscription-invoices-section',
   'Generate Invoice': 'subscription-invoices-section',
@@ -75,14 +70,44 @@ const planCols = [
   { key: 'status', label: 'Status' }
 ]
 
-const resetPlanForm = (type = 'standard') => ({ name: '', type, monthlyPrice: 0, yearlyPrice: 0, userLimit: 10, storageLimit: 5, features: '', status: 'active', autoRenewalEnabled: true })
+const resetPlanForm = (type = 'standard') => ({ name: '', type, monthlyPrice: 0, yearlyPrice: 0, userLimit: 10, storageLimit: 5, features: '', status: 'active' })
 const resetInvoiceForm = () => ({ companyId: '', subscriptionId: '', amount: 0, dueDate: '', couponCode: '' })
 const resetPaymentForm = () => ({ companyId: '', invoiceId: '', amount: '', method: 'card', status: 'completed', transactionRef: '' })
 const resetCouponForm = () => ({ code: '', discountType: 'percent', discountValue: 10, active: true, expiresAt: '' })
 const resetAddonForm = () => ({ name: '', description: '', priceMonthly: 0, priceYearly: 0, active: true })
-const resetSubscriptionForm = () => ({ id: '', company: '', plan: '', billingCycle: 'monthly', status: 'active', autoRenewal: true })
+const resetSubscriptionForm = () => ({ id: '', company: '', plan: '', billingCycle: 'monthly', status: 'active' })
+const subscriptionModuleRoot = '/super-admin/subscription-and-billing'
+
+const subscriptionWorkspaceGroups = [
+  {
+    title: 'Plans',
+    path: `${subscriptionModuleRoot}/subscription-plans`,
+    items: [
+      { label: 'Subscription Plans', path: `${subscriptionModuleRoot}/subscription-plans` }
+    ]
+  },
+  {
+    title: 'Lifecycle',
+    path: `${subscriptionModuleRoot}/plan-upgrade-downgrade`,
+    items: [
+      { label: 'Plan Upgrade/Downgrade', path: `${subscriptionModuleRoot}/plan-upgrade-downgrade` },
+      { label: 'Subscription History', path: `${subscriptionModuleRoot}/subscription-history` }
+    ]
+  },
+  {
+    title: 'Billing Operations',
+    path: `${subscriptionModuleRoot}/invoice-management`,
+    items: [
+      { label: 'Invoice Management', path: `${subscriptionModuleRoot}/invoice-management` },
+      { label: 'Generate Invoice', path: `${subscriptionModuleRoot}/generate-invoice` },
+      { label: 'Payment Tracking', path: `${subscriptionModuleRoot}/payment-tracking` },
+      { label: 'Discount Coupons', path: `${subscriptionModuleRoot}/discount-coupons` }
+    ]
+  }
+]
 
 function SubscriptionBillingModulePage({ page }) {
+  const { pathname } = useLocation()
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState({ type: '', message: '' })
   const [search, setSearch] = useState('')
@@ -126,6 +151,13 @@ function SubscriptionBillingModulePage({ page }) {
     [companies]
   )
   const planOptions = useMemo(() => plans.map((p) => ({ value: p._id, label: p.name })), [plans])
+  const activeWorkspaceGroupIndex = useMemo(() => {
+    const foundIndex = subscriptionWorkspaceGroups.findIndex((group) =>
+      group.items.some((item) => pathname === item.path || pathname.startsWith(`${item.path}/`))
+    )
+    return foundIndex >= 0 ? foundIndex : 0
+  }, [pathname])
+  const activeWorkspaceGroup = subscriptionWorkspaceGroups[activeWorkspaceGroupIndex] || subscriptionWorkspaceGroups[0]
 
   const toastError = (message) => setToast({ type: 'error', message })
   const toastOk = (message) => setToast({ type: 'success', message })
@@ -138,7 +170,7 @@ function SubscriptionBillingModulePage({ page }) {
   const loadData = async () => {
     setLoading(true)
     try {
-      const planTypeFilter = ['Subscription Plans', 'Feature Mapping', 'Plan Limits', 'Trial Plans', 'Enterprise Plan', 'Plan Pricing', 'User Limits', 'Storage Limits'].includes(page) ? planTypeTab : 'all'
+      const planTypeFilter = ['Subscription Plans', 'Plan Pricing', 'User Limits', 'Storage Limits'].includes(page) ? planTypeTab : 'all'
       const [pRes, sRes, iRes, payRes, cRes, aRes, companyRes] = await Promise.all([
         listPlans({ page: pagination.page, limit: pagination.limit, search, type: planTypeFilter, status: statusFilter }),
         listSubscriptions({ page: 1, limit: 500, search, status: statusFilter }),
@@ -170,9 +202,7 @@ function SubscriptionBillingModulePage({ page }) {
   }, [pagination.page, search, planTypeTab, statusFilter, page])
 
   useEffect(() => {
-    if (page === 'Trial Plans') setPlanTypeTab('trial')
-    else if (page === 'Enterprise Plan') setPlanTypeTab('enterprise')
-    else if (page === 'Subscription Plans') setPlanTypeTab('standard')
+    if (page === 'Subscription Plans') setPlanTypeTab('standard')
   }, [page])
 
   useEffect(() => {
@@ -216,8 +246,7 @@ function SubscriptionBillingModulePage({ page }) {
         company: subscriptionForm.company,
         plan: subscriptionForm.plan,
         billingCycle: subscriptionForm.billingCycle,
-        status: subscriptionForm.status,
-        autoRenewal: subscriptionForm.autoRenewal
+        status: subscriptionForm.status
       })
       toastOk('Subscription assigned to company')
       setAssignModal(false)
@@ -337,15 +366,15 @@ function SubscriptionBillingModulePage({ page }) {
   const addonRows = addons.map((x) => ({ id: x._id, name: x.name, monthly: x.priceMonthly, yearly: x.priceYearly, status: x.active ? 'active' : 'inactive' }))
   const addonCols = [{ key: 'name', label: 'Add-on' }, { key: 'monthly', label: 'Monthly' }, { key: 'yearly', label: 'Yearly' }, { key: 'status', label: 'Status' }]
 
-  const subsRows = subscriptions.map((x) => ({ id: x._id, company: x.company?.companyName || x.company || '-', plan: x.plan?.name || x.plan || '-', billingCycle: x.billingCycle, status: x.status, autoRenewal: x.autoRenewal ? 'active' : 'inactive' }))
-  const subsCols = [{ key: 'company', label: 'Company' }, { key: 'plan', label: 'Plan' }, { key: 'billingCycle', label: 'Cycle' }, { key: 'status', label: 'Status' }, { key: 'autoRenewal', label: 'Auto Renewal' }]
+  const subsRows = subscriptions.map((x) => ({ id: x._id, company: x.company?.companyName || x.company || '-', plan: x.plan?.name || x.plan || '-', billingCycle: x.billingCycle, status: x.status }))
+  const subsCols = [{ key: 'company', label: 'Company' }, { key: 'plan', label: 'Plan' }, { key: 'billingCycle', label: 'Cycle' }, { key: 'status', label: 'Status' }]
 
   const renderPlanTable = (title) => (
     <div className={`panel ${['Subscription Plans', 'Plan Limits', 'Plan Pricing'].includes(title) ? 'subscription-plans-panel' : ''} ${['PlanLimits', 'Plan Limits', 'PlanPricing', 'Plan Pricing'].includes(title) ? 'plan-pricing-panel' : ''}`}>
       <div className="panel-head"><h3>{title}</h3>{title === 'Subscription Plans' ? <Button onClick={() => { setSelectedPlan(null); setPlanForm(resetPlanForm(planTypeTab)); setPlanModal(true) }}>Create Plan</Button> : null}</div>
       {['Subscription Plans', 'Plan Limits', 'Plan Pricing'].includes(title) ? (
         <div className="tabs-row">
-          {[{ key: 'standard', label: 'Standard Plans' }, { key: 'trial', label: 'Trial Plans' }, { key: 'enterprise', label: 'Enterprise Plans' }].map((tab) => (
+          {[{ key: 'standard', label: 'Subscription Plans' }].map((tab) => (
             <button key={tab.key} type="button" className={`chip-btn ${planTypeTab === tab.key ? 'active' : ''}`} onClick={() => { setPlanTypeTab(tab.key); setPagination((p) => ({ ...p, page: 1 })) }}>
               {tab.label}
             </button>
@@ -364,20 +393,13 @@ function SubscriptionBillingModulePage({ page }) {
   const renderSection = (activePage = page) => {
     switch (activePage) {
       case 'Subscription Plans':
-      case 'Feature Mapping':
-      case 'Trial Plans':
-      case 'Enterprise Plan':
-      case 'Plan Limits':
       case 'Plan Pricing':
       case 'User Limits':
       case 'Storage Limits':
-        return renderPlanTable(activePage === 'User Limits' || activePage === 'Storage Limits' || activePage === 'Plan Pricing' ? 'Plan Limits' : activePage)
-      case 'Add-on Services':
-        return <div className="panel"><div className="panel-head"><h3>Add-on Services</h3><Button onClick={() => { setAddonForm(resetAddonForm()); setAddonModal(true) }}>Create Add-on</Button></div><DataTable columns={addonCols} rows={addonRows} showViewAction={false} onEdit={(row) => { const x = addons.find((a) => a._id === row.id); setAddonForm(x); setAddonModal(true) }} onDelete={(row) => openConfirm('Delete Add-on', 'Delete this add-on service?', async () => { await deleteAddon(row.id); toastOk('Add-on deleted'); loadData() })} /></div>
+        return renderPlanTable(activePage === 'User Limits' || activePage === 'Storage Limits' || activePage === 'Plan Pricing' ? 'Plan Pricing' : activePage)
       case 'Plan Upgrade/Downgrade':
-      case 'Auto Renewal':
       case 'Subscription History':
-        return <div className="panel"><div className="panel-head"><h3>{page}</h3><Button onClick={() => setAssignModal(true)}>Assign Subscription</Button></div><div className="form-grid"><FormInput label="Subscription ID" value={subscriptionForm.id} onChange={(e) => setSubscriptionForm((p) => ({ ...p, id: e.target.value }))} /><FilterDropdown label="Plan" value={subscriptionForm.plan} onChange={(v) => setSubscriptionForm((p) => ({ ...p, plan: v }))} options={[{ value: '', label: 'Select Plan' }, ...planOptions]} /><FilterDropdown label="Status" value={subscriptionForm.status} onChange={(v) => setSubscriptionForm((p) => ({ ...p, status: v }))} options={[{ value: 'active', label: 'Active' }, { value: 'cancelled', label: 'Cancelled' }, { value: 'expired', label: 'Expired' }, { value: 'trial', label: 'Trial' }]} /><FilterDropdown label="Billing Cycle" value={subscriptionForm.billingCycle} onChange={(v) => setSubscriptionForm((p) => ({ ...p, billingCycle: v }))} options={[{ value: 'monthly', label: 'Monthly' }, { value: 'yearly', label: 'Yearly' }]} /><FilterDropdown label="Auto Renewal" value={subscriptionForm.autoRenewal ? 'yes' : 'no'} onChange={(v) => setSubscriptionForm((p) => ({ ...p, autoRenewal: v === 'yes' }))} options={[{ value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }]} /></div><div className="actions-row"><Button onClick={async () => { try { if (!subscriptionForm.id) return toastError('Subscription ID required'); await upgradeDowngrade(subscriptionForm.id, { planId: subscriptionForm.plan, billingCycle: subscriptionForm.billingCycle, autoRenewal: subscriptionForm.autoRenewal }); toastOk('Subscription upgraded/downgraded'); loadData() } catch (error) { toastError(error?.response?.data?.message || 'Update failed') } }}>Upgrade/Downgrade</Button><Button variant="ghost" onClick={async () => { try { if (!subscriptionForm.id) return toastError('Subscription ID required'); await setAutoRenewal(subscriptionForm.id, subscriptionForm.autoRenewal); toastOk('Auto renewal updated'); loadData() } catch (error) { toastError(error?.response?.data?.message || 'Auto renewal update failed') } }}>Set Auto Renewal</Button><Button variant="ghost" onClick={async () => { try { if (!subscriptionForm.id) return toastError('Subscription ID required'); await updateSubscription(subscriptionForm.id, { status: subscriptionForm.status }); toastOk(`Subscription ${subscriptionForm.status}`); loadData() } catch (error) { toastError(error?.response?.data?.message || 'Status update failed') } }}>Activate/Cancel/Expire</Button></div><DataTable columns={subsCols} rows={subsRows} showViewAction={false} onEdit={(row) => { const found = subscriptions.find((item) => item._id === row.id); if (!found) return; setSubscriptionForm({ id: found._id, company: found.company?._id || found.company || '', plan: found.plan?._id || found.plan || '', billingCycle: found.billingCycle || 'monthly', status: found.status || 'active', autoRenewal: !!found.autoRenewal }) }} onDelete={(row) => openConfirm('Delete Subscription', 'Delete this company subscription?', async () => { await deleteSubscription(row.id); toastOk('Subscription deleted'); loadData() })} /></div>
+        return <div className="panel"><div className="panel-head"><h3>{page}</h3><Button onClick={() => setAssignModal(true)}>Assign Subscription</Button></div><div className="form-grid"><FormInput label="Subscription ID" value={subscriptionForm.id} onChange={(e) => setSubscriptionForm((p) => ({ ...p, id: e.target.value }))} /><FilterDropdown label="Plan" value={subscriptionForm.plan} onChange={(v) => setSubscriptionForm((p) => ({ ...p, plan: v }))} options={[{ value: '', label: 'Select Plan' }, ...planOptions]} /><FilterDropdown label="Status" value={subscriptionForm.status} onChange={(v) => setSubscriptionForm((p) => ({ ...p, status: v }))} options={[{ value: 'active', label: 'Active' }, { value: 'cancelled', label: 'Cancelled' }, { value: 'expired', label: 'Expired' }, { value: 'trial', label: 'Trial' }]} /><FilterDropdown label="Billing Cycle" value={subscriptionForm.billingCycle} onChange={(v) => setSubscriptionForm((p) => ({ ...p, billingCycle: v }))} options={[{ value: 'monthly', label: 'Monthly' }, { value: 'yearly', label: 'Yearly' }]} /></div><div className="actions-row"><Button onClick={async () => { try { if (!subscriptionForm.id) return toastError('Subscription ID required'); await upgradeDowngrade(subscriptionForm.id, { planId: subscriptionForm.plan, billingCycle: subscriptionForm.billingCycle }); toastOk('Subscription upgraded/downgraded'); loadData() } catch (error) { toastError(error?.response?.data?.message || 'Update failed') } }}>Upgrade/Downgrade</Button><Button variant="ghost" onClick={async () => { try { if (!subscriptionForm.id) return toastError('Subscription ID required'); await updateSubscription(subscriptionForm.id, { status: subscriptionForm.status }); toastOk(`Subscription ${subscriptionForm.status}`); loadData() } catch (error) { toastError(error?.response?.data?.message || 'Status update failed') } }}>Activate/Cancel/Expire</Button></div><DataTable columns={subsCols} rows={subsRows} showViewAction={false} onEdit={(row) => { const found = subscriptions.find((item) => item._id === row.id); if (!found) return; setSubscriptionForm({ id: found._id, company: found.company?._id || found.company || '', plan: found.plan?._id || found.plan || '', billingCycle: found.billingCycle || 'monthly', status: found.status || 'active' }) }} onDelete={(row) => openConfirm('Delete Subscription', 'Delete this company subscription?', async () => { await deleteSubscription(row.id); toastOk('Subscription deleted'); loadData() })} /></div>
       case 'Invoice Management':
       case 'Generate Invoice':
         return <div className="panel"><div className="panel-head"><h3>{page}</h3><Button onClick={() => { setInvoiceForm(resetInvoiceForm()); setInvoiceModal(true) }}>New Invoice</Button></div><DataTable columns={invoiceCols} rows={invoiceRows} showViewAction={false} showEditAction={false} onDelete={(row) => openConfirm('Delete Invoice', 'Delete this invoice?', async () => { await deleteInvoice(row.id); toastOk('Invoice deleted'); loadData() })} /></div>
@@ -455,19 +477,43 @@ function SubscriptionBillingModulePage({ page }) {
   }
 
   return (
-    <section className="section-layout">
+    <section className="section-layout subscription-billing-page">
       <PageHeader title="Subscription & Billing" description="Single-page workspace for plans, invoices, payments, coupons, add-ons, and renewals." breadcrumb={['Super Admin', 'Subscription & Billing', page || 'Subscription Plans']} primaryActionLabel="Reload" onPrimaryAction={loadData} />
+      <div className="workspace-nav subscription-workspace-nav" aria-label="Subscription category navigation">
+        {subscriptionWorkspaceGroups.map((group) => (
+          <NavLink
+            key={group.title}
+            to={group.path}
+            className={({ isActive }) => `workspace-nav-chip ${isActive || activeWorkspaceGroup.title === group.title ? 'active' : ''}`}
+            data-group={group.title.toLowerCase()}
+          >
+            {group.title.toUpperCase()}
+          </NavLink>
+        ))}
+      </div>
+      <div className="workspace-subnav subscription-workspace-subnav" aria-label="Subscription module navigation">
+        {activeWorkspaceGroup.items.map((item) => (
+          <NavLink
+            key={item.path}
+            to={item.path}
+            className={({ isActive }) => `workspace-nav-chip ${isActive ? 'active' : ''}`}
+            data-group={activeWorkspaceGroup.title.toLowerCase()}
+          >
+            {item.label}
+          </NavLink>
+        ))}
+      </div>
       {toast.message ? <div className={`toast toast-${toast.type}`}>{toast.message}</div> : null}
-      <div className="panel filters-panel"><div className="filters-row"><div className="search-wrap"><label>Search</label><SearchBar value={search} onChange={setSearch} placeholder="Search by name/code/invoice" /></div><FilterDropdown label="Status" value={statusFilter} onChange={(v) => { setStatusFilter(v); setPagination((prev) => ({ ...prev, page: 1 })) }} options={page === 'Discount Coupons' ? [{ value: 'all', label: 'All' }, { value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }] : [{ value: 'all', label: 'All' }, { value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }, { value: 'pending', label: 'Pending' }, { value: 'failed', label: 'Failed' }, { value: 'completed', label: 'Completed' }, { value: 'paid', label: 'Paid' }, { value: 'cancelled', label: 'Cancelled' }, { value: 'expired', label: 'Expired' }]} /></div></div>
       {page === 'Subscription Plans' || !page ? (
         <div className="panel"><h3>Billing Summary</h3><div className="stats-grid"><div className="stat-card"><h4>Active Subscriptions</h4><p>{billingSummary.activeSubscriptions}</p></div><div className="stat-card"><h4>Pending Invoices</h4><p>{billingSummary.pendingInvoices}</p></div><div className="stat-card"><h4>Failed Payments</h4><p>{billingSummary.failedPayments}</p></div><div className="stat-card"><h4>Revenue</h4><p>{billingSummary.revenue}</p></div><div className="stat-card"><h4>Outstanding</h4><p>{billingSummary.outstanding}</p></div></div></div>
       ) : null}
+      <div className="panel filters-panel"><div className="filters-row"><div className="search-wrap"><label>Search</label><SearchBar value={search} onChange={setSearch} placeholder="Search by name/code/invoice" /></div><FilterDropdown label="Status" value={statusFilter} onChange={(v) => { setStatusFilter(v); setPagination((prev) => ({ ...prev, page: 1 })) }} options={page === 'Discount Coupons' ? [{ value: 'all', label: 'All' }, { value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }] : [{ value: 'all', label: 'All' }, { value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }, { value: 'pending', label: 'Pending' }, { value: 'failed', label: 'Failed' }, { value: 'completed', label: 'Completed' }, { value: 'paid', label: 'Paid' }, { value: 'cancelled', label: 'Cancelled' }, { value: 'expired', label: 'Expired' }]} /></div></div>
       {submodules.has(page) || !page ? renderSection(page || 'Subscription Plans') : <EmptyState title="Unknown Subscription module" />}
 
       <Modal open={planModal} title={selectedPlan ? 'Edit Plan' : 'Create Plan'} onClose={() => setPlanModal(false)}>
         <div className="form-grid">
           <FormInput label="Plan Name" value={planForm.name} onChange={(e) => setPlanForm((p) => ({ ...p, name: e.target.value }))} />
-          <FilterDropdown label="Type" value={planForm.type} onChange={(v) => setPlanForm((p) => ({ ...p, type: v }))} options={[{ value: 'trial', label: 'Trial' }, { value: 'standard', label: 'Standard' }, { value: 'enterprise', label: 'Enterprise' }]} />
+          <FilterDropdown label="Type" value={planForm.type} onChange={(v) => setPlanForm((p) => ({ ...p, type: v }))} options={[{ value: 'standard', label: 'Standard' }]} />
           <FormInput label="Monthly Price" type="number" value={planForm.monthlyPrice} onChange={(e) => setPlanForm((p) => ({ ...p, monthlyPrice: Number(e.target.value) }))} />
           <FormInput label="Yearly Price" type="number" value={planForm.yearlyPrice} onChange={(e) => setPlanForm((p) => ({ ...p, yearlyPrice: Number(e.target.value) }))} />
           <FormInput label="User Limit" type="number" value={planForm.userLimit} onChange={(e) => setPlanForm((p) => ({ ...p, userLimit: Number(e.target.value) }))} />

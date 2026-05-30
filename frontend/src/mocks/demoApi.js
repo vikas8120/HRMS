@@ -298,7 +298,6 @@ const listMap = (db) => ({
   widgets: db.dashboardWidgets,
   ai: db.aiSettings,
   automation: db.automationRules,
-  'global-users': db.globalUsers,
   admins: db.superAdmins,
   roles: db.roles,
   'platform-overview': db.platformOverview,
@@ -903,118 +902,6 @@ export const handleDemoRequest = async (config) => {
       { _id: 'ss-03', group: 'Timezone Settings', key: 'timezone_settings', value: { timezone: 'Asia/Kolkata' }, description: 'Timezone selection' }
     ] })
   }
-  if (path === '/super-admin/global-users' && method === 'get') {
-    const items = db.globalUsers.map((u, idx) => ({
-      _id: u._id || u.id || `gu-${idx + 1}`,
-      name: u.name || `Global User ${idx + 1}`,
-      email: u.email || `user${idx + 1}@demo.com`,
-      phone: u.phone || '+91-9000000000',
-      company: { companyName: u.company?.companyName || 'Acme Corp' },
-      role: u.role || 'EMPLOYEE',
-      status: u.status || 'active',
-      lastLogin: u.lastLogin || new Date().toISOString()
-    }))
-    return ok(config, {
-      items,
-      pagination: {
-        page: Number(config?.params?.page || 1),
-        limit: Number(config?.params?.limit || 10),
-        total: items.length,
-        totalPages: 1
-      }
-    })
-  }
-  if (path === '/super-admin/global-users/login-history' && method === 'get') {
-    const items = db.globalUsers.slice(0, 20).map((u, idx) => ({
-      _id: `lh-${idx + 1}`,
-      user: { name: u.name, email: u.email },
-      email: u.email,
-      ipAddress: `192.168.0.${(idx % 20) + 10}`,
-      device: idx % 2 === 0 ? 'Chrome / Windows' : 'Safari / iOS',
-      success: idx % 4 !== 0,
-      dateTime: new Date(Date.now() - (idx * 3600000)).toISOString()
-    }))
-    return ok(config, { items })
-  }
-  if (path === '/super-admin/global-users/active-sessions' && method === 'get') {
-    const items = db.globalUsers.slice(0, 12).map((u, idx) => ({
-      _id: `ses-${idx + 1}`,
-      user: { name: u.name, email: u.email },
-      ipAddress: `10.0.0.${(idx % 20) + 20}`,
-      device: idx % 2 === 0 ? 'Windows Chrome' : 'Android App',
-      active: true,
-      loggedInAt: new Date(Date.now() - (idx * 5400000)).toISOString()
-    }))
-    return ok(config, { items })
-  }
-  if (path === '/super-admin/global-users/failed-attempts' && method === 'get') {
-    const items = db.globalUsers.slice(0, 8).map((u, idx) => ({
-      _id: `fa-${idx + 1}`,
-      user: { name: u.name, email: u.email },
-      email: u.email,
-      ipAddress: `172.16.0.${(idx % 20) + 30}`,
-      device: 'Unknown',
-      success: false,
-      dateTime: new Date(Date.now() - (idx * 7200000)).toISOString()
-    }))
-    return ok(config, { items })
-  }
-  if (path === '/super-admin/global-users/device-tracking' && method === 'get') {
-    const items = db.globalUsers.slice(0, 15).map((u, idx) => ({
-      _id: `dt-${idx + 1}`,
-      user: { name: u.name, email: u.email },
-      deviceType: idx % 2 === 0 ? 'Desktop' : 'Mobile',
-      os: idx % 2 === 0 ? 'Windows 11' : 'Android',
-      browser: idx % 2 === 0 ? 'Chrome' : 'Edge',
-      ipAddress: `100.64.0.${(idx % 20) + 40}`,
-      dateTime: new Date(Date.now() - (idx * 1800000)).toISOString()
-    }))
-    return ok(config, { items })
-  }
-  if (path === '/super-admin/global-users/bulk-export' && method === 'get') {
-    return ok(config, { message: 'Bulk export generated', items: db.globalUsers })
-  }
-  if (path === '/super-admin/global-users/bulk-import' && method === 'post') {
-    const body = typeof config.data === 'string' ? safeParse(config.data, {}) : (config.data || {})
-    const users = Array.isArray(body.users) ? body.users : []
-    users.forEach((u, idx) => {
-      db.globalUsers.push({
-        _id: `gu-import-${Date.now()}-${idx}`,
-        name: u.name || `Imported User ${idx + 1}`,
-        email: u.email || `import${idx + 1}@demo.com`,
-        phone: u.phone || '',
-        company: { companyName: 'Imported Co' },
-        role: u.role || 'EMPLOYEE',
-        status: u.status || 'active',
-        lastLogin: new Date().toISOString()
-      })
-    })
-    saveDb(db)
-    return created(config, { message: 'Bulk import completed', count: users.length })
-  }
-  if (/^\/super-admin\/global-users\/[^/]+$/.test(path) && (method === 'put' || method === 'patch')) {
-    return ok(config, { message: method === 'patch' ? 'User status updated' : 'User updated' })
-  }
-  if (/^\/super-admin\/global-users\/[^/]+\/(status|force-logout)$/.test(path) && method === 'patch') {
-    return ok(config, { message: path.endsWith('/force-logout') ? 'User logged out from all sessions' : 'User status updated' })
-  }
-  if (path === '/super-admin/global-users' && method === 'post') {
-    const body = typeof config.data === 'string' ? safeParse(config.data, {}) : (config.data || {})
-    const next = {
-      _id: `gu-${Date.now()}`,
-      name: body.name || 'New User',
-      email: body.email || 'new@demo.com',
-      phone: body.phone || '',
-      company: { companyName: 'Acme Corp' },
-      role: body.role || 'EMPLOYEE',
-      status: body.status || 'active',
-      lastLogin: new Date().toISOString()
-    }
-    db.globalUsers.unshift(next)
-    saveDb(db)
-    return created(config, { item: next, message: 'User created' })
-  }
-
   // Support Center (strict shapes for unified module pages)
   if (path === '/super-admin/support/tickets' && method === 'get') {
     const params = config?.params || {}
@@ -1297,3 +1184,4 @@ export const handleDemoRequest = async (config) => {
     overview: {}
   })
 }
+
