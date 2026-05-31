@@ -4,175 +4,268 @@ import DataTable from '../../components/ui/DataTable'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import FormInput from '../../components/ui/FormInput'
-import EmptyState from '../../components/ui/EmptyState'
-import LoadingSkeleton from '../../components/ui/LoadingSkeleton'
-import { createAIUsageLog, createAutomationRule, getAIInsights, listAISettings, listAIUsageLogs, listAutomationRules, saveAISetting, updateAutomationRule } from '../../api/aiCenterApi'
+import FilterDropdown from '../../components/ui/FilterDropdown'
 
-const insightModules = [
-  'AI Dashboard',
-  'Attendance Insights',
-  'Attrition Prediction',
-  'Payroll Analytics',
-  'AI Chatbot',
-  'Auto Reports',
-  'Fraud Detection'
+const AI_CENTER_STORAGE_KEY = 'hrms_frontend_ai_center_v1'
+
+const insightTypes = ['AI Dashboard', 'AI Attendance Insights', 'AI Attrition Prediction', 'AI Payroll Analytics', 'AI Usage Analytics']
+const automationTypes = ['AI Chatbot', 'AI Auto Reports', 'AI Automation Rules']
+const riskTypes = ['AI Fraud Detection']
+
+const allTypes = [...insightTypes, ...automationTypes, ...riskTypes]
+
+const initialInsights = [
+  { id: 'ins-1', module: 'AI Dashboard', score: 82, trend: '+6%', highlights: ['Prediction confidence stable', 'Usage increasing across payroll', 'No anomaly in last 24h'] },
+  { id: 'ins-2', module: 'AI Attendance Insights', score: 77, trend: '+3%', highlights: ['Late check-ins reduced by 11%', 'Shift variance normal', 'Geo mismatch alerts low'] },
+  { id: 'ins-3', module: 'AI Attrition Prediction', score: 68, trend: '+2%', highlights: ['Attrition risk concentrated in sales', 'Top trigger: workload index', 'Retention model refreshed'] },
+  { id: 'ins-4', module: 'AI Payroll Analytics', score: 85, trend: '+5%', highlights: ['Payroll anomalies: 0 critical', 'Overtime variance controlled', 'Approval SLA improved'] },
+  { id: 'ins-5', module: 'AI Usage Analytics', score: 74, trend: '+9%', highlights: ['Active AI users up 14%', 'Most used: assistant summary', 'Token efficiency improved'] }
 ]
 
-const sectionByPage = {
-  'AI Dashboard': 'ai-insights-section',
-  'AI Attendance Insights': 'ai-insights-section',
-  'AI Attrition Prediction': 'ai-insights-section',
-  'AI Payroll Analytics': 'ai-insights-section',
-  'AI Chatbot': 'ai-insights-section',
-  'AI Auto Reports': 'ai-insights-section',
-  'AI Fraud Detection': 'ai-insights-section',
-  'AI Usage Analytics': 'ai-usage-section',
-  'AI Automation Rules': 'ai-rules-section'
+const initialUsageLogs = [
+  { id: 'ulg-1', module: 'AI Dashboard', action: 'VIEW_INSIGHT', usageCount: 12, actor: 'Super Admin', dateTime: '2026-05-31T14:15:00.000Z' },
+  { id: 'ulg-2', module: 'AI Chatbot', action: 'RUN_ASSIST', usageCount: 31, actor: 'HR Manager', dateTime: '2026-05-31T13:12:00.000Z' },
+  { id: 'ulg-3', module: 'AI Fraud Detection', action: 'SCAN_TRIGGER', usageCount: 4, actor: 'Risk Engine', dateTime: '2026-05-31T12:00:00.000Z' }
+]
+
+const initialRules = [
+  { id: 'rule-1', name: 'Attrition Alert', trigger: 'risk_score > 80', action: 'notify_hr_head', enabled: true },
+  { id: 'rule-2', name: 'Payroll Anomaly Alert', trigger: 'anomaly_severity = high', action: 'create_audit_ticket', enabled: true }
+]
+
+const initialSettings = {
+  modelMode: 'balanced',
+  autoReportFrequency: 'weekly',
+  chatbotTone: 'professional',
+  fraudSensitivity: 'medium'
 }
 
 function AICenterModulePage({ page }) {
-  const [insights, setInsights] = useState([])
-  const [settings, setSettings] = useState([])
-  const [logs, setLogs] = useState([])
-  const [rules, setRules] = useState([])
   const [toast, setToast] = useState({ type: '', message: '' })
+  const [insights, setInsights] = useState(() => {
+    try {
+      const raw = localStorage.getItem(AI_CENTER_STORAGE_KEY)
+      const parsed = raw ? JSON.parse(raw) : null
+      return parsed?.insights?.length ? parsed.insights : initialInsights
+    } catch {
+      return initialInsights
+    }
+  })
+  const [logs, setLogs] = useState(() => {
+    try {
+      const raw = localStorage.getItem(AI_CENTER_STORAGE_KEY)
+      const parsed = raw ? JSON.parse(raw) : null
+      return parsed?.logs?.length ? parsed.logs : initialUsageLogs
+    } catch {
+      return initialUsageLogs
+    }
+  })
+  const [rules, setRules] = useState(() => {
+    try {
+      const raw = localStorage.getItem(AI_CENTER_STORAGE_KEY)
+      const parsed = raw ? JSON.parse(raw) : null
+      return parsed?.rules?.length ? parsed.rules : initialRules
+    } catch {
+      return initialRules
+    }
+  })
+  const [settings, setSettings] = useState(() => {
+    try {
+      const raw = localStorage.getItem(AI_CENTER_STORAGE_KEY)
+      const parsed = raw ? JSON.parse(raw) : null
+      return parsed?.settings ? parsed.settings : initialSettings
+    } catch {
+      return initialSettings
+    }
+  })
+
   const [ruleModal, setRuleModal] = useState(false)
   const [editRuleId, setEditRuleId] = useState('')
+  const [selectedInsightType, setSelectedInsightType] = useState('AI Dashboard')
+  const [selectedAutomationType, setSelectedAutomationType] = useState('AI Chatbot')
+  const [selectedRiskType, setSelectedRiskType] = useState('AI Fraud Detection')
   const [ruleForm, setRuleForm] = useState({ name: '', trigger: '', action: '', enabled: true })
-  const [loading, setLoading] = useState(false)
-
-  const toastOk = (m) => setToast({ type: 'success', message: m })
-  const toastError = (m) => setToast({ type: 'error', message: m })
-
-  const load = async () => {
-    setLoading(true)
-    try {
-      const [insightResponses, st, lg, rl] = await Promise.all([
-        Promise.all(insightModules.map((moduleName) => getAIInsights(moduleName))),
-        listAISettings(),
-        listAIUsageLogs({ page: 1, limit: 50, module: 'all' }),
-        listAutomationRules()
-      ])
-
-      setInsights((insightResponses || []).map((response) => response?.data || {}))
-      setSettings(st.items)
-      setLogs(lg.items)
-      setRules(rl.items)
-    } catch (e) {
-      toastError(e?.response?.data?.message || 'Failed to load AI data')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => { load() }, [])
 
   useEffect(() => {
-    if (!page || !sectionByPage[page]) return
-    const timer = setTimeout(() => {
-      const element = document.getElementById(sectionByPage[page])
-      if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }, 50)
-    return () => clearTimeout(timer)
+    localStorage.setItem(AI_CENTER_STORAGE_KEY, JSON.stringify({ insights, logs, rules, settings }))
+  }, [insights, logs, rules, settings])
+
+  useEffect(() => {
+    if (!page) return
+    if (insightTypes.includes(page)) setSelectedInsightType(page)
+    if (automationTypes.includes(page)) setSelectedAutomationType(page)
+    if (riskTypes.includes(page)) setSelectedRiskType(page)
   }, [page])
 
-  const logCols = [{ key: 'module', label: 'Module' }, { key: 'action', label: 'Action' }, { key: 'usageCount', label: 'Count' }, { key: 'actor', label: 'Actor' }, { key: 'dateTime', label: 'Date/Time' }]
-  const logRows = useMemo(() => logs.map((x) => ({ id: x._id, module: x.module, action: x.action, usageCount: x.usageCount, actor: x.actor, dateTime: new Date(x.dateTime).toLocaleString() })), [logs])
+  const activeGroup = useMemo(() => {
+    if (page && insightTypes.includes(page)) return 'Insights'
+    if (page && automationTypes.includes(page)) return 'Automation'
+    if (page && riskTypes.includes(page)) return 'Risk'
+    return 'Insights'
+  }, [page])
 
-  const ruleCols = [{ key: 'name', label: 'Rule' }, { key: 'trigger', label: 'Trigger' }, { key: 'action', label: 'Action' }, { key: 'enabled', label: 'Status' }]
-  const ruleRows = useMemo(() => rules.map((x) => ({ id: x._id, name: x.name, trigger: x.trigger, action: x.action, enabled: x.enabled ? 'active' : 'inactive' })), [rules])
+  const showToast = (type, message) => {
+    setToast({ type, message })
+    setTimeout(() => setToast({ type: '', message: '' }), 1600)
+  }
+
+  const addUsageLog = (moduleName, action = 'VIEW_INSIGHT') => {
+    const row = {
+      id: `ulg-${Date.now()}`,
+      module: moduleName,
+      action,
+      usageCount: 1,
+      actor: 'Super Admin',
+      dateTime: new Date().toISOString()
+    }
+    setLogs((prev) => [row, ...prev])
+    showToast('success', `${moduleName} usage logged`)
+  }
+
+  const visibleInsights = useMemo(() => insights.filter((item) => item.module === selectedInsightType), [insights, selectedInsightType])
+
+  const usageCols = [
+    { key: 'module', label: 'Module' },
+    { key: 'action', label: 'Action' },
+    { key: 'usageCount', label: 'Count' },
+    { key: 'actor', label: 'Actor' },
+    { key: 'dateTime', label: 'Date/Time' }
+  ]
+
+  const usageRows = useMemo(() => logs
+    .filter((x) => {
+      if (activeGroup === 'Insights') return insightTypes.includes(x.module)
+      if (activeGroup === 'Automation') return automationTypes.includes(x.module)
+      return riskTypes.includes(x.module)
+    })
+    .map((x) => ({ ...x, dateTime: new Date(x.dateTime).toLocaleString() })), [logs, activeGroup])
+
+  const ruleCols = [
+    { key: 'name', label: 'Rule' },
+    { key: 'trigger', label: 'Trigger' },
+    { key: 'action', label: 'Action' },
+    { key: 'enabled', label: 'Status' }
+  ]
+
+  const ruleRows = useMemo(() => rules.map((x) => ({ ...x, enabled: x.enabled ? 'active' : 'inactive' })), [rules])
 
   return (
-    <section className="section-layout">
+    <section className="section-layout ai-center-page">
       <PageHeader
-        title="AI Center"
-        description="Single-page AI workspace for insights, settings, usage analytics, and automation rules."
-        breadcrumb={['Super Admin', 'AI Center', 'Workspace']}
+        title={activeGroup === 'Insights' ? selectedInsightType : activeGroup === 'Automation' ? selectedAutomationType : selectedRiskType}
+        description="Frontend-only AI workspace with tab-wise controls and persistent local state."
+        breadcrumb={['Super Admin', 'AI Center', activeGroup]}
         primaryActionLabel="Refresh"
-        onPrimaryAction={load}
+        onPrimaryAction={() => showToast('success', 'Refreshed (frontend state)')}
       />
 
       {toast.message ? <div className={`toast toast-${toast.type}`}>{toast.message}</div> : null}
-      {loading ? <div className="panel"><LoadingSkeleton rows={5} /></div> : null}
 
-      <div className="panel">
-        <div className="panel-head"><h3>All AI Controls In One Page</h3></div>
-        <p>Manage AI insights, platform settings, usage telemetry, and automation rules in one unified workspace.</p>
-      </div>
-
-      <div id="ai-insights-section" className="panel">
-        <h3>AI Insights</h3>
-        <div className="permission-grid">
-          {insights.map((insight, index) => (
-            <div key={insight.module || `insight-${index}`} className="permission-card">
-              <h4>{insight.module || '-'}</h4>
-              <pre className="form-input" style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(insight.data || {}, null, 2)}</pre>
-              <Button onClick={async () => { try { const res = await createAIUsageLog({ module: insight.module, action: 'VIEW_INSIGHT', usageCount: 1, actor: 'Super Admin' }); toastOk(res?.message || 'Usage log created'); load() } catch (error) { toastError(error?.response?.data?.message || 'Failed to log usage') } }}>Log Usage</Button>
+      {activeGroup === 'Insights' ? (
+        <>
+          <div className="panel">
+            <div className="form-grid">
+              <FilterDropdown label="Insight Module" value={selectedInsightType} onChange={setSelectedInsightType} options={insightTypes.map((x) => ({ value: x, label: x }))} />
             </div>
-          ))}
-        </div>
-        {!loading && insights.length === 0 ? <EmptyState title="No AI insights available" /> : null}
-      </div>
-
-      <div id="ai-settings-section" className="panel">
-        <h3>AI Settings</h3>
-        {settings.length === 0 ? <EmptyState title="No AI settings yet" /> : settings.map((s) => (
-          <div key={s._id} className="inline-action-card">
-            <strong>{s.key}</strong>
-            <span>{s.description || '-'}</span>
-            <Button variant="ghost" onClick={async () => { try { const res = await saveAISetting({ key: s.key, value: s.value, description: s.description }); toastOk(res?.message || 'Setting saved') } catch (error) { toastError(error?.response?.data?.message || 'Failed to save setting') } }}>Save</Button>
           </div>
-        ))}
-      </div>
 
-      <div id="ai-usage-section" className="panel">
-        <h3>AI Usage Analytics</h3>
-        <DataTable columns={logCols} rows={logRows} showActions={false} />
-        {!loading && logRows.length === 0 ? <EmptyState title="No AI usage logs found" /> : null}
-      </div>
+          <div className="panel">
+            <h3>Insight Result</h3>
+            {visibleInsights.map((insight) => (
+              <div key={insight.id} className="panel" style={{ marginBottom: 10 }}>
+                <strong>{insight.module}</strong>
+                <p style={{ color: 'var(--muted)' }}>Score: {insight.score} | Trend: {insight.trend}</p>
+                <ul style={{ marginTop: 6 }}>
+                  {insight.highlights.map((h, idx) => <li key={`${insight.id}-${idx}`}>{h}</li>)}
+                </ul>
+                <div className="actions-row"><Button onClick={() => addUsageLog(insight.module, 'VIEW_INSIGHT')}>Log Usage</Button></div>
+              </div>
+            ))}
+          </div>
 
-      <div id="ai-rules-section" className="panel">
-        <div className="panel-head"><h3>AI Automation Rules</h3><Button onClick={() => setRuleModal(true)}>Add Rule</Button></div>
-        <DataTable columns={ruleCols} rows={ruleRows} showDeleteAction={false} onView={(row) => {
-          const r = rules.find((x) => x._id === row.id)
-          if (!r) return
-          setEditRuleId(r._id)
-          setRuleForm({ name: r.name || '', trigger: r.trigger || '', action: r.action || '', enabled: !!r.enabled })
-          setRuleModal(true)
-        }} onEdit={(row) => {
-          const r = rules.find((x) => x._id === row.id)
-          if (!r) return
-          setEditRuleId(r._id)
-          setRuleForm({ name: r.name || '', trigger: r.trigger || '', action: r.action || '', enabled: !!r.enabled })
-          setRuleModal(true)
-        }} />
-        {!loading && ruleRows.length === 0 ? <EmptyState title="No automation rules found" /> : null}
-      </div>
+          <div className="panel">
+            <h3>AI Usage Analytics</h3>
+            <DataTable columns={usageCols} rows={usageRows} showActions={false} emptyTitle="No usage logs found" />
+          </div>
+        </>
+      ) : null}
+
+      {activeGroup === 'Automation' ? (
+        <>
+          <div className="panel">
+            <div className="form-grid">
+              <FilterDropdown label="Automation Module" value={selectedAutomationType} onChange={setSelectedAutomationType} options={automationTypes.map((x) => ({ value: x, label: x }))} />
+              <FilterDropdown label="Model Mode" value={settings.modelMode} onChange={(v) => setSettings((p) => ({ ...p, modelMode: v }))} options={[{ value: 'fast', label: 'Fast' }, { value: 'balanced', label: 'Balanced' }, { value: 'accurate', label: 'Accurate' }]} />
+              <FormInput label="Auto Report Frequency" value={settings.autoReportFrequency} onChange={(e) => setSettings((p) => ({ ...p, autoReportFrequency: e.target.value }))} />
+              <FormInput label="Chatbot Tone" value={settings.chatbotTone} onChange={(e) => setSettings((p) => ({ ...p, chatbotTone: e.target.value }))} />
+            </div>
+            <div className="actions-row" style={{ marginTop: 10 }}>
+              <Button onClick={() => showToast('success', 'Automation settings saved (frontend only)')}>Save Settings</Button>
+              <Button variant="ghost" onClick={() => addUsageLog(selectedAutomationType, 'RUN_AUTOMATION')}>Run {selectedAutomationType}</Button>
+            </div>
+          </div>
+
+          <div className="panel">
+            <div className="panel-head"><h3>AI Automation Rules</h3><Button onClick={() => setRuleModal(true)}>Add Rule</Button></div>
+            <DataTable
+              columns={ruleCols}
+              rows={ruleRows}
+              showDeleteAction={false}
+              onView={(row) => {
+                setEditRuleId(row.id)
+                setRuleForm({ name: row.name || '', trigger: row.trigger || '', action: row.action || '', enabled: row.enabled === 'active' })
+                setRuleModal(true)
+              }}
+              onEdit={(row) => {
+                setEditRuleId(row.id)
+                setRuleForm({ name: row.name || '', trigger: row.trigger || '', action: row.action || '', enabled: row.enabled === 'active' })
+                setRuleModal(true)
+              }}
+            />
+          </div>
+        </>
+      ) : null}
+
+      {activeGroup === 'Risk' ? (
+        <>
+          <div className="panel">
+            <div className="form-grid">
+              <FilterDropdown label="Risk Module" value={selectedRiskType} onChange={setSelectedRiskType} options={riskTypes.map((x) => ({ value: x, label: x }))} />
+              <FilterDropdown label="Fraud Sensitivity" value={settings.fraudSensitivity} onChange={(v) => setSettings((p) => ({ ...p, fraudSensitivity: v }))} options={[{ value: 'low', label: 'Low' }, { value: 'medium', label: 'Medium' }, { value: 'high', label: 'High' }]} />
+            </div>
+            <div className="actions-row" style={{ marginTop: 10 }}>
+              <Button onClick={() => addUsageLog('AI Fraud Detection', 'SCAN_TRIGGER')}>Run Risk Scan</Button>
+              <Button variant="ghost" onClick={() => showToast('success', 'Risk settings saved (frontend only)')}>Save Risk Settings</Button>
+            </div>
+          </div>
+
+          <div className="panel">
+            <h3>Risk Activity Logs</h3>
+            <DataTable columns={usageCols} rows={usageRows} showActions={false} emptyTitle="No risk logs found" />
+          </div>
+        </>
+      ) : null}
 
       <Modal open={ruleModal} title={editRuleId ? 'Update Automation Rule' : 'Create Automation Rule'} onClose={() => { setRuleModal(false); setEditRuleId('') }}>
         <div className="form-grid">
           <FormInput label="Name" value={ruleForm.name} onChange={(e) => setRuleForm((p) => ({ ...p, name: e.target.value }))} />
           <FormInput label="Trigger" value={ruleForm.trigger} onChange={(e) => setRuleForm((p) => ({ ...p, trigger: e.target.value }))} />
           <FormInput label="Action" value={ruleForm.action} onChange={(e) => setRuleForm((p) => ({ ...p, action: e.target.value }))} />
+          <FilterDropdown label="Status" value={ruleForm.enabled ? 'enabled' : 'disabled'} onChange={(v) => setRuleForm((p) => ({ ...p, enabled: v === 'enabled' }))} options={[{ value: 'enabled', label: 'Enabled' }, { value: 'disabled', label: 'Disabled' }]} />
         </div>
         <div className="actions-row">
-          <Button onClick={async () => {
-            if (!ruleForm.name || !ruleForm.trigger || !ruleForm.action) return toastError('All fields required')
-            try {
-              if (editRuleId) {
-                const res = await updateAutomationRule(editRuleId, ruleForm)
-                toastOk(res?.message || 'Rule updated')
-              } else {
-                const res = await createAutomationRule(ruleForm)
-                toastOk(res?.message || 'Rule created')
-              }
-              setRuleModal(false)
-              setEditRuleId('')
-              setRuleForm({ name: '', trigger: '', action: '', enabled: true })
-              load()
-            } catch (error) {
-              toastError(error?.response?.data?.message || (editRuleId ? 'Failed to update rule' : 'Failed to create rule'))
+          <Button onClick={() => {
+            if (!ruleForm.name || !ruleForm.trigger || !ruleForm.action) return showToast('error', 'All fields required')
+            if (editRuleId) {
+              setRules((prev) => prev.map((r) => (r.id === editRuleId ? { ...r, ...ruleForm } : r)))
+              showToast('success', 'Rule updated (frontend only)')
+            } else {
+              setRules((prev) => [{ id: `rule-${Date.now()}`, ...ruleForm }, ...prev])
+              showToast('success', 'Rule created (frontend only)')
             }
+            setRuleModal(false)
+            setEditRuleId('')
+            setRuleForm({ name: '', trigger: '', action: '', enabled: true })
           }}>{editRuleId ? 'Update Rule' : 'Save Rule'}</Button>
         </div>
       </Modal>

@@ -3,11 +3,7 @@ import PageHeader from '../../components/ui/PageHeader'
 import DataTable from '../../components/ui/DataTable'
 import SearchBar from '../../components/ui/SearchBar'
 import FilterDropdown from '../../components/ui/FilterDropdown'
-import FormInput from '../../components/ui/FormInput'
 import Button from '../../components/ui/Button'
-import EmptyState from '../../components/ui/EmptyState'
-import LoadingSkeleton from '../../components/ui/LoadingSkeleton'
-import { exportAuditLogs, listAuditLogs, listSecuritySettings, saveSecuritySetting, seedAuditLog } from '../../api/auditSecurityApi'
 
 const logCategories = [
   'Login Logs',
@@ -36,55 +32,130 @@ const settingsGroups = [
   'Threat Monitoring'
 ]
 
-const sectionByPage = Object.fromEntries([
-  ...logCategories.map((name) => [name, 'audit-logs-section']),
-  ...settingsGroups.map((name) => [name, 'audit-settings-section'])
-])
+const normalizeLabel = (value = '') => value.toLowerCase().replace(/[^a-z0-9]/g, '')
+const AUDIT_STORAGE_KEY = 'hrms_frontend_audit_security_v1'
+
+const initialLogs = [
+  { id: 'log-1', dateTime: '2026-05-31T14:20:00.000Z', category: 'Security Logs', actorName: 'Super Admin', module: 'Audit & Security', action: 'POLICY_UPDATE', description: 'Updated session timeout from 20 to 30 minutes', ipAddress: '122.161.44.10', device: 'Chrome / Windows' },
+  { id: 'log-2', dateTime: '2026-05-31T13:52:00.000Z', category: 'Login Logs', actorName: 'Platform Owner', module: 'Authentication', action: 'LOGIN_SUCCESS', description: 'Signed in with 2FA', ipAddress: '49.36.10.44', device: 'Edge / Windows' },
+  { id: 'log-3', dateTime: '2026-05-31T11:05:00.000Z', category: 'IP Tracking', actorName: 'Risk Engine', module: 'Network Guard', action: 'BLOCKED_IP', description: 'Blocked repeated failed attempts from suspicious IP', ipAddress: '180.21.50.99', device: 'Server Event' }
+]
+
+const initialSettings = {
+  'Password Policies': {
+    minLength: 10,
+    requireUppercase: true,
+    requireNumeric: true,
+    requireSymbol: true,
+    expiryDays: 90
+  },
+  'Two-Factor Authentication': {
+    mode: 'optional',
+    backupCodes: true,
+    trustedDeviceDays: 15
+  },
+  'SSO Settings': {
+    enabled: false,
+    provider: 'Azure AD',
+    entityId: 'hrms-super-admin',
+    callbackUrl: 'https://hrms.example.com/auth/sso/callback'
+  },
+  'OAuth Settings': {
+    enabled: true,
+    clientId: 'hrms-client-web',
+    tokenTTLMinutes: 60,
+    refreshTokenDays: 30
+  },
+  'IP Whitelisting': {
+    enabled: true,
+    ranges: '122.161.44.0/24\n49.36.10.0/24',
+    enforceForAdmins: true
+  },
+  'Session Timeout': {
+    idleTimeoutMinutes: 30,
+    absoluteTimeoutHours: 10,
+    forceLogoutOnPasswordChange: true
+  },
+  'Captcha Settings': {
+    enabled: true,
+    provider: 'reCAPTCHA v3',
+    threshold: 0.5
+  },
+  'Token Expiry Settings': {
+    accessTokenMinutes: 30,
+    refreshTokenDays: 14,
+    rotateOnUse: true
+  },
+  'Threat Monitoring': {
+    bruteForceLimit: 5,
+    lockoutMinutes: 30,
+    notifyOnCritical: true
+  }
+}
+
+function Field({ label, children }) {
+  return (
+    <label className="form-input-wrap" style={{ minWidth: 220 }}>
+      <span>{label}</span>
+      {children}
+    </label>
+  )
+}
 
 function AuditSecurityModulePage({ page }) {
-  const [logs, setLogs] = useState([])
-  const [settings, setSettings] = useState([])
+  const [logs, setLogs] = useState(() => {
+    try {
+      const raw = localStorage.getItem(AUDIT_STORAGE_KEY)
+      const parsed = raw ? JSON.parse(raw) : null
+      return parsed?.logs?.length ? parsed.logs : initialLogs
+    } catch {
+      return initialLogs
+    }
+  })
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
-  const [pagination, setPagination] = useState({ page: 1, limit: 50, totalPages: 1 })
-  const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState({ type: '', message: '' })
-  const [editValues, setEditValues] = useState({})
-
-  const toastError = (message) => setToast({ type: 'error', message })
-  const toastOk = (message) => setToast({ type: 'success', message })
-
-  const load = async () => {
-    setLoading(true)
+  const [settingsByGroup, setSettingsByGroup] = useState(() => {
     try {
-      const [logsRes, settingsRes] = await Promise.all([
-        listAuditLogs({ category: categoryFilter, search, page: pagination.page, limit: pagination.limit }),
-        listSecuritySettings()
-      ])
-      setLogs(logsRes.items)
-      setPagination(logsRes.pagination)
-      setSettings(settingsRes.items)
-
-      const grouped = {}
-      settingsRes.items.forEach((x) => { grouped[x.key] = x.value || {} })
-      setEditValues(grouped)
-    } catch (error) {
-      toastError(error?.response?.data?.message || 'Failed to load audit & security data')
-    } finally {
-      setLoading(false)
+      const raw = localStorage.getItem(AUDIT_STORAGE_KEY)
+      const parsed = raw ? JSON.parse(raw) : null
+      return parsed?.settingsByGroup ? parsed.settingsByGroup : initialSettings
+    } catch {
+      return initialSettings
     }
-  }
-
-  useEffect(() => { load() }, [search, categoryFilter, pagination.page])
+  })
 
   useEffect(() => {
-    if (!page || !sectionByPage[page]) return
-    const timer = setTimeout(() => {
-      const element = document.getElementById(sectionByPage[page])
-      if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }, 50)
-    return () => clearTimeout(timer)
+    localStorage.setItem(AUDIT_STORAGE_KEY, JSON.stringify({ logs, settingsByGroup }))
+  }, [logs, settingsByGroup])
+
+  const activeLogCategory = useMemo(() => {
+    const pageKey = normalizeLabel(page)
+    if (pageKey === 'alllogs') return 'all'
+    const matched = logCategories.find((item) => normalizeLabel(item) === pageKey)
+    return matched || ''
   }, [page])
+
+  const activeSettingsGroup = useMemo(() => {
+    const pageKey = normalizeLabel(page)
+    const matched = settingsGroups.find((item) => normalizeLabel(item) === pageKey)
+    return matched || ''
+  }, [page])
+
+  const showLogsSection = !page || Boolean(activeLogCategory)
+  const showSettingsSection = !page || Boolean(activeSettingsGroup)
+
+  const visibleLogRows = useMemo(() => {
+    const selected = activeLogCategory || categoryFilter
+    const term = search.trim().toLowerCase()
+    return logs
+      .filter((row) => (selected === 'all' ? true : row.category === selected))
+      .filter((row) => {
+        if (!term) return true
+        return [row.actorName, row.action, row.description, row.module, row.ipAddress].join(' ').toLowerCase().includes(term)
+      })
+      .map((x) => ({ ...x, dateTime: new Date(x.dateTime).toLocaleString() }))
+  }, [logs, activeLogCategory, categoryFilter, search])
 
   const logCols = [
     { key: 'dateTime', label: 'Date/Time' },
@@ -97,220 +168,152 @@ function AuditSecurityModulePage({ page }) {
     { key: 'device', label: 'Device' }
   ]
 
-  const logRows = useMemo(() => logs.map((x) => ({
-    id: x._id,
-    dateTime: new Date(x.dateTime).toLocaleString(),
-    category: x.category,
-    actorName: x.actorName || '-',
-    module: x.module || '-',
-    action: x.action,
-    description: x.description || '-',
-    ipAddress: x.ipAddress || '-',
-    device: x.device || '-'
-  })), [logs])
+  const currentSettings = activeSettingsGroup ? settingsByGroup[activeSettingsGroup] : null
 
-  const filteredSettings = categoryFilter === 'all'
-    ? settings
-    : settings.filter((x) => x.group === categoryFilter)
-
-  const setSettingValue = (key, field, value) => {
-    setEditValues((prev) => ({
-      ...prev,
-      [key]: {
-        ...(prev[key] || {}),
-        [field]: value
-      }
-    }))
+  const setGroupField = (group, key, value) => {
+    setSettingsByGroup((prev) => ({ ...prev, [group]: { ...prev[group], [key]: value } }))
   }
 
-  const renderBoolean = (settingKey, field, label) => (
-    <FilterDropdown
-      label={label}
-      value={editValues?.[settingKey]?.[field] ? 'true' : 'false'}
-      onChange={(value) => setSettingValue(settingKey, field, value === 'true')}
-      options={[
-        { value: 'true', label: 'Enabled' },
-        { value: 'false', label: 'Disabled' }
-      ]}
-    />
-  )
+  const saveGroup = (groupName) => {
+    setToast({ type: 'success', message: `${groupName} settings saved (frontend only)` })
+    setTimeout(() => setToast({ type: '', message: '' }), 1800)
+  }
 
-  const renderSettingForm = (setting) => {
-    const value = editValues?.[setting.key] || {}
-
-    if (setting.key === 'password_policy') {
-      return (
-        <div className="form-grid">
-          <FormInput label="Minimum Length" type="number" value={Number(value.minLength || 0)} onChange={(e) => setSettingValue(setting.key, 'minLength', Number(e.target.value || 0))} />
-          {renderBoolean(setting.key, 'requireUppercase', 'Require Uppercase')}
-          {renderBoolean(setting.key, 'requireNumber', 'Require Number')}
-        </div>
-      )
-    }
-
-    if (setting.key === 'two_factor_auth') {
-      return (
-        <div className="form-grid">
-          {renderBoolean(setting.key, 'enabled', '2FA Enabled')}
-          <FormInput
-            label="Methods (comma separated)"
-            value={(value.methods || []).join(', ')}
-            onChange={(e) => setSettingValue(setting.key, 'methods', e.target.value.split(',').map((x) => x.trim()).filter(Boolean))}
-          />
-        </div>
-      )
-    }
-
-    if (setting.key === 'sso_settings') {
-      return (
-        <div className="form-grid">
-          {renderBoolean(setting.key, 'enabled', 'SSO Enabled')}
-          <FormInput label="Provider" value={value.provider || ''} onChange={(e) => setSettingValue(setting.key, 'provider', e.target.value)} />
-        </div>
-      )
-    }
-
-    if (setting.key === 'oauth_settings') {
-      return (
-        <div className="form-grid">
-          {renderBoolean(setting.key, 'enabled', 'OAuth Enabled')}
-          <FormInput label="Client ID" value={value.clientId || ''} onChange={(e) => setSettingValue(setting.key, 'clientId', e.target.value)} />
-          <FormInput label="Client Secret" value={value.clientSecret || ''} onChange={(e) => setSettingValue(setting.key, 'clientSecret', e.target.value)} />
-        </div>
-      )
-    }
-
-    if (setting.key === 'ip_whitelisting') {
-      return (
-        <div className="form-grid">
-          {renderBoolean(setting.key, 'enabled', 'IP Whitelisting Enabled')}
-          <FormInput
-            label="Allowed IPs (comma separated)"
-            value={(value.ips || []).join(', ')}
-            onChange={(e) => setSettingValue(setting.key, 'ips', e.target.value.split(',').map((x) => x.trim()).filter(Boolean))}
-          />
-        </div>
-      )
-    }
-
-    if (setting.key === 'session_timeout') {
-      return (
-        <div className="form-grid">
-          <FormInput label="Session Timeout (minutes)" type="number" value={Number(value.minutes || 0)} onChange={(e) => setSettingValue(setting.key, 'minutes', Number(e.target.value || 0))} />
-        </div>
-      )
-    }
-
-    if (setting.key === 'captcha_settings') {
-      return (
-        <div className="form-grid">
-          {renderBoolean(setting.key, 'enabled', 'Captcha Enabled')}
-          <FormInput label="Provider" value={value.provider || ''} onChange={(e) => setSettingValue(setting.key, 'provider', e.target.value)} />
-        </div>
-      )
-    }
-
-    if (setting.key === 'token_expiry_settings') {
-      return (
-        <div className="form-grid">
-          <FormInput label="Access Token Expiry (minutes)" type="number" value={Number(value.accessTokenMinutes || 0)} onChange={(e) => setSettingValue(setting.key, 'accessTokenMinutes', Number(e.target.value || 0))} />
-          <FormInput label="Refresh Token Expiry (days)" type="number" value={Number(value.refreshTokenDays || 0)} onChange={(e) => setSettingValue(setting.key, 'refreshTokenDays', Number(e.target.value || 0))} />
-        </div>
-      )
-    }
-
-    if (setting.key === 'threat_monitoring') {
-      return (
-        <div className="form-grid">
-          {renderBoolean(setting.key, 'enabled', 'Threat Monitoring Enabled')}
-          <FilterDropdown
-            label="Alert Level"
-            value={value.alertLevel || 'medium'}
-            onChange={(alertLevel) => setSettingValue(setting.key, 'alertLevel', alertLevel)}
-            options={[
-              { value: 'low', label: 'Low' },
-              { value: 'medium', label: 'Medium' },
-              { value: 'high', label: 'High' }
-            ]}
-          />
-        </div>
-      )
-    }
-
-    return (
-      <div className="form-grid">
-        <FormInput
-          label="Value"
-          value={typeof value === 'string' ? value : ''}
-          onChange={(e) => setEditValues((prev) => ({ ...prev, [setting.key]: e.target.value }))}
-        />
-      </div>
-    )
+  const addAuditEntry = () => {
+    const selectedCategory = activeLogCategory || (categoryFilter === 'all' ? 'Security Logs' : categoryFilter)
+    setLogs((prev) => [{
+      id: `log-${Date.now()}`,
+      dateTime: new Date().toISOString(),
+      category: selectedCategory,
+      actorName: 'Super Admin',
+      module: 'Audit & Security',
+      action: 'MANUAL_ENTRY',
+      description: `Manual audit entry added in ${selectedCategory}`,
+      ipAddress: '127.0.0.1',
+      device: 'Frontend Session'
+    }, ...prev])
+    setToast({ type: 'success', message: 'Audit log entry added (frontend only)' })
+    setTimeout(() => setToast({ type: '', message: '' }), 1800)
   }
 
   return (
     <section className="section-layout">
       <PageHeader
-        title="Audit & Security"
-        description="Single-page governance workspace for logs, monitoring, and security policy settings."
-        breadcrumb={['Super Admin', 'Audit & Security', 'Workspace']}
+        title={page || 'Audit & Security'}
+        description="Dedicated workspace for audit trails and security controls."
+        breadcrumb={['Super Admin', 'Audit & Security', page || 'Workspace']}
         primaryActionLabel="Refresh"
-        onPrimaryAction={load}
+        onPrimaryAction={() => setToast({ type: 'success', message: 'Refreshed (frontend state)' })}
       />
+
       {toast.message ? <div className={`toast toast-${toast.type}`}>{toast.message}</div> : null}
-      {loading ? <div className="panel"><LoadingSkeleton rows={5} /></div> : null}
 
-      <div className="panel">
-        <div className="panel-head"><h3>All Audit & Security Controls In One Page</h3></div>
-        <p>Operate platform audit trails and core security settings from this unified compliance workspace.</p>
-      </div>
-
-      <div id="audit-logs-section">
-        <div className="panel filters-panel">
-          <div className="filters-row">
-            <div className="search-wrap"><label>Search Logs</label><SearchBar value={search} onChange={setSearch} placeholder="Search action/description/actor" /></div>
-            <FilterDropdown label="Log Category" value={categoryFilter} onChange={setCategoryFilter} options={[{ value: 'all', label: 'All' }, ...logCategories.map((name) => ({ value: name, label: name }))]} />
-          </div>
-        </div>
-        <div className="panel">
-          <div className="panel-head">
-            <h3>Audit Logs</h3>
-            <div className="actions-row">
-              <Button variant="ghost" onClick={async () => { try { await seedAuditLog({ category: categoryFilter === 'all' ? 'Security Logs' : categoryFilter, actorType: 'super_admin', actorName: 'Super Admin', module: 'Audit & Security', action: 'MANUAL_LOG', description: 'Manual log entry from unified workspace' }); toastOk('Audit log entry added'); load() } catch (error) { toastError(error?.response?.data?.message || 'Failed to add log entry') } }}>Add Audit Entry</Button>
-              <Button onClick={async () => { try { const res = await exportAuditLogs(categoryFilter); toastOk(`Exported ${res.count || 0} logs`) } catch (error) { toastError(error?.response?.data?.message || 'Failed to export logs') } }}>Export Logs</Button>
+      {showLogsSection ? (
+        <div id="audit-logs-section">
+          <div className="panel filters-panel">
+            <div className="filters-row">
+              <div className="search-wrap"><label>Search Logs</label><SearchBar value={search} onChange={setSearch} placeholder="Search action/description/actor" /></div>
+              <FilterDropdown
+                label="Log Category"
+                value={activeLogCategory || categoryFilter}
+                onChange={setCategoryFilter}
+                options={[{ value: 'all', label: 'All' }, ...logCategories.map((name) => ({ value: name, label: name }))]}
+                disabled={Boolean(activeLogCategory && activeLogCategory !== 'all')}
+              />
             </div>
           </div>
-          {loading ? <LoadingSkeleton rows={6} /> : <DataTable columns={logCols} rows={logRows} showActions={false} />}
-          {!loading && logRows.length === 0 ? <EmptyState title="No audit logs found" /> : null}
-          <div className="pagination-row">
-            <Button variant="ghost" disabled={pagination.page <= 1} onClick={() => setPagination((p) => ({ ...p, page: p.page - 1 }))}>Prev</Button>
-            <span>Page {pagination.page} of {pagination.totalPages || 1}</span>
-            <Button variant="ghost" disabled={pagination.page >= pagination.totalPages} onClick={() => setPagination((p) => ({ ...p, page: p.page + 1 }))}>Next</Button>
+          <div className="panel">
+            <div className="panel-head">
+              <h3>{activeLogCategory && activeLogCategory !== 'all' ? `${activeLogCategory} Records` : 'Audit Logs'}</h3>
+              <div className="actions-row">
+                <Button variant="ghost" onClick={addAuditEntry}>Add Audit Entry</Button>
+                <Button onClick={() => setToast({ type: 'success', message: `Exported ${visibleLogRows.length} logs (frontend)` })}>Export Logs</Button>
+              </div>
+            </div>
+            <DataTable columns={logCols} rows={visibleLogRows} showActions={false} emptyTitle="No logs found" />
           </div>
         </div>
-      </div>
+      ) : null}
 
-      <div id="audit-settings-section" className="panel">
-        <div className="panel-head"><h3>Security Settings</h3></div>
-        {filteredSettings.length === 0 ? <EmptyState title="No settings found for selected filter" /> : filteredSettings.map((s) => (
-          <div key={s._id} className="panel" style={{ marginBottom: '10px' }}>
-            <h4 style={{ marginTop: 0 }}>{s.group} / {s.key}</h4>
-            <p style={{ color: 'var(--muted)' }}>{s.description || 'Configuration setting'}</p>
-            {renderSettingForm(s)}
-            <div className="actions-row" style={{ marginTop: '8px' }}>
-              <Button onClick={async () => {
-                try {
-                  const res = await saveSecuritySetting({ key: s.key, group: s.group, value: editValues[s.key], description: s.description })
-                  toastOk(res?.message || `${s.key} saved`)
-                  load()
-                } catch (error) {
-                  toastError(error?.response?.data?.message || 'Failed to save security setting')
-                }
-              }}>Save Setting</Button>
+      {showSettingsSection && activeSettingsGroup ? (
+        <div id="audit-settings-section" className="panel">
+          <div className="panel-head"><h3>{activeSettingsGroup}</h3></div>
+
+          {activeSettingsGroup === 'Password Policies' ? (
+            <div className="filters-row">
+              <Field label="Minimum Length"><input className="form-input" type="number" value={currentSettings.minLength} onChange={(e) => setGroupField(activeSettingsGroup, 'minLength', Number(e.target.value))} /></Field>
+              <Field label="Expiry (Days)"><input className="form-input" type="number" value={currentSettings.expiryDays} onChange={(e) => setGroupField(activeSettingsGroup, 'expiryDays', Number(e.target.value))} /></Field>
             </div>
+          ) : null}
+
+          {activeSettingsGroup === 'Two-Factor Authentication' ? (
+            <div className="filters-row">
+              <Field label="Mode">
+                <select className="form-input" value={currentSettings.mode} onChange={(e) => setGroupField(activeSettingsGroup, 'mode', e.target.value)}>
+                  <option value="disabled">Disabled</option>
+                  <option value="optional">Optional</option>
+                  <option value="mandatory">Mandatory</option>
+                </select>
+              </Field>
+              <Field label="Trusted Device Days"><input className="form-input" type="number" value={currentSettings.trustedDeviceDays} onChange={(e) => setGroupField(activeSettingsGroup, 'trustedDeviceDays', Number(e.target.value))} /></Field>
+            </div>
+          ) : null}
+
+          {activeSettingsGroup === 'SSO Settings' ? (
+            <div className="filters-row">
+              <Field label="Provider"><input className="form-input" value={currentSettings.provider} onChange={(e) => setGroupField(activeSettingsGroup, 'provider', e.target.value)} /></Field>
+              <Field label="Entity ID"><input className="form-input" value={currentSettings.entityId} onChange={(e) => setGroupField(activeSettingsGroup, 'entityId', e.target.value)} /></Field>
+              <Field label="Callback URL"><input className="form-input" value={currentSettings.callbackUrl} onChange={(e) => setGroupField(activeSettingsGroup, 'callbackUrl', e.target.value)} /></Field>
+            </div>
+          ) : null}
+
+          {activeSettingsGroup === 'OAuth Settings' ? (
+            <div className="filters-row">
+              <Field label="Client ID"><input className="form-input" value={currentSettings.clientId} onChange={(e) => setGroupField(activeSettingsGroup, 'clientId', e.target.value)} /></Field>
+              <Field label="Access Token TTL (min)"><input className="form-input" type="number" value={currentSettings.tokenTTLMinutes} onChange={(e) => setGroupField(activeSettingsGroup, 'tokenTTLMinutes', Number(e.target.value))} /></Field>
+              <Field label="Refresh Token (days)"><input className="form-input" type="number" value={currentSettings.refreshTokenDays} onChange={(e) => setGroupField(activeSettingsGroup, 'refreshTokenDays', Number(e.target.value))} /></Field>
+            </div>
+          ) : null}
+
+          {activeSettingsGroup === 'IP Whitelisting' ? (
+            <div>
+              <Field label="Allowed Ranges (one per line)"><textarea className="form-input" rows={5} value={currentSettings.ranges} onChange={(e) => setGroupField(activeSettingsGroup, 'ranges', e.target.value)} /></Field>
+            </div>
+          ) : null}
+
+          {activeSettingsGroup === 'Session Timeout' ? (
+            <div className="filters-row">
+              <Field label="Idle Timeout (min)"><input className="form-input" type="number" value={currentSettings.idleTimeoutMinutes} onChange={(e) => setGroupField(activeSettingsGroup, 'idleTimeoutMinutes', Number(e.target.value))} /></Field>
+              <Field label="Absolute Timeout (hours)"><input className="form-input" type="number" value={currentSettings.absoluteTimeoutHours} onChange={(e) => setGroupField(activeSettingsGroup, 'absoluteTimeoutHours', Number(e.target.value))} /></Field>
+            </div>
+          ) : null}
+
+          {activeSettingsGroup === 'Captcha Settings' ? (
+            <div className="filters-row">
+              <Field label="Provider"><input className="form-input" value={currentSettings.provider} onChange={(e) => setGroupField(activeSettingsGroup, 'provider', e.target.value)} /></Field>
+              <Field label="Threshold"><input className="form-input" type="number" step="0.1" value={currentSettings.threshold} onChange={(e) => setGroupField(activeSettingsGroup, 'threshold', Number(e.target.value))} /></Field>
+            </div>
+          ) : null}
+
+          {activeSettingsGroup === 'Token Expiry Settings' ? (
+            <div className="filters-row">
+              <Field label="Access Token (min)"><input className="form-input" type="number" value={currentSettings.accessTokenMinutes} onChange={(e) => setGroupField(activeSettingsGroup, 'accessTokenMinutes', Number(e.target.value))} /></Field>
+              <Field label="Refresh Token (days)"><input className="form-input" type="number" value={currentSettings.refreshTokenDays} onChange={(e) => setGroupField(activeSettingsGroup, 'refreshTokenDays', Number(e.target.value))} /></Field>
+            </div>
+          ) : null}
+
+          {activeSettingsGroup === 'Threat Monitoring' ? (
+            <div className="filters-row">
+              <Field label="Brute Force Limit"><input className="form-input" type="number" value={currentSettings.bruteForceLimit} onChange={(e) => setGroupField(activeSettingsGroup, 'bruteForceLimit', Number(e.target.value))} /></Field>
+              <Field label="Lockout (min)"><input className="form-input" type="number" value={currentSettings.lockoutMinutes} onChange={(e) => setGroupField(activeSettingsGroup, 'lockoutMinutes', Number(e.target.value))} /></Field>
+            </div>
+          ) : null}
+
+          <div className="actions-row" style={{ marginTop: 12 }}>
+            <Button onClick={() => saveGroup(activeSettingsGroup)}>Save Settings</Button>
           </div>
-        ))}
-      </div>
+        </div>
+      ) : null}
     </section>
   )
 }

@@ -132,7 +132,9 @@ const companyWorkspaceGroups = [
     items: [
       { label: 'Company Management', path: `${companyModuleRoot}/company-management` },
       { label: 'Company Branding', path: `${companyModuleRoot}/company-branding` },
-      { label: 'Company Domain Setup', path: `${companyModuleRoot}/company-domain-setup` }
+      { label: 'Company Domain Setup', path: `${companyModuleRoot}/company-domain-setup` },
+      { label: 'Company Suspension', path: `${companyModuleRoot}/company-suspension` },
+      { label: 'Company Reactivation', path: `${companyModuleRoot}/company-reactivation` }
     ]
   },
   {
@@ -142,14 +144,6 @@ const companyWorkspaceGroups = [
       { label: 'Branch Management', path: `${companyModuleRoot}/branch-management` },
       { label: 'Company Storage Usage', path: `${companyModuleRoot}/company-storage-usage` },
       { label: 'Company Activity Logs', path: `${companyModuleRoot}/company-activity-logs` }
-    ]
-  },
-  {
-    title: 'Lifecycle',
-    path: `${companyModuleRoot}/company-suspension`,
-    items: [
-      { label: 'Company Suspension', path: `${companyModuleRoot}/company-suspension` },
-      { label: 'Company Reactivation', path: `${companyModuleRoot}/company-reactivation` }
     ]
   }
 ]
@@ -284,7 +278,7 @@ function CompanyManagementModulePage({ page }) {
   }, [page, selectedId])
 
   const companyRows = useMemo(() => items.map((item) => ({
-    id: item.id,
+    id: normalizeId(item.id || item._id),
     companyName: item.companyName,
     companyCode: item.companyCode,
     industry: item.industry,
@@ -293,7 +287,7 @@ function CompanyManagementModulePage({ page }) {
     plan: item.plan,
     status: item.status,
     employees: item.employees || 0,
-    createdDate: new Date(item.createdAt).toLocaleDateString()
+    createdDate: item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '-'
   })), [items])
 
   const countryDropdownOptions = useMemo(
@@ -312,7 +306,7 @@ function CompanyManagementModulePage({ page }) {
   }, [form.country, form.state])
 
   const storageRows = useMemo(() => items.map((item) => ({
-    id: item.id,
+    id: normalizeId(item.id || item._id),
     companyName: item.companyName,
     plan: item.plan,
     status: item.status,
@@ -416,9 +410,22 @@ function CompanyManagementModulePage({ page }) {
 
   const openProfile = async (row) => {
     try {
-      const [companyRes, logsRes] = await Promise.all([getCompanyById(row.id), fetchCompanyActivityLogs(row.id)])
+      const companyId = normalizeId(row?.id || row?._id)
+      if (!companyId) {
+        showError('Company id missing for selected row')
+        return
+      }
+
+      const companyRes = await getCompanyById(companyId)
       syncSelectedCompany(companyRes.item)
-      setActivityLogs(logsRes.items || [])
+
+      try {
+        const logsRes = await fetchCompanyActivityLogs(companyId)
+        setActivityLogs(logsRes.items || [])
+      } catch (_logsError) {
+        setActivityLogs([])
+      }
+
       setProfileTab('Overview')
     } catch (error) {
       showError(error?.response?.data?.message || 'Failed to load profile')
@@ -458,7 +465,7 @@ function CompanyManagementModulePage({ page }) {
         </div>
         {loading ? <LoadingSkeleton rows={8} /> : (
           <>
-            <DataTable columns={companyColumns} rows={tableRows('company-list', companyRows)} onView={openProfile} onEdit={openEdit} onDelete={(row) => { setTargetCompany(row); setConfirmOpen(true) }} />
+            <DataTable columns={companyColumns} rows={tableRows('company-list', companyRows)} onView={openProfile} onEdit={openEdit} onDelete={(row) => { setTargetCompany(row); setConfirmOpen(true) }} showViewAction={false} />
             {companyRows.length > COMPACT_ROW_LIMIT ? (
               <div className="actions-row" style={{ marginTop: 8 }}>
                 <Button variant="ghost" onClick={() => toggleTable('company-list')}>
@@ -955,12 +962,14 @@ function CompanyManagementModulePage({ page }) {
     }
   }
 
+  const pageBreadcrumb = page && page !== 'Company Management' ? page : null
+
   return (
     <section className="section-layout company-management-page">
       <PageHeader
         title="Company Management"
         description="Single-page control center for tenant lifecycle, profile, branding, domain, branches, and governance."
-        breadcrumb={['Super Admin', 'Company Management', page || 'Company Management']}
+        breadcrumb={['Super Admin', 'Company Management', pageBreadcrumb].filter(Boolean)}
         primaryActionLabel="Add Company"
         onPrimaryAction={openAdd}
       />
@@ -1002,65 +1011,129 @@ function CompanyManagementModulePage({ page }) {
         bodyClassName="company-form-body"
       >
         <form className="company-form-modal" onSubmit={saveCompany}>
-          <div className="form-grid">
-            <FormInput
-              label="Company Name"
-              value={form.companyName}
-              error={formErrors.companyName}
-              onChange={(e) => {
-                const companyName = e.target.value
-                const derivedCode = companyName
-                  .toUpperCase()
-                  .replace(/[^A-Z0-9 ]/g, '')
-                  .split(' ')
-                  .filter(Boolean)
-                  .map((part) => part.slice(0, 3))
-                  .join('')
-                  .slice(0, 8)
-                setForm((p) => ({ ...p, companyName, companyCode: !selectedId && !companyCodeManuallySet ? derivedCode : p.companyCode }))
-              }}
-            />
-            <FormInput
-              label="Company Code"
-              value={form.companyCode}
-              error={formErrors.companyCode}
-              onChange={(e) => {
-                setCompanyCodeManuallySet(true)
-                setForm((p) => ({ ...p, companyCode: e.target.value.toUpperCase() }))
-              }}
-              disabled={Boolean(selectedId)}
-            />
-            <FormInput label="Industry" value={form.industry} error={formErrors.industry} onChange={(e) => setForm((p) => ({ ...p, industry: e.target.value }))} />
-            <FormInput label="Email" value={form.email} error={formErrors.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} />
-            <FormInput label="Phone" value={form.phone} error={formErrors.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
-            <FormInput label="Address" value={form.address} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} />
-            <FilterDropdown
-              label="Country"
-              value={form.country}
-              onChange={(value) => setForm((p) => ({ ...p, country: value, state: '', city: '' }))}
-              options={countryDropdownOptions}
-            />
-            <FilterDropdown
-              label="State"
-              value={form.state}
-              onChange={(value) => setForm((p) => ({ ...p, state: value, city: '' }))}
-              options={stateDropdownOptions}
-              disabled={!form.country}
-            />
-            <FilterDropdown
-              label="City"
-              value={form.city}
-              onChange={(value) => setForm((p) => ({ ...p, city: value }))}
-              options={cityDropdownOptions}
-              disabled={!form.country || !form.state}
-            />
-            <FilterDropdown label="Currency" value={form.currency} onChange={(value) => setForm((p) => ({ ...p, currency: value }))} options={currencyOptions} />
-            <FormInput label="GST" value={form.gst} onChange={(e) => setForm((p) => ({ ...p, gst: e.target.value }))} />
-            <FormInput label="PAN" value={form.pan} onChange={(e) => setForm((p) => ({ ...p, pan: e.target.value }))} />
-            <FilterDropdown label="Plan" value={form.plan} onChange={(value) => setForm((p) => ({ ...p, plan: value }))} options={planOptions} />
-            <FormInput label="Employee Limit" type="number" value={form.employeeLimit} onChange={(e) => setForm((p) => ({ ...p, employeeLimit: Number(e.target.value) }))} />
-            <FormInput label="Storage Limit (GB)" type="number" value={form.storageLimit} onChange={(e) => setForm((p) => ({ ...p, storageLimit: Number(e.target.value) }))} />
-            <FilterDropdown label="Status" value={form.status} onChange={(value) => setForm((p) => ({ ...p, status: value }))} options={[{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }, { value: 'suspended', label: 'Suspended' }, { value: 'trial', label: 'Trial' }, { value: 'expired', label: 'Expired' }]} />
+          <div className="company-form-section">
+            <div className="company-form-section-head">
+              <h4>Company Info</h4>
+              <p>Start with key company identity details.</p>
+            </div>
+            <div className="form-grid company-form-grid">
+              <FormInput
+                label="Company Name *"
+                placeholder="Ex: Acme Technologies Pvt Ltd"
+                value={form.companyName}
+                error={formErrors.companyName}
+                onChange={(e) => {
+                  const companyName = e.target.value
+                  const derivedCode = companyName
+                    .toUpperCase()
+                    .replace(/[^A-Z0-9 ]/g, '')
+                    .split(' ')
+                    .filter(Boolean)
+                    .map((part) => part.slice(0, 3))
+                    .join('')
+                    .slice(0, 8)
+                  setForm((p) => ({ ...p, companyName, companyCode: !selectedId && !companyCodeManuallySet ? derivedCode : p.companyCode }))
+                }}
+              />
+              <div className="company-form-field">
+                <FormInput
+                  label="Company Code *"
+                  placeholder="Ex: ACMTEC01"
+                  value={form.companyCode}
+                  error={formErrors.companyCode}
+                  onChange={(e) => {
+                    setCompanyCodeManuallySet(true)
+                    setForm((p) => ({ ...p, companyCode: e.target.value.toUpperCase() }))
+                  }}
+                  disabled={Boolean(selectedId)}
+                />
+                <small className="field-hint">Uppercase, up to 8 characters.</small>
+              </div>
+              <FormInput label="Industry *" placeholder="Ex: IT Services" value={form.industry} error={formErrors.industry} onChange={(e) => setForm((p) => ({ ...p, industry: e.target.value }))} />
+              <FilterDropdown label="Status" value={form.status} onChange={(value) => setForm((p) => ({ ...p, status: value }))} options={[{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }, { value: 'suspended', label: 'Suspended' }, { value: 'trial', label: 'Trial' }, { value: 'expired', label: 'Expired' }]} />
+            </div>
+          </div>
+
+          <div className="company-form-section">
+            <div className="company-form-section-head">
+              <h4>Contact</h4>
+              <p>Primary communication details for the tenant.</p>
+            </div>
+            <div className="form-grid company-form-grid">
+              <div className="company-form-field">
+                <FormInput label="Email *" placeholder="name@company.com" value={form.email} error={formErrors.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} />
+                <small className="field-hint">Business email only.</small>
+              </div>
+              <div className="company-form-field">
+                <FormInput label="Phone *" placeholder="+91 98765 43210" value={form.phone} error={formErrors.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
+                <small className="field-hint">Include country code.</small>
+              </div>
+              <FormInput label="Address" placeholder="Street, building, area" value={form.address} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} />
+            </div>
+          </div>
+
+          <div className="company-form-section">
+            <div className="company-form-section-head">
+              <h4>Location</h4>
+              <p>Choose operational geography for this company.</p>
+            </div>
+            <div className="form-grid company-form-grid">
+              <FilterDropdown
+                label="Country"
+                value={form.country}
+                onChange={(value) => setForm((p) => ({ ...p, country: value, state: '', city: '' }))}
+                options={countryDropdownOptions}
+              />
+              <FilterDropdown
+                label="State"
+                value={form.state}
+                onChange={(value) => setForm((p) => ({ ...p, state: value, city: '' }))}
+                options={stateDropdownOptions}
+                disabled={!form.country}
+              />
+              <FilterDropdown
+                label="City"
+                value={form.city}
+                onChange={(value) => setForm((p) => ({ ...p, city: value }))}
+                options={cityDropdownOptions}
+                disabled={!form.country || !form.state}
+              />
+              <FilterDropdown label="Currency" value={form.currency} onChange={(value) => setForm((p) => ({ ...p, currency: value }))} options={currencyOptions} />
+            </div>
+          </div>
+
+          <div className="company-form-section">
+            <div className="company-form-section-head">
+              <h4>Compliance</h4>
+              <p>Tax and legal identity fields for invoicing.</p>
+            </div>
+            <div className="form-grid company-form-grid">
+              <div className="company-form-field">
+                <FormInput label="GST" placeholder="22AAAAA0000A1Z5" value={form.gst} onChange={(e) => setForm((p) => ({ ...p, gst: e.target.value.toUpperCase() }))} />
+                <small className="field-hint">Format: 15 characters (India GSTIN).</small>
+              </div>
+              <div className="company-form-field">
+                <FormInput label="PAN" placeholder="ABCDE1234F" value={form.pan} onChange={(e) => setForm((p) => ({ ...p, pan: e.target.value.toUpperCase() }))} />
+                <small className="field-hint">Format: 5 letters + 4 digits + 1 letter.</small>
+              </div>
+            </div>
+          </div>
+
+          <div className="company-form-section">
+            <div className="company-form-section-head">
+              <h4>Plan & Limits</h4>
+              <p>Configure subscription and usage limits.</p>
+            </div>
+            <div className="form-grid company-form-grid">
+              <FilterDropdown label="Plan *" value={form.plan} onChange={(value) => setForm((p) => ({ ...p, plan: value }))} options={planOptions} />
+              <FormInput label="Employee Limit" type="number" min="0" value={form.employeeLimit} onChange={(e) => setForm((p) => ({ ...p, employeeLimit: Number(e.target.value) }))} />
+              <FormInput label="Storage Limit (GB)" type="number" min="0" value={form.storageLimit} onChange={(e) => setForm((p) => ({ ...p, storageLimit: Number(e.target.value) }))} />
+            </div>
+          </div>
+
+          <div className="company-form-meta-note">
+            <span>* Required fields</span>
+            <span>Tip: You can update optional details later from Company Profile.</span>
           </div>
           <div className="modal-actions company-form-actions">
             <Button type="button" variant="ghost" onClick={() => setModalOpen(false)}>Cancel</Button>

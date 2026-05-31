@@ -631,12 +631,14 @@ function AdminManagementModulePage({ page }) {
     }
   }
 
+  const pageBreadcrumb = page && page !== 'Admin Management' ? page : null
+
   return (
     <section className="section-layout admin-management-page">
       <PageHeader
         title="Admin Management"
         description="Single-page control center for admins, security, logs, role assignment, and permissions."
-        breadcrumb={['Super Admin', 'Admin Management', page || 'Admin Management']}
+        breadcrumb={['Super Admin', 'Admin Management', pageBreadcrumb].filter(Boolean)}
         primaryActionLabel="Add Admin"
         onPrimaryAction={openAdd}
       />

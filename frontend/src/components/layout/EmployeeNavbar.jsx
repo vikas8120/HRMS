@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Bell, LogOut, Moon, Search, Sun, UserCircle2 } from 'lucide-react'
+import { Bell, LogOut, Search, UserCircle2 } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
-import { useTheme } from '../../hooks/useTheme'
 import Button from '../ui/Button'
 
 const employeeSearchItems = [
@@ -21,7 +20,6 @@ const employeeSearchItems = [
 ]
 
 function EmployeeNavbar() {
-  const { theme, toggleTheme } = useTheme()
   const auth = useAuth()
   const user = auth?.user || null
   const logout = auth?.logout || (() => {})
@@ -112,9 +110,6 @@ function EmployeeNavbar() {
       </div>
 
       <div className="navbar-actions">
-        <button className="icon-btn" onClick={toggleTheme} aria-label="Toggle theme">
-          {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
-        </button>
         <button
           className="icon-btn has-badge"
           aria-label="Notifications"

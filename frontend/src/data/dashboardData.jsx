@@ -1,6 +1,6 @@
 import {
-  LayoutDashboard, Users, Building2, UserCog, CreditCard, BarChart3, Sparkles, LifeBuoy,
-  Shield, Plug, Brain, Database, FileText, Settings, Activity, Receipt, Bot
+  LayoutDashboard, Building2, UserCog, CreditCard, BarChart3, Sparkles, LifeBuoy,
+  Shield, Plug, Brain, Database, FileText, Settings, Activity, Receipt, Bot, Users
 } from 'lucide-react'
 
 const slugify = (value) =>
@@ -15,11 +15,11 @@ export const moduleRegistry = [
   { label: 'Dashboard', icon: LayoutDashboard, items: [] },
   { label: 'Company Management', icon: Building2, items: ['Company Management', 'Company Branding', 'Branch Management', 'Company Storage Usage', 'Company Domain Setup', 'Company Activity Logs', 'Company Configuration', 'Company Suspension', 'Company Reactivation'] },
   { label: 'Admin Management', icon: UserCog, items: ['Admin Management', 'Reset Password', 'Admin Access Logs', 'Admin Activity Tracking', 'Account Lock/Unlock', 'Role Assignment', 'Permission Control'] },
-  { label: 'Subscription & Billing', icon: CreditCard, items: ['Subscription Plans', 'Plan Upgrade/Downgrade', 'Subscription History', 'Invoice Management', 'Generate Invoice', 'Payment Tracking', 'Discount Coupons'] },
-  { label: 'Revenue & Analytics', icon: BarChart3, items: ['Monthly Revenue', 'Annual Revenue', 'MRR Analytics', 'ARR Analytics', 'Revenue Forecasting', 'Churn Analytics', 'Renewal Rate'] },
-  { label: 'Feature Management', icon: Sparkles, items: ['Module Enable/Disable', 'Feature Flags', 'Beta Features', 'Usage Limits', 'Mobile App Access', 'White Label Control'] },
-  { label: 'Support Center', icon: LifeBuoy, items: ['Ticket Dashboard', 'Open Tickets', 'Closed Tickets', 'Escalated Tickets', 'Ticket Categories', 'Assign Support Agent', 'Priority Management', 'SLA Tracking', 'Ticket Chat', 'File Attachments', 'Internal Notes', 'Resolution Tracking'] },
-  { label: 'Audit & Security', icon: Shield, items: ['Login Logs', 'User Activity Logs', 'Company Activity Logs', 'Admin Activity Logs', 'API Logs', 'Security Logs', 'Configuration Changes', 'Permission Changes', 'Billing Logs', 'IP Tracking', 'Device Logs', 'Export Logs', 'Password Policies', 'Two-Factor Authentication', 'SSO Settings', 'OAuth Settings', 'IP Whitelisting', 'Session Timeout', 'Captcha Settings', 'Token Expiry Settings', 'Threat Monitoring'] },
+  { label: 'Subscription & Billing', icon: CreditCard, items: ['Subscription Plans', 'Feature Mapping', 'Plan Limits', 'Add-on Services', 'Plan Upgrade/Downgrade', 'Auto Renewal', 'Subscription History', 'Invoice Management', 'Generate Invoice', 'Payment Tracking', 'Discount Coupons'] },
+  { label: 'Revenue & Analytics', icon: BarChart3, items: ['Monthly Revenue', 'Annual Revenue', 'MRR Analytics', 'ARR Analytics', 'Revenue Forecasting', 'Churn Analytics', 'Renewal Rate', 'Revenue by Plan', 'Top Paying Customers'] },
+  { label: 'Feature Management', icon: Sparkles, items: ['Module Enable/Disable', 'Tenant-wise Features', 'Plan-wise Features', 'API Feature Access', 'Usage Limits', 'AI Feature Access'] },
+  { label: 'Support Center', icon: LifeBuoy, items: ['Ticket Dashboard', 'Open Tickets', 'Closed Tickets', 'Escalated Tickets'] },
+  { label: 'Audit & Security', icon: Shield, items: ['All Logs', 'Login Logs', 'User Activity Logs', 'Company Activity Logs', 'Admin Activity Logs', 'API Logs', 'Security Logs', 'Configuration Changes', 'Permission Changes', 'Billing Logs', 'IP Tracking', 'Device Logs', 'Export Logs', 'Password Policies', 'Two-Factor Authentication', 'SSO Settings', 'OAuth Settings', 'IP Whitelisting', 'Session Timeout', 'Captcha Settings', 'Token Expiry Settings', 'Threat Monitoring'] },
   { label: 'Integrations', icon: Plug, items: ['Biometric Devices', 'Google Workspace', 'Microsoft 365', 'Slack', 'Zoom', 'Teams', 'Payment Gateway', 'Accounting Software', 'Email Integration', 'SMS Gateway', 'WhatsApp API', 'Maps API', 'Webhooks', 'Third-party Marketplace'] },
   { label: 'AI Center', icon: Brain, items: ['AI Dashboard', 'AI Attendance Insights', 'AI Attrition Prediction', 'AI Payroll Analytics', 'AI Chatbot', 'AI Auto Reports', 'AI Fraud Detection', 'AI Usage Analytics', 'AI Automation Rules'] },
   { label: 'Backup & Restore', icon: Database, items: ['Database Backup', 'File Backup', 'Automatic Backup', 'Manual Backup', 'Restore Database', 'Restore Files', 'Backup Scheduling', 'Cloud Backup', 'Backup Encryption', 'Backup Logs', 'Disaster Recovery'] },
@@ -64,3 +64,4 @@ export const buildModuleRows = (title) =>
     owner: ['Platform Team', 'Finance Team', 'Security Team'][index % 3],
     updated: `${index + 1}h ago`
   }))
+

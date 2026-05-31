@@ -41,7 +41,7 @@ import { fetchCompanies } from '../../api/companyManagementApi'
 import { formatDate, formatDateTime } from '../../utils/dateFormat'
 
 const submodules = new Set([
-  'Subscription Plans', 'Plan Pricing', 'User Limits', 'Storage Limits', 'Plan Upgrade/Downgrade', 'Subscription History', 'Invoice Management', 'Generate Invoice', 'Payment Tracking', 'Failed Payments', 'Refund Management', 'Transaction History', 'Discount Coupons'
+  'Subscription Plans', 'Plan Pricing', 'User Limits', 'Storage Limits', 'Plan Upgrade/Downgrade', 'Subscription History', 'Invoice Management', 'Payment Tracking', 'Failed Payments', 'Refund Management', 'Transaction History', 'Discount Coupons'
 ])
 
 const sectionByPage = {
@@ -87,19 +87,12 @@ const subscriptionWorkspaceGroups = [
     ]
   },
   {
-    title: 'Lifecycle',
+    title: 'Billing Operations',
     path: `${subscriptionModuleRoot}/plan-upgrade-downgrade`,
     items: [
       { label: 'Plan Upgrade/Downgrade', path: `${subscriptionModuleRoot}/plan-upgrade-downgrade` },
-      { label: 'Subscription History', path: `${subscriptionModuleRoot}/subscription-history` }
-    ]
-  },
-  {
-    title: 'Billing Operations',
-    path: `${subscriptionModuleRoot}/invoice-management`,
-    items: [
+      { label: 'Subscription History', path: `${subscriptionModuleRoot}/subscription-history` },
       { label: 'Invoice Management', path: `${subscriptionModuleRoot}/invoice-management` },
-      { label: 'Generate Invoice', path: `${subscriptionModuleRoot}/generate-invoice` },
       { label: 'Payment Tracking', path: `${subscriptionModuleRoot}/payment-tracking` },
       { label: 'Discount Coupons', path: `${subscriptionModuleRoot}/discount-coupons` }
     ]
@@ -510,18 +503,61 @@ function SubscriptionBillingModulePage({ page }) {
       <div className="panel filters-panel"><div className="filters-row"><div className="search-wrap"><label>Search</label><SearchBar value={search} onChange={setSearch} placeholder="Search by name/code/invoice" /></div><FilterDropdown label="Status" value={statusFilter} onChange={(v) => { setStatusFilter(v); setPagination((prev) => ({ ...prev, page: 1 })) }} options={page === 'Discount Coupons' ? [{ value: 'all', label: 'All' }, { value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }] : [{ value: 'all', label: 'All' }, { value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }, { value: 'pending', label: 'Pending' }, { value: 'failed', label: 'Failed' }, { value: 'completed', label: 'Completed' }, { value: 'paid', label: 'Paid' }, { value: 'cancelled', label: 'Cancelled' }, { value: 'expired', label: 'Expired' }]} /></div></div>
       {submodules.has(page) || !page ? renderSection(page || 'Subscription Plans') : <EmptyState title="Unknown Subscription module" />}
 
-      <Modal open={planModal} title={selectedPlan ? 'Edit Plan' : 'Create Plan'} onClose={() => setPlanModal(false)}>
-        <div className="form-grid">
-          <FormInput label="Plan Name" value={planForm.name} onChange={(e) => setPlanForm((p) => ({ ...p, name: e.target.value }))} />
-          <FilterDropdown label="Type" value={planForm.type} onChange={(v) => setPlanForm((p) => ({ ...p, type: v }))} options={[{ value: 'standard', label: 'Standard' }]} />
-          <FormInput label="Monthly Price" type="number" value={planForm.monthlyPrice} onChange={(e) => setPlanForm((p) => ({ ...p, monthlyPrice: Number(e.target.value) }))} />
-          <FormInput label="Yearly Price" type="number" value={planForm.yearlyPrice} onChange={(e) => setPlanForm((p) => ({ ...p, yearlyPrice: Number(e.target.value) }))} />
-          <FormInput label="User Limit" type="number" value={planForm.userLimit} onChange={(e) => setPlanForm((p) => ({ ...p, userLimit: Number(e.target.value) }))} />
-          <FormInput label="Storage Limit" type="number" value={planForm.storageLimit} onChange={(e) => setPlanForm((p) => ({ ...p, storageLimit: Number(e.target.value) }))} />
-          <FormInput label="Features (comma separated)" value={planForm.features} onChange={(e) => setPlanForm((p) => ({ ...p, features: e.target.value }))} />
-          <FilterDropdown label="Status" value={planForm.status} onChange={(v) => setPlanForm((p) => ({ ...p, status: v }))} options={[{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }]} />
+      <Modal
+        open={planModal}
+        title={selectedPlan ? 'Edit Plan' : 'Create Plan'}
+        onClose={() => setPlanModal(false)}
+        modalClassName="subscription-plan-form-shell"
+        bodyClassName="subscription-plan-form-body"
+      >
+        <div className="subscription-plan-form">
+          <div className="subscription-form-section">
+            <div className="subscription-form-section-head">
+              <h4>Plan Basics</h4>
+              <p>Define plan identity and default visibility.</p>
+            </div>
+            <div className="form-grid subscription-plan-grid">
+              <FormInput label="Plan Name *" value={planForm.name} onChange={(e) => setPlanForm((p) => ({ ...p, name: e.target.value }))} />
+              <FilterDropdown label="Type" value={planForm.type} onChange={(v) => setPlanForm((p) => ({ ...p, type: v }))} options={[{ value: 'standard', label: 'Standard' }]} />
+              <FilterDropdown label="Status" value={planForm.status} onChange={(v) => setPlanForm((p) => ({ ...p, status: v }))} options={[{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }]} />
+            </div>
+          </div>
+
+          <div className="subscription-form-section">
+            <div className="subscription-form-section-head">
+              <h4>Pricing</h4>
+              <p>Set monthly and yearly plan charges.</p>
+            </div>
+            <div className="form-grid subscription-plan-grid">
+              <FormInput label="Monthly Price *" type="number" min="0" value={planForm.monthlyPrice} onChange={(e) => setPlanForm((p) => ({ ...p, monthlyPrice: Number(e.target.value) }))} />
+              <FormInput label="Yearly Price *" type="number" min="0" value={planForm.yearlyPrice} onChange={(e) => setPlanForm((p) => ({ ...p, yearlyPrice: Number(e.target.value) }))} />
+            </div>
+          </div>
+
+          <div className="subscription-form-section">
+            <div className="subscription-form-section-head">
+              <h4>Limits & Features</h4>
+              <p>Configure quota and highlighted plan features.</p>
+            </div>
+            <div className="form-grid subscription-plan-grid">
+              <FormInput label="User Limit" type="number" min="0" value={planForm.userLimit} onChange={(e) => setPlanForm((p) => ({ ...p, userLimit: Number(e.target.value) }))} />
+              <FormInput label="Storage Limit (GB)" type="number" min="0" value={planForm.storageLimit} onChange={(e) => setPlanForm((p) => ({ ...p, storageLimit: Number(e.target.value) }))} />
+              <div className="subscription-form-field full-width">
+                <FormInput label="Features (comma separated)" placeholder="Payroll, ATS, Analytics, API Access" value={planForm.features} onChange={(e) => setPlanForm((p) => ({ ...p, features: e.target.value }))} />
+                <small className="field-hint">Separate each feature by comma.</small>
+              </div>
+            </div>
+          </div>
+
+          <div className="subscription-form-meta-note">
+            <span>* Required fields</span>
+            <span>Tip: You can edit pricing and limits anytime.</span>
+          </div>
+          <div className="modal-actions subscription-plan-form-actions">
+            <Button variant="ghost" onClick={() => setPlanModal(false)}>Cancel</Button>
+            <Button onClick={savePlan}>Save Plan</Button>
+          </div>
         </div>
-        <div className="actions-row"><Button variant="ghost" onClick={() => setPlanModal(false)}>Cancel</Button><Button onClick={savePlan}>Save Plan</Button></div>
       </Modal>
 
       <Modal open={assignModal} title="Assign Subscription" onClose={() => setAssignModal(false)}>

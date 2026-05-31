@@ -150,6 +150,7 @@ function Sidebar({ isCollapsed, isMobileOpen, isMobile, onToggle, onClose }) {
           )
         })}
       </nav>
+
     </aside>
   )
 }

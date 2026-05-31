@@ -1,18 +1,16 @@
-﻿import { createContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useEffect, useMemo, useState } from 'react'
 
 export const ThemeContext = createContext(null)
 
 export function ThemeProvider({ children }) {
-  const [theme, setTheme] = useState(() => localStorage.getItem('hrms_theme') || 'dark')
+  const [theme] = useState('light')
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme)
-    localStorage.setItem('hrms_theme', theme)
+    document.documentElement.setAttribute('data-theme', 'light')
+    localStorage.setItem('hrms_theme', 'light')
   }, [theme])
 
-  const toggleTheme = () => {
-    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'))
-  }
+  const toggleTheme = () => {}
 
   const value = useMemo(() => ({ theme, toggleTheme }), [theme])
 

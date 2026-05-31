@@ -5,7 +5,6 @@ import { useTheme } from '../../hooks/useTheme'
 import { useAuth } from '../../hooks/useAuth'
 import Button from '../ui/Button'
 import { globalSearch } from '../../api/dashboardApi'
-import { navItems } from '../../data/dashboardData'
 
 function Navbar() {
   const { theme, toggleTheme } = useTheme()
@@ -17,14 +16,6 @@ function Navbar() {
   const [results, setResults] = useState([])
   const [open, setOpen] = useState(false)
   const wrapRef = useRef(null)
-
-  const supportCenterRoute = useRef(
-    navItems.find((item) => item.label === 'Support Center')?.children?.[0]?.path || '/super-admin/support-center/ticket-dashboard'
-  )
-  const profileRoute = useRef(
-    navItems.find((item) => item.label === 'System Settings')?.children?.find((child) => child.label === 'General Settings')?.path
-    || '/super-admin/system-settings/general-settings'
-  )
 
   useEffect(() => {
     const onDocClick = (event) => {
@@ -101,35 +92,16 @@ function Navbar() {
                 onClick={() => goToResult(item.route)}
               >
                 <strong>{item.title}</strong>
-                <span>{item.type} · {item.subtitle}</span>
+                                <span>{item.type} - {item.subtitle}</span>
               </button>
             ))}
           </div>
         ) : null}
       </div>
       <div className="navbar-actions">
-        <button type="button" className="icon-btn" onClick={toggleTheme} title="Toggle theme" aria-label="Toggle theme">
-          {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
-        </button>
-        <button
-          type="button"
-          className="icon-btn has-badge"
-          title="Open support notifications"
-          aria-label="Open support notifications"
-          onClick={() => navigate(supportCenterRoute.current)}
-        >
-          <Bell size={16} />
-        </button>
-        <button
-          type="button"
-          className="profile-menu"
-          title="Open profile settings"
-          aria-label="Open profile settings"
-          onClick={() => navigate(profileRoute.current)}
-        >
-          <UserCircle2 size={18} />
-          <span>{user?.name || 'Guest'}</span>
-        </button>
+        <button className="icon-btn" onClick={toggleTheme}>{theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}</button>
+        <button className="icon-btn has-badge"><Bell size={16} /></button>
+        <div className="profile-menu"><UserCircle2 size={18} /><span>{user?.name || 'Guest'}</span></div>
         <Button variant="danger" onClick={logout}><LogOut size={14} /> Logout</Button>
       </div>
     </header>

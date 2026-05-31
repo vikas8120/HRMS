@@ -4,63 +4,58 @@ import DataTable from '../../components/ui/DataTable'
 import Button from '../../components/ui/Button'
 import FormInput from '../../components/ui/FormInput'
 import FilterDropdown from '../../components/ui/FilterDropdown'
-import EmptyState from '../../components/ui/EmptyState'
-import LoadingSkeleton from '../../components/ui/LoadingSkeleton'
-import { generateReport, listReports } from '../../api/reportsApi'
 
-const reportTypes = [
-  'Tenant Reports',
-  'Revenue Reports',
-  'Subscription Reports',
-  'User Reports',
-  'Security Reports',
-  'Login Reports',
-  'API Usage Reports',
-  'Support Reports',
-  'Storage Reports',
-  'System Health Reports',
-  'Billing Reports',
-  'Audit Reports'
-]
-
-const sectionByPage = {
-  'Tenant Reports': 'reports-generator-section',
-  'Revenue Reports': 'reports-generator-section',
-  'Subscription Reports': 'reports-generator-section',
-  'User Reports': 'reports-generator-section',
-  'Security Reports': 'reports-generator-section',
-  'Login Reports': 'reports-generator-section',
-  'API Usage Reports': 'reports-generator-section',
-  'Support Reports': 'reports-generator-section',
-  'Storage Reports': 'reports-generator-section',
-  'System Health Reports': 'reports-generator-section',
-  'Billing Reports': 'reports-generator-section',
-  'Audit Reports': 'reports-generator-section',
-  'Export Center': 'reports-history-section'
+const reportGroups = {
+  'Business Reports': ['Tenant Reports', 'Revenue Reports', 'Subscription Reports', 'Billing Reports'],
+  'Ops Reports': ['User Reports', 'Support Reports', 'Storage Reports'],
+  'Security & Platform': ['Security Reports', 'Login Reports', 'API Usage Reports', 'System Health Reports', 'Audit Reports']
 }
 
+const groupByReportType = Object.fromEntries(
+  Object.entries(reportGroups).flatMap(([group, types]) => types.map((type) => [type, group]))
+)
+
+const allTypes = Object.values(reportGroups).flat()
+const REPORTS_STORAGE_KEY = 'hrms_frontend_reports_v1'
+
+const seedRows = [
+  { id: 'rep-1', reportType: 'Tenant Reports', fromDate: '2026-05-01', toDate: '2026-05-31', format: 'csv', resultSummary: '24 active tenants, 2 paused tenants', dateTime: '2026-05-31T08:12:00.000Z' },
+  { id: 'rep-2', reportType: 'Support Reports', fromDate: '2026-05-01', toDate: '2026-05-31', format: 'pdf', resultSummary: '126 tickets resolved, avg closure 9.4h', dateTime: '2026-05-31T09:45:00.000Z' },
+  { id: 'rep-3', reportType: 'Security Reports', fromDate: '2026-05-01', toDate: '2026-05-31', format: 'xlsx', resultSummary: '31 blocked attempts, 0 critical breaches', dateTime: '2026-05-31T10:15:00.000Z' }
+]
+
 function ReportsModulePage({ page }) {
-  const [rows, setRows] = useState([])
+  const [rows, setRows] = useState(() => {
+    try {
+      const raw = localStorage.getItem(REPORTS_STORAGE_KEY)
+      const parsed = raw ? JSON.parse(raw) : null
+      return parsed?.rows?.length ? parsed.rows : seedRows
+    } catch {
+      return seedRows
+    }
+  })
   const [toast, setToast] = useState({ type: '', message: '' })
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
   const [format, setFormat] = useState('csv')
-  const [filterText, setFilterText] = useState('')
   const [selectedType, setSelectedType] = useState('Tenant Reports')
-  const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
-  const load = async () => {
-    setLoading(true)
-    try {
-      const res = await listReports({ page: 1, limit: 200, reportType: 'all' })
-      setRows(res.items || [])
-    } catch (error) {
-      setToast({ type: 'error', message: error?.response?.data?.message || 'Failed to load reports' })
-    } finally {
-      setLoading(false)
+  const activeGroup = useMemo(() => {
+    if (!page) return 'Business Reports'
+    if (reportGroups[page]) return page
+    return groupByReportType[page] || 'Business Reports'
+  }, [page])
+
+  const allowedTypes = reportGroups[activeGroup] || reportGroups['Business Reports']
+
+  useEffect(() => {
+    if (page && allTypes.includes(page)) {
+      setSelectedType(page)
+      return
     }
-  }
+    setSelectedType(allowedTypes[0])
+  }, [page, activeGroup])
 
   useEffect(() => {
     const today = new Date()
@@ -68,79 +63,75 @@ function ReportsModulePage({ page }) {
     prior.setDate(today.getDate() - 30)
     setToDate(today.toISOString().slice(0, 10))
     setFromDate(prior.toISOString().slice(0, 10))
-    load()
   }, [])
 
   useEffect(() => {
-    if (reportTypes.includes(page)) setSelectedType(page)
-    if (!page || !sectionByPage[page]) return
-    const timer = setTimeout(() => {
-      const element = document.getElementById(sectionByPage[page])
-      if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }, 50)
-    return () => clearTimeout(timer)
-  }, [page])
+    localStorage.setItem(REPORTS_STORAGE_KEY, JSON.stringify({ rows }))
+  }, [rows])
 
-  const cols = [{ key: 'reportType', label: 'Report Type' }, { key: 'fromDate', label: 'From' }, { key: 'toDate', label: 'To' }, { key: 'format', label: 'Format' }, { key: 'resultSummary', label: 'Summary' }, { key: 'dateTime', label: 'Generated At' }]
-  const tableRows = useMemo(() => rows.map((x) => ({
-    id: x._id,
-    reportType: x.reportType,
-    fromDate: new Date(x.fromDate).toLocaleDateString(),
-    toDate: new Date(x.toDate).toLocaleDateString(),
-    format: x.format,
-    resultSummary: x.resultSummary || '-',
-    dateTime: new Date(x.dateTime).toLocaleString()
-  })), [rows])
+  const cols = [
+    { key: 'reportType', label: 'Report Type' },
+    { key: 'fromDate', label: 'From' },
+    { key: 'toDate', label: 'To' },
+    { key: 'format', label: 'Format' },
+    { key: 'resultSummary', label: 'Summary' },
+    { key: 'dateTime', label: 'Generated At' }
+  ]
 
-  const runGenerate = async (fmt) => {
+  const tableRows = useMemo(() => rows
+    .filter((x) => allowedTypes.includes(x.reportType))
+    .map((x) => ({
+      ...x,
+      fromDate: new Date(x.fromDate).toLocaleDateString(),
+      toDate: new Date(x.toDate).toLocaleDateString(),
+      dateTime: new Date(x.dateTime).toLocaleString()
+    })), [rows, allowedTypes])
+
+  const showToast = (type, message) => {
+    setToast({ type, message })
+    setTimeout(() => setToast({ type: '', message: '' }), 1600)
+  }
+
+  const runGenerate = (fmt) => {
     if (submitting) return
-    if (!fromDate || !toDate) return setToast({ type: 'error', message: 'Select date range' })
-    if (new Date(fromDate) > new Date(toDate)) return setToast({ type: 'error', message: 'From Date cannot be after To Date' })
+    if (!fromDate || !toDate) return showToast('error', 'Select date range')
+    if (new Date(fromDate) > new Date(toDate)) return showToast('error', 'From Date cannot be after To Date')
     const normalizedFormat = String(fmt || format || '').trim().toLowerCase()
-    if (!['csv', 'pdf', 'xlsx'].includes(normalizedFormat)) {
-      return setToast({ type: 'error', message: 'Format must be csv, pdf, or xlsx' })
+    if (!['csv', 'pdf', 'xlsx'].includes(normalizedFormat)) return showToast('error', 'Format must be csv, pdf, or xlsx')
+
+    setSubmitting(true)
+    const next = {
+      id: `rep-${Date.now()}`,
+      reportType: selectedType,
+      fromDate,
+      toDate,
+      format: normalizedFormat,
+      resultSummary: `${selectedType} generated for selected range`,
+      dateTime: new Date().toISOString()
     }
-    try {
-      setSubmitting(true)
-      const res = await generateReport({ reportType: selectedType, fromDate, toDate, format: normalizedFormat, filters: { query: filterText } })
-      setToast({ type: 'success', message: res?.message || `${normalizedFormat.toUpperCase()} report generated successfully` })
-      await load()
-    } catch (error) {
-      setToast({ type: 'error', message: error?.response?.data?.message || 'Failed to generate report' })
-    } finally {
-      setSubmitting(false)
-    }
+    setRows((prev) => [next, ...prev])
+    showToast('success', `${normalizedFormat.toUpperCase()} report generated (frontend only)`)
+    setSubmitting(false)
   }
 
   return (
     <section className="section-layout">
       <PageHeader
-        title="Reports"
-        description="Single-page reporting workspace for generation, filters, exports, and history."
-        breadcrumb={['Super Admin', 'Reports', 'Workspace']}
+        title={activeGroup}
+        description="Generate and export reports with group-wise frontend workspace."
+        breadcrumb={['Super Admin', 'Reports', activeGroup]}
         primaryActionLabel="Refresh"
-        onPrimaryAction={load}
+        onPrimaryAction={() => showToast('success', 'Refreshed (frontend state)')}
       />
       {toast.message ? <div className={`toast toast-${toast.type}`}>{toast.message}</div> : null}
-
-      <div className="panel">
-        <div className="panel-head"><h3>All Report Controls In One Page</h3></div>
-        <p>Generate any report type, export in multiple formats, and audit report history in one place.</p>
-      </div>
 
       <div id="reports-generator-section" className="panel">
         <h3>Generate Report</h3>
         <div className="form-grid">
-          <FilterDropdown label="Report Type" value={selectedType} onChange={setSelectedType} options={reportTypes.map((type) => ({ value: type, label: type }))} />
+          <FilterDropdown label="Report Type" value={selectedType} onChange={setSelectedType} options={allowedTypes.map((type) => ({ value: type, label: type }))} />
           <FormInput label="From Date" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
           <FormInput label="To Date" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-          <FormInput label="Filter" value={filterText} onChange={(e) => setFilterText(e.target.value)} placeholder="Optional filter" />
-          <FilterDropdown
-            label="Format"
-            value={format}
-            onChange={setFormat}
-            options={[{ value: 'csv', label: 'CSV' }, { value: 'pdf', label: 'PDF' }, { value: 'xlsx', label: 'XLSX' }]}
-          />
+          <FilterDropdown label="Format" value={format} onChange={setFormat} options={[{ value: 'csv', label: 'CSV' }, { value: 'pdf', label: 'PDF' }, { value: 'xlsx', label: 'XLSX' }]} />
         </div>
         <div className="actions-row">
           <Button disabled={submitting} onClick={() => runGenerate(format)}>{submitting ? 'Generating...' : 'Generate Report'}</Button>
@@ -150,9 +141,8 @@ function ReportsModulePage({ page }) {
       </div>
 
       <div id="reports-history-section" className="panel">
-        <h3>Report History</h3>
-        {loading ? <LoadingSkeleton rows={6} /> : <DataTable columns={cols} rows={tableRows} showActions={false} />}
-        {!loading && tableRows.length === 0 ? <EmptyState title="No report history found" /> : null}
+        <h3>{activeGroup} History</h3>
+        <DataTable columns={cols} rows={tableRows} showActions={false} emptyTitle={`No ${activeGroup.toLowerCase()} history found`} />
       </div>
     </section>
   )

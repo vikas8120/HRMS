@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Bell, LogOut, Moon, Search, Sun, UserCircle2 } from 'lucide-react'
+import { Bell, LogOut, Search, UserCircle2 } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { hrNavItems } from '../../data/hrPortalData'
 import { useAuth } from '../../hooks/useAuth'
-import { useTheme } from '../../hooks/useTheme'
 import Button from '../ui/Button'
 
 const hrSearchItems = hrNavItems.map((item) => ({
@@ -14,7 +13,6 @@ const hrSearchItems = hrNavItems.map((item) => ({
 }))
 
 function HrNavbar() {
-  const { theme, toggleTheme } = useTheme()
   const { user, logout } = useAuth()
   const { pathname } = useLocation()
   const navigate = useNavigate()
@@ -103,9 +101,6 @@ function HrNavbar() {
       </div>
 
       <div className="navbar-actions">
-        <button className="icon-btn" onClick={toggleTheme} aria-label="Toggle theme">
-          {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
-        </button>
         <button
           className="icon-btn has-badge"
           aria-label="Announcements"

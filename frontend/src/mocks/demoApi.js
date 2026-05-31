@@ -14,7 +14,9 @@ const seedDb = () => ({
   employees: [
     { id: 'emp-001', employeeId: 'EMP001', name: 'John Employee', role: 'Developer', department: 'Engineering', departmentId: 'dep-01', status: 'active' },
     { id: 'emp-002', employeeId: 'EMP002', name: 'Sara QA', role: 'QA Engineer', department: 'Engineering', departmentId: 'dep-01', status: 'active' },
-    { id: 'emp-003', employeeId: 'EMP003', name: 'Mia Designer', role: 'UI/UX Designer', department: 'Design', departmentId: 'dep-02', status: 'active' }
+    { id: 'emp-003', employeeId: 'EMP003', name: 'Mia Designer', role: 'UI/UX Designer', department: 'Design', departmentId: 'dep-02', status: 'active' },
+    { id: 'emp-004', employeeId: 'EMP004', name: 'Arjun Analyst', role: 'Business Analyst', department: 'Engineering', departmentId: 'dep-01', status: 'active' },
+    { id: 'emp-005', employeeId: 'EMP005', name: 'Neha Support', role: 'Support Engineer', department: 'Engineering', departmentId: 'dep-01', status: 'active' }
   ],
   managers: [
     { id: 'mgr-01', name: 'Team Manager', email: 'manager@demo.com', status: 'active', departmentId: 'dep-01' }
@@ -34,7 +36,11 @@ const seedDb = () => ({
     { id: 'ann-01', title: 'Townhall Friday', message: 'Monthly townhall at 5 PM.', createdAt: nowIso, priority: 'high' }
   ],
   tasks: [
-    { id: 'task-01', title: 'Finish onboarding docs', status: 'in-progress', dueDate: nowIso, priority: 'medium' }
+    { id: 'task-01', title: 'Finish onboarding docs', status: 'in-progress', dueDate: nowIso, priority: 'medium' },
+    { id: 'task-02', title: 'Review sprint backlog', status: 'completed', dueDate: nowIso, priority: 'medium' },
+    { id: 'task-03', title: 'Escalation response', status: 'overdue', dueDate: new Date(Date.now() - 86400000).toISOString(), priority: 'high' },
+    { id: 'task-04', title: '1:1 with team members', status: 'active', dueDate: new Date(Date.now() + 86400000).toISOString(), priority: 'low' },
+    { id: 'task-05', title: 'Attendance anomaly check', status: 'completed', dueDate: nowIso, priority: 'medium' }
   ],
   tickets: [
     { id: 'tic-01', ticketNo: 'TCK-1001', subject: 'Laptop issue', description: 'Keyboard not working', status: 'open', priority: 'medium', createdAt: nowIso, messages: [] }
@@ -78,7 +84,11 @@ const seedDb = () => ({
     }
   ],
   attendance: [
-    { id: 'att-01', employeeId: 'emp-001', employeeName: 'John Employee', departmentId: 'dep-01', date: nowIso.slice(0, 10), checkIn: '09:34', checkOut: '18:12', status: 'present', workingHours: 8.6 }
+    { id: 'att-01', employeeId: 'emp-001', employeeName: 'John Employee', departmentId: 'dep-01', date: nowIso.slice(0, 10), checkIn: '09:34', checkOut: '18:12', status: 'present', workingHours: 8.6 },
+    { id: 'att-02', employeeId: 'emp-002', employeeName: 'Sara QA', departmentId: 'dep-01', date: nowIso.slice(0, 10), checkIn: '10:08', checkOut: '18:25', status: 'late', workingHours: 8.0 },
+    { id: 'att-03', employeeId: 'emp-003', employeeName: 'Mia Designer', departmentId: 'dep-02', date: nowIso.slice(0, 10), checkIn: '', checkOut: '', status: 'absent', workingHours: 0 },
+    { id: 'att-04', employeeId: 'emp-004', employeeName: 'Arjun Analyst', departmentId: 'dep-01', date: nowIso.slice(0, 10), checkIn: '09:12', checkOut: '18:05', status: 'present', workingHours: 8.7 },
+    { id: 'att-05', employeeId: 'emp-005', employeeName: 'Neha Support', departmentId: 'dep-01', date: nowIso.slice(0, 10), checkIn: '09:48', checkOut: '18:15', status: 'present', workingHours: 8.2 }
   ],
   companies: [
     {
@@ -133,11 +143,31 @@ const seedDb = () => ({
   backupLogs: [{ id: 'bkp-01', type: 'full', status: 'success', createdAt: nowIso }],
   managerRequests: [{ id: 'mr-01', title: 'Extra headcount request', status: 'open' }],
   managerMeetings: [{ id: 'mm-01', title: 'Sprint planning', date: nowIso.slice(0, 10) }],
-  managerMessages: [{ id: 'msg-01', subject: 'Team update', status: 'sent' }],
-  managerNotifications: [{ id: 'mn-01', title: 'Leave approval pending', status: 'unread' }],
+  managerMessages: [
+    { id: 'msg-01', module: 'attendance', action: 'LATE_MARKED', subject: 'Late check-in recorded', message: 'Sara QA marked late check-in at 10:12 AM', status: 'sent', createdAt: new Date(Date.now() - 3600000).toISOString() },
+    { id: 'msg-02', module: 'leave', action: 'LEAVE_REQUEST', subject: 'Leave request submitted', message: 'Mia Designer requested casual leave for 2 days', status: 'sent', createdAt: new Date(Date.now() - 7200000).toISOString() },
+    { id: 'msg-03', module: 'performance', action: 'REVIEW_COMPLETED', subject: 'Performance review submitted', message: 'Arjun Analyst review cycle completed', status: 'sent', createdAt: new Date(Date.now() - 10800000).toISOString() },
+    { id: 'msg-04', module: 'tasks', action: 'TASK_OVERDUE', subject: 'Overdue task alert', message: 'Escalation response task is overdue by 1 day', status: 'sent', createdAt: new Date(Date.now() - 14400000).toISOString() }
+  ],
+  managerNotifications: [
+    { id: 'mn-01', title: 'Leave approval pending', message: '2 leave requests are awaiting your action', status: 'unread' },
+    { id: 'mn-02', title: 'Attendance anomaly', message: '1 team member has irregular attendance', status: 'unread' },
+    { id: 'mn-03', title: 'Review due', message: 'Quarterly review deadline is tomorrow', status: 'read' }
+  ],
   managerSupportTickets: [{ id: 'mst-01', ticketNo: 'MST-1001', subject: 'Access issue', status: 'open' }],
-  managerPerformance: [{ id: 'mpr-01', employeeId: 'emp-002', rating: 4.5, period: 'Q2-2026' }],
-  employeeLeaves: [{ id: 'el-01', type: 'casual', status: 'approved', fromDate: nowIso.slice(0, 10), toDate: nowIso.slice(0, 10) }],
+  managerPerformance: [
+    { id: 'mpr-01', employeeId: 'emp-001', rating: 4.2, reviews: 3, period: 'Q2-2026' },
+    { id: 'mpr-02', employeeId: 'emp-002', rating: 4.5, reviews: 4, period: 'Q2-2026' },
+    { id: 'mpr-03', employeeId: 'emp-003', rating: 3.9, reviews: 2, period: 'Q2-2026' },
+    { id: 'mpr-04', employeeId: 'emp-004', rating: 4.1, reviews: 3, period: 'Q2-2026' },
+    { id: 'mpr-05', employeeId: 'emp-005', rating: 3.8, reviews: 2, period: 'Q2-2026' }
+  ],
+  employeeLeaves: [
+    { id: 'el-01', employeeName: 'John Employee', type: 'casual', status: 'approved', fromDate: nowIso.slice(0, 10), toDate: nowIso.slice(0, 10) },
+    { id: 'el-02', employeeName: 'Mia Designer', type: 'casual', status: 'pending', fromDate: nowIso.slice(0, 10), toDate: new Date(Date.now() + 86400000).toISOString().slice(0, 10) },
+    { id: 'el-03', employeeName: 'Arjun Analyst', type: 'sick', status: 'pending', fromDate: nowIso.slice(0, 10), toDate: nowIso.slice(0, 10) },
+    { id: 'el-04', employeeName: 'Neha Support', type: 'earned', status: 'approved', fromDate: nowIso.slice(0, 10), toDate: nowIso.slice(0, 10) }
+  ],
   recruitment: [{ id: 'rc-01', name: 'Priya Candidate', stage: 'Interview', status: 'active' }]
 })
 
@@ -168,6 +198,10 @@ const ensureModuleSeedData = (db) => {
   db.auditLogs = ensureArray(db.auditLogs)
   db.aiSettings = ensureArray(db.aiSettings)
   db.automationRules = ensureArray(db.automationRules)
+  db.managerPerformance = ensureArray(db.managerPerformance)
+  db.managerMessages = ensureArray(db.managerMessages)
+  db.managerNotifications = ensureArray(db.managerNotifications)
+  db.employeeLeaves = ensureArray(db.employeeLeaves)
 
   if (db.supportCategories.length === 0) {
     db.supportCategories.push(
@@ -236,6 +270,48 @@ const ensureModuleSeedData = (db) => {
       { _id: 'ar-05', name: 'Weekly AI Summary', trigger: 'on_weekly_schedule', action: 'email_summary', enabled: true }
     ]
     db.automationRules = rules
+  }
+  if (db.managerPerformance.length < 4) {
+    db.managerPerformance = [
+      { id: 'mpr-01', employeeId: 'emp-001', rating: 4.2, reviews: 3, period: 'Q2-2026' },
+      { id: 'mpr-02', employeeId: 'emp-002', rating: 4.5, reviews: 4, period: 'Q2-2026' },
+      { id: 'mpr-03', employeeId: 'emp-003', rating: 3.9, reviews: 2, period: 'Q2-2026' },
+      { id: 'mpr-04', employeeId: 'emp-004', rating: 4.1, reviews: 3, period: 'Q2-2026' },
+      { id: 'mpr-05', employeeId: 'emp-005', rating: 3.8, reviews: 2, period: 'Q2-2026' }
+    ]
+  }
+  if (db.employeeLeaves.length < 3) {
+    db.employeeLeaves = [
+      { id: 'el-01', employeeName: 'John Employee', type: 'casual', status: 'approved', fromDate: nowIso.slice(0, 10), toDate: nowIso.slice(0, 10) },
+      { id: 'el-02', employeeName: 'Mia Designer', type: 'casual', status: 'pending', fromDate: nowIso.slice(0, 10), toDate: new Date(Date.now() + 86400000).toISOString().slice(0, 10) },
+      { id: 'el-03', employeeName: 'Arjun Analyst', type: 'sick', status: 'pending', fromDate: nowIso.slice(0, 10), toDate: nowIso.slice(0, 10) }
+    ]
+  }
+  if (db.managerMessages.length < 3) {
+    db.managerMessages = [
+      { id: 'msg-01', module: 'attendance', action: 'LATE_MARKED', subject: 'Late check-in recorded', message: 'Sara QA marked late check-in at 10:12 AM', status: 'sent', createdAt: new Date(Date.now() - 3600000).toISOString() },
+      { id: 'msg-02', module: 'leave', action: 'LEAVE_REQUEST', subject: 'Leave request submitted', message: 'Mia Designer requested casual leave for 2 days', status: 'sent', createdAt: new Date(Date.now() - 7200000).toISOString() },
+      { id: 'msg-03', module: 'performance', action: 'REVIEW_COMPLETED', subject: 'Performance review submitted', message: 'Arjun Analyst review cycle completed', status: 'sent', createdAt: new Date(Date.now() - 10800000).toISOString() }
+    ]
+  }
+  if (db.managerNotifications.length < 2) {
+    db.managerNotifications = [
+      { id: 'mn-01', title: 'Leave approval pending', message: '2 leave requests are awaiting your action', status: 'unread' },
+      { id: 'mn-02', title: 'Attendance anomaly', message: '1 team member has irregular attendance', status: 'unread' }
+    ]
+  }
+  const today = nowIso.slice(0, 10)
+  const attendanceToday = db.attendance.filter((item) => String(item.date || '').slice(0, 10) === today)
+  if (attendanceToday.length < 4) {
+    const seedAttendance = [
+      { id: 'att-01', employeeId: 'emp-001', employeeName: 'John Employee', departmentId: 'dep-01', date: today, checkIn: '09:34', checkOut: '18:12', status: 'present', workingHours: 8.6 },
+      { id: 'att-02', employeeId: 'emp-002', employeeName: 'Sara QA', departmentId: 'dep-01', date: today, checkIn: '10:08', checkOut: '18:25', status: 'late', workingHours: 8.0 },
+      { id: 'att-03', employeeId: 'emp-003', employeeName: 'Mia Designer', departmentId: 'dep-02', date: today, checkIn: '', checkOut: '', status: 'absent', workingHours: 0 },
+      { id: 'att-04', employeeId: 'emp-004', employeeName: 'Arjun Analyst', departmentId: 'dep-01', date: today, checkIn: '09:12', checkOut: '18:05', status: 'present', workingHours: 8.7 },
+      { id: 'att-05', employeeId: 'emp-005', employeeName: 'Neha Support', departmentId: 'dep-01', date: today, checkIn: '09:48', checkOut: '18:15', status: 'present', workingHours: 8.2 }
+    ]
+    const others = db.attendance.filter((item) => String(item.date || '').slice(0, 10) !== today)
+    db.attendance = [...seedAttendance, ...others]
   }
 
   return db
@@ -776,7 +852,112 @@ export const handleDemoRequest = async (config) => {
   }
 
   if (path === '/admin/dashboard' && method === 'get') {
-    return ok(config, { totals: { employees: db.employees.length, departments: db.departments.length, attendanceToday: db.attendance.length, payrollProcessed: db.payroll.length }, recentEmployees: db.employees })
+    const employees = ensureArray(db.employees)
+    const hrUsers = ensureArray(db.hrUsers)
+    const managers = ensureArray(db.managers)
+    const departments = ensureArray(db.departments)
+    const attendance = ensureArray(db.attendance)
+    const payroll = ensureArray(db.payroll)
+    const leaves = ensureArray(db.employeeLeaves)
+    const auditLogs = ensureArray(db.auditLogs)
+    const companies = ensureArray(db.companies)
+    const today = new Date().toISOString().slice(0, 10)
+
+    const attendanceToday = attendance.filter((item) => String(item.date || '').slice(0, 10) === today)
+    const presentToday = attendanceToday.filter((item) => String(item.status || '').toLowerCase() === 'present').length
+    const absentToday = Math.max(employees.length - presentToday, 0)
+    const pendingLeaves = leaves.filter((item) => String(item.status || '').toLowerCase() === 'pending').length
+    const approvedLeaves = leaves.filter((item) => String(item.status || '').toLowerCase() === 'approved').length
+    const rejectedLeaves = leaves.filter((item) => String(item.status || '').toLowerCase() === 'rejected').length
+
+    const monthlyPayroll = payroll.reduce((sum, row) => sum + Number(row.netSalary || 0), 0)
+    const company = companies[0] || null
+
+    const attendanceChartData = Array.from({ length: 7 }).map((_, idx) => {
+      const d = new Date()
+      d.setDate(d.getDate() - (6 - idx))
+      const dateKey = d.toISOString().slice(0, 10)
+      const rows = attendance.filter((item) => String(item.date || '').slice(0, 10) === dateKey)
+      const present = rows.filter((item) => String(item.status || '').toLowerCase() === 'present').length
+      const absent = Math.max(employees.length - present, 0)
+      return { date: dateKey.slice(5), present, absent }
+    })
+
+    const payrollChartMap = payroll.reduce((acc, row) => {
+      const month = String(row.month || today.slice(0, 7))
+      acc[month] = (acc[month] || 0) + Number(row.netSalary || 0)
+      return acc
+    }, {})
+    const payrollChartData = Object.keys(payrollChartMap).sort().map((month) => ({
+      month: month.slice(5),
+      total: payrollChartMap[month]
+    }))
+
+    const deptMap = employees.reduce((acc, emp) => {
+      const key = emp.department || 'Unknown'
+      acc[key] = (acc[key] || 0) + 1
+      return acc
+    }, {})
+    const departmentWiseEmployees = Object.entries(deptMap).map(([department, totalEmployees]) => ({
+      department,
+      totalEmployees
+    }))
+
+    const recentLeaveRequests = leaves.slice(0, 8).map((item, idx) => ({
+      id: item.id || `leave-${idx + 1}`,
+      employeeName: item.employeeName || employees[idx % Math.max(employees.length, 1)]?.name || 'Employee',
+      type: item.type || 'casual',
+      status: item.status || 'pending',
+      fromDate: item.fromDate || today,
+      toDate: item.toDate || today
+    }))
+
+    const recentActivities = auditLogs.slice(0, 10).map((item, idx) => ({
+      id: item._id || item.id || `act-${idx + 1}`,
+      action: item.action || 'UPDATE',
+      message: item.description || item.category || 'Activity event',
+      module: item.module || 'Audit',
+      createdAt: item.createdAt || item.dateTime || new Date().toISOString()
+    }))
+
+    return ok(config, {
+      data: {
+        totalEmployees: employees.length,
+        totalHR: hrUsers.length,
+        totalManagers: managers.length,
+        totalDepartments: departments.length,
+        presentToday,
+        absentToday,
+        todayAttendance: { present: presentToday, absent: absentToday, total: employees.length },
+        pendingLeaves,
+        approvedLeaves,
+        rejectedLeaves,
+        monthlyPayroll,
+        attendanceChartData,
+        payrollChartData,
+        departmentWiseEmployees,
+        recentEmployees: employees.slice(0, 8),
+        recentLeaveRequests,
+        recentActivities,
+        companyProfileSummary: company
+          ? {
+              companyName: company.companyName,
+              companyCode: company.companyCode,
+              plan: company.plan,
+              status: company.status,
+              timezone: company.timezone,
+              currency: company.currency,
+              location: [company.city, company.state, company.country].filter(Boolean).join(', '),
+              employeeLimit: company.employeeLimit
+            }
+          : null,
+        alerts: [
+          { id: 'alert-1', severity: absentToday > 0 ? 'warning' : 'success', title: 'Attendance Watch', message: `${absentToday} team member(s) absent today.` },
+          { id: 'alert-2', severity: pendingLeaves > 0 ? 'warning' : 'info', title: 'Leave Queue', message: `${pendingLeaves} leave request(s) pending approval.` },
+          { id: 'alert-3', severity: 'info', title: 'Payroll Run', message: `Current payroll outflow ${monthlyPayroll.toLocaleString('en-US')}.` }
+        ]
+      }
+    })
   }
 
   if (path === '/super-admin/companies' && method === 'get') {
@@ -878,10 +1059,107 @@ export const handleDemoRequest = async (config) => {
   }
 
   if (path === '/super-admin/dashboard/stats' && method === 'get') {
-    return ok(config, { data: { companies: db.companies.length, subscriptions: db.subscriptions.length, users: db.globalUsers.length } })
+    const companies = ensureArray(db.companies)
+    const users = ensureArray(db.globalUsers)
+    const subscriptions = ensureArray(db.subscriptions)
+    const payments = ensureArray(db.payments)
+
+    const monthlyRevenue = payments.reduce((sum, item) => sum + Number(item.amount || 0), 0)
+    return ok(config, {
+      data: {
+        companies: companies.length,
+        subscriptions: subscriptions.length,
+        users: users.length,
+        monthlyRevenue,
+        systemHealth: {
+          apiStatus: 'Operational',
+          databaseStatus: 'Operational',
+          storageStatus: 'Operational',
+          uptime: '99.97%'
+        }
+      }
+    })
   }
   if (path === '/super-admin/dashboard/overview' && method === 'get') {
-    return ok(config, { data: db.platformOverview })
+    const companies = ensureArray(db.companies)
+    const users = ensureArray(db.globalUsers)
+    const subscriptions = ensureArray(db.subscriptions)
+    const payments = ensureArray(db.payments)
+    const tickets = ensureArray(db.tickets)
+    const logs = ensureArray(db.auditLogs)
+
+    const monthlyRevenue = payments.reduce((sum, item) => sum + Number(item.amount || 0), 0)
+    const revenueDeals = [
+      { month: 'Jan', revenue: 82000, deals: 18 },
+      { month: 'Feb', revenue: 90000, deals: 21 },
+      { month: 'Mar', revenue: 101000, deals: 24 },
+      { month: 'Apr', revenue: 98000, deals: 23 },
+      { month: 'May', revenue: 114000, deals: 27 },
+      { month: 'Jun', revenue: 126000, deals: 30 },
+      { month: 'Jul', revenue: 121000, deals: 28 },
+      { month: 'Aug', revenue: 132000, deals: 33 },
+      { month: 'Sep', revenue: 141000, deals: 35 },
+      { month: 'Oct', revenue: 149000, deals: 37 },
+      { month: 'Nov', revenue: 158000, deals: 40 },
+      { month: 'Dec', revenue: 169000, deals: 44 }
+    ]
+
+    const leadSources = [
+      { source: 'Organic', value: 32 },
+      { source: 'Paid Ads', value: 24 },
+      { source: 'Referrals', value: 21 },
+      { source: 'Direct', value: 14 },
+      { source: 'Partners', value: 9 }
+    ]
+
+    const salesFunnel = [
+      { stage: 'Leads', count: 460 },
+      { stage: 'Qualified', count: 300 },
+      { stage: 'Demo', count: 210 },
+      { stage: 'Proposal', count: 132 },
+      { stage: 'Won', count: 84 }
+    ]
+
+    const openTickets = tickets.filter((item) => String(item.status || '').toLowerCase() === 'open').length
+    const resolvedTickets = tickets.filter((item) => String(item.status || '').toLowerCase() === 'closed').length
+    const pendingTickets = Math.max(tickets.length - openTickets - resolvedTickets, 0)
+
+    const recentActivities = logs.slice(0, 8).map((item, index) => ({
+      title: item.action || `Event ${index + 1}`,
+      description: item.description || 'Platform activity event',
+      type: item.category || 'System',
+      createdAt: item.createdAt || item.dateTime || new Date(Date.now() - index * 3600000).toISOString()
+    }))
+
+    return ok(config, {
+      data: {
+        stats: {
+          totalCompanies: companies.length,
+          activeCompanies: companies.filter((item) => String(item.status || '').toLowerCase() === 'active').length,
+          totalAdmins: ensureArray(db.users).filter((item) => String(item.role || '').toLowerCase() === 'admin').length,
+          totalUsers: users.length,
+          activeUsers: users.filter((item) => String(item.status || '').toLowerCase() !== 'inactive').length,
+          activeSubscriptions: subscriptions.filter((item) => String(item.status || '').toLowerCase() === 'active').length,
+          monthlyRevenue,
+          systemHealth: 'Healthy'
+        },
+        revenueDeals,
+        leadSources,
+        salesFunnel,
+        supportSummary: {
+          totalTickets: tickets.length,
+          openTickets,
+          pendingTickets,
+          resolvedTickets
+        },
+        recentActivities,
+        aiInsights: [
+          { title: 'Revenue acceleration', message: 'Enterprise plan conversions increased this quarter.', severity: 'success' },
+          { title: 'Renewal watchlist', message: '8 subscriptions are due for renewal in the next 10 days.', severity: 'warning' },
+          { title: 'Support stability', message: 'Average first response time improved by 11%.', severity: 'info' }
+        ]
+      }
+    })
   }
   if (path === '/super-admin/dashboard/system-health' && method === 'get') {
     return ok(config, { data: { api: 'healthy', db: 'healthy', queue: 'healthy' } })
@@ -890,7 +1168,24 @@ export const handleDemoRequest = async (config) => {
     return ok(config, { data: db.auditLogs })
   }
   if (path === '/super-admin/dashboard/platform-overview' && method === 'get') {
-    return ok(config, { items: db.platformOverview, data: db.platformOverview })
+    const items = ensureArray(db.platformOverview).map((item, index) => ({
+      _id: item._id || item.id || `po-${index + 1}`,
+      name: item.name || item.metric || `Overview ${index + 1}`,
+      value: item.value || '-',
+      status: item.status || 'active'
+    }))
+    return ok(config, { items, data: items })
+  }
+  if (/^\/super-admin\/dashboard\/widgets\/[^/]+$/.test(path) && method === 'get') {
+    const sectionKey = path.split('/').pop()
+    const items = ensureArray(db.dashboardWidgets).map((item, index) => ({
+      _id: item._id || item.id || `wid-${index + 1}`,
+      sectionKey: item.section || sectionKey,
+      name: item.title || `Widget ${index + 1}`,
+      value: item.value ?? 0,
+      status: 'active'
+    }))
+    return ok(config, { items, data: items })
   }
   if (path === '/super-admin/dashboard/premium-crm' && method === 'get') {
     return ok(config, { data: { revenue: 120000, leads: 320, winRate: 42 } })

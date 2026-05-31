@@ -6,20 +6,21 @@ import {
   CalendarDays,
   CircleAlert,
   CreditCard,
+  Database,
+  HardDrive,
+  LifeBuoy,
+  Mail,
   RefreshCw,
   Receipt,
+  Server,
+  ShieldCheck,
   Users
 } from 'lucide-react'
 import {
   Area,
   AreaChart,
-  Bar,
-  BarChart,
   CartesianGrid,
   Cell,
-  Legend,
-  Line,
-  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -36,85 +37,7 @@ import Button from '../components/ui/Button'
 import { getDashboardStats, getOverview, listDashboardSectionWidgets, listPlatformOverviewItems } from '../api/dashboardApi'
 import { logout as clearAuth } from '../utils/auth'
 
-const FRONTEND_ONLY_DASHBOARD = true
-
-const DASHBOARD_SEED_OVERVIEW = {
-  stats: {
-    totalCompanies: 32,
-    activeCompanies: 24,
-    totalAdmins: 58,
-    totalUsers: 1240,
-    activeUsers: 860,
-    activeSubscriptions: 21,
-    monthlyRevenue: 286000,
-    systemHealth: 'Healthy'
-  },
-  revenueDeals: [
-    { month: 'Jan', revenue: 162000, deals: 8 },
-    { month: 'Feb', revenue: 174000, deals: 9 },
-    { month: 'Mar', revenue: 182000, deals: 11 },
-    { month: 'Apr', revenue: 196000, deals: 12 },
-    { month: 'May', revenue: 214000, deals: 13 },
-    { month: 'Jun', revenue: 228000, deals: 14 },
-    { month: 'Jul', revenue: 236000, deals: 15 },
-    { month: 'Aug', revenue: 244000, deals: 16 },
-    { month: 'Sep', revenue: 258000, deals: 16 },
-    { month: 'Oct', revenue: 267000, deals: 17 },
-    { month: 'Nov', revenue: 276000, deals: 18 },
-    { month: 'Dec', revenue: 286000, deals: 19 }
-  ],
-  leadSources: [
-    { source: 'Organic', value: 34 },
-    { source: 'Referrals', value: 26 },
-    { source: 'Paid Campaigns', value: 22 },
-    { source: 'Partnerships', value: 18 }
-  ],
-  salesFunnel: [
-    { stage: 'Leads', count: 1200 },
-    { stage: 'Qualified', count: 780 },
-    { stage: 'Demo', count: 420 },
-    { stage: 'Proposal', count: 260 },
-    { stage: 'Won', count: 132 }
-  ],
-  supportSummary: {
-    totalTickets: 74,
-    openTickets: 11,
-    pendingTickets: 8,
-    resolvedTickets: 55
-  },
-  recentActivities: [
-    { title: 'New enterprise signup', description: 'Acme Logistics onboarded with 420 seats.', type: 'subscription', createdAt: new Date(Date.now() - 35 * 60 * 1000).toISOString() },
-    { title: 'Plan upgrade completed', description: 'Horizon Tech upgraded to Business Plus.', type: 'billing', createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() },
-    { title: 'Security policy updated', description: 'Password policy minimum length set to 12.', type: 'security', createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString() },
-    { title: 'Support SLA recovery', description: 'Pending queue cleared below SLA threshold.', type: 'support', createdAt: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString() }
-  ],
-  aiInsights: [
-    { title: 'Renewal Risk Alert', message: '12 subscriptions are likely to churn in the next 30 days.', severity: 'warning' },
-    { title: 'Revenue Momentum', message: 'Monthly revenue is trending +9.4% over last quarter.', severity: 'success' },
-    { title: 'Support Optimization', message: 'Redistributing agents can reduce pending tickets by 18%.', severity: 'info' }
-  ]
-}
-
-const DASHBOARD_SEED_STATS_META = {
-  systemHealth: {
-    apiStatus: 'Operational',
-    databaseStatus: 'Operational',
-    storageStatus: 'Operational',
-    uptime: '99.97%'
-  }
-}
-
-const DASHBOARD_SEED_PLATFORM_OVERVIEW_ROWS = [
-  { id: 'ov-1', name: 'Tenant Adoption Trend' },
-  { id: 'ov-2', name: 'Cross-Region Growth Pulse' }
-]
-
-const DASHBOARD_SEED_PLATFORM_WIDGETS = [
-  { id: 'wd-1', name: 'Revenue Velocity' },
-  { id: 'wd-2', name: 'Support SLA Heatmap' }
-]
-
-const formatCurrency = (value) => Number(value || 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })
+const formatCurrency = (value) => Number(value || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 const formatCompact = (value) => Number(value || 0).toLocaleString('en-US', { notation: 'compact', maximumFractionDigits: 1 })
 const calcGrowth = (current, previous) => {
   const prev = Number(previous || 0)
@@ -148,14 +71,6 @@ function DashboardPage() {
     setLoading(true)
     setError('')
     setPlatformDataError('')
-    if (FRONTEND_ONLY_DASHBOARD) {
-      setOverview(DASHBOARD_SEED_OVERVIEW)
-      setStatsMeta(DASHBOARD_SEED_STATS_META)
-      setPlatformOverviewRows(DASHBOARD_SEED_PLATFORM_OVERVIEW_ROWS)
-      setPlatformWidgets(DASHBOARD_SEED_PLATFORM_WIDGETS)
-      setLoading(false)
-      return
-    }
     try {
       const [overviewRes, statsRes, platformOverviewRes, widgetRes] = await Promise.all([
         getOverview(),
@@ -197,7 +112,9 @@ function DashboardPage() {
   const leadSources = displayOverview?.leadSources || []
   const leadTotal = leadSources.reduce((sum, item) => sum + Number(item.value || 0), 0)
   const salesFunnel = displayOverview?.salesFunnel || []
+  const support = displayOverview?.supportSummary || {}
   const activities = displayOverview?.recentActivities || []
+  const systemHealth = displayStatsMeta?.systemHealth || {}
 
   const revenueGrowth = calcGrowth(
     revenueDeals[revenueDeals.length - 1]?.revenue || 0,
@@ -205,15 +122,14 @@ function DashboardPage() {
   )
 
   const cards = useMemo(
-    () => [
+    () => ([
       { title: 'Total Companies', value: String(displayOverview?.stats?.totalCompanies ?? 0), trend: `${displayOverview?.stats?.activeCompanies ?? 0} active companies`, icon: Building2, trendTone: 'info' },
-      { title: 'Active Companies', value: String(displayOverview?.stats?.activeCompanies ?? 0), trend: `${displayOverview?.stats?.totalCompanies ?? 0} total companies`, icon: Building2, trendTone: 'success' },
       { title: 'Total Admins', value: String(displayOverview?.stats?.totalAdmins ?? 0), trend: 'Company admins', icon: CreditCard, trendTone: 'info' },
       { title: 'Active Users', value: String(displayOverview?.stats?.activeUsers ?? 0), trend: `${displayOverview?.stats?.totalUsers ?? 0} total users`, icon: Users, trendTone: 'success' },
       { title: 'Active Subscriptions', value: String(displayOverview?.stats?.activeSubscriptions ?? 0), trend: `${revenueGrowth >= 0 ? '+' : ''}${revenueGrowth.toFixed(1)}% this period`, icon: Receipt, trendTone: revenueGrowth >= 0 ? 'success' : 'danger' },
       { title: 'Monthly Revenue', value: formatCurrency(displayOverview?.stats?.monthlyRevenue ?? 0), trend: `${formatCompact(displayOverview?.stats?.monthlyRevenue ?? 0)} booked`, icon: BarChart3, trendTone: 'success' }
-    ],
-    [displayOverview, revenueGrowth]
+    ]),
+    [displayOverview, support, revenueGrowth, systemHealth, activities.length, platformOverviewRows.length, platformWidgets.length]
   )
 
   const exportCsv = () => {
@@ -226,6 +142,7 @@ function DashboardPage() {
       ['Active Users', stats.activeUsers ?? 0],
       ['Active Subscriptions', stats.activeSubscriptions ?? 0],
       ['Monthly Revenue', stats.monthlyRevenue ?? 0],
+      ['System Health', stats.systemHealth ?? 'Unknown'],
       [],
       ['Revenue & Deals'],
       ['Month', 'Revenue', 'Deals'],
@@ -255,49 +172,51 @@ function DashboardPage() {
     URL.revokeObjectURL(url)
   }
 
-  const maxRevenue = Math.max(...revenueDeals.map((r) => Number(r.revenue || 0)), 1)
-  const maxDeals = Math.max(...revenueDeals.map((r) => Number(r.deals || 0)), 1)
   const topFunnel = Math.max(...salesFunnel.map((s) => Number(s.count || 0)), 1)
   const hasMeaningfulRevenueData = revenueDeals.some((r) => Number(r.revenue || 0) > 0 || Number(r.deals || 0) > 0)
   const supportChartData = [
-    { name: 'Open', value: Number(displayOverview?.supportSummary?.openTickets || 0) },
-    { name: 'Pending', value: Number(displayOverview?.supportSummary?.pendingTickets || 0) },
-    { name: 'Resolved', value: Number(displayOverview?.supportSummary?.resolvedTickets || 0) }
+    { name: 'Open', value: Number(support.openTickets || 0) },
+    { name: 'Pending', value: Number(support.pendingTickets || 0) },
+    { name: 'Resolved', value: Number(support.resolvedTickets || 0) }
   ]
   const hasTicketData = supportChartData.some((item) => Number(item.value || 0) > 0)
-  const ticketChartDisplayData = hasTicketData ? supportChartData : [
-    { name: 'Open', value: 1 },
-    { name: 'Pending', value: 1 },
-    { name: 'Resolved', value: 1 }
-  ]
-  const revenueTrendDisplayData = revenueDeals.map((item) => ({ month: item.month, revenue: Number(item.revenue || 0), deals: Number(item.deals || 0) }))
-  const salesFunnelChartData = salesFunnel.map((item) => ({ stage: item.stage, count: Number(item.count || 0) }))
-  const hasSalesFunnelChartData = salesFunnelChartData.some((item) => item.count > 0)
-  const kpiMixData = [
-    { label: 'Companies', total: Number(displayOverview?.stats?.totalCompanies || 0), active: Number(displayOverview?.stats?.activeCompanies || 0) },
-    { label: 'Users', total: Number(displayOverview?.stats?.totalUsers || 0), active: Number(displayOverview?.stats?.activeUsers || 0) },
-    { label: 'Subscriptions', total: Number(displayOverview?.stats?.activeSubscriptions || 0), active: Number(displayOverview?.stats?.activeSubscriptions || 0) }
-  ]
-  const orgBreakdownData = [
-    { name: 'Companies', value: Number(displayOverview?.stats?.totalCompanies || 0) },
-    { name: 'Admins', value: Number(displayOverview?.stats?.totalAdmins || 0) },
-    { name: 'Users', value: Number(displayOverview?.stats?.totalUsers || 0) }
-  ]
-  const hasOrgBreakdownData = orgBreakdownData.some((item) => item.value > 0)
-  const orgBreakdownDisplayData = hasOrgBreakdownData ? orgBreakdownData : [
-    { name: 'Companies', value: 1 },
-    { name: 'Admins', value: 1 },
-    { name: 'Users', value: 1 }
+  const ticketChartDisplayData = hasTicketData ? supportChartData : [{ name: 'No Data', value: 1 }]
+  const revenueTrendDisplayData = revenueDeals.length
+    ? revenueDeals.map((item) => ({ month: item.month, revenue: Number(item.revenue || 0) }))
+    : [{ month: 'No Data', revenue: 0 }]
+  const primaryCards = cards
+  const secondaryCards = []
+  const heroSignals = [
+    { label: 'Uptime', value: systemHealth.uptime || 'N/A', tone: 'blue' },
+    { label: 'Growth', value: `${revenueGrowth >= 0 ? '+' : ''}${revenueGrowth.toFixed(1)}%`, tone: revenueGrowth >= 0 ? 'green' : 'orange' },
+    { label: 'Open Tickets', value: String(support.openTickets ?? 0), tone: 'orange' }
   ]
 
   return (
     <section className="section-layout dashboard-premium">
-      <PageHeader
-        title="Dashboard"
-        description="Premium platform control center for business, subscriptions, support, and operational health."
-        breadcrumb={['Super Admin', 'Dashboard']}
-        primaryActionLabel=""
-      />
+      <section className="dashboard-hero-premium panel">
+        <div className="dashboard-hero-copy">
+          <p className="dashboard-hero-eyebrow">Super Admin / Dashboard</p>
+          <h2>Dashboard</h2>
+          <p>Premium platform control center for business, subscriptions, support, and operational health.</p>
+        </div>
+        <div className="dashboard-hero-visual" aria-hidden="true">
+          <span className="hero-orb orb-a" />
+          <span className="hero-orb orb-b" />
+          <span className="hero-orb orb-c" />
+          <span className="hero-tile tile-a" />
+          <span className="hero-tile tile-b" />
+        </div>
+      </section>
+
+      <div className="dashboard-hero-signals" aria-label="Executive summary">
+        {heroSignals.map((item) => (
+          <div key={item.label} className={`hero-signal-chip ${item.tone}`}>
+            <span>{item.label}</span>
+            <strong>{item.value}</strong>
+          </div>
+        ))}
+      </div>
 
       <div className="panel dashboard-header-actions">
         <div className="header-tagline">
@@ -331,51 +250,19 @@ function DashboardPage() {
       ) : null}
 
       {loading ? <LoadingSkeleton rows={8} /> : (
-        <div className="stats-grid premium-stats-grid">
-          {cards.map((item) => <StatCard key={item.title} {...item} />)}
-        </div>
+        <>
+          <div className="stats-grid premium-stats-grid premium-stats-grid-primary">
+            {primaryCards.map((item) => <StatCard key={item.title} {...item} />)}
+          </div>
+          {secondaryCards.length > 0 ? (
+            <div className="stats-grid premium-stats-grid premium-stats-grid-secondary">
+              {secondaryCards.map((item) => <StatCard key={item.title} {...item} />)}
+            </div>
+          ) : null}
+        </>
       )}
 
       <div className="dashboard-main-grid">
-        <article className="panel revenue-chart-card">
-          <div className="panel-head">
-            <h3>Revenue &amp; Deals</h3>
-            <div className="tabs-row">
-              {[
-                { key: '6m', label: 'Last 6 months' },
-                { key: '12m', label: '12 months' },
-                { key: 'year', label: 'This year' }
-              ].map((tab) => (
-                <button key={tab.key} type="button" className={`chip-btn ${revenueView === tab.key ? 'active' : ''}`} onClick={() => setRevenueView(tab.key)}>{tab.label}</button>
-              ))}
-            </div>
-          </div>
-          {loading ? <LoadingSkeleton rows={5} /> : revenueDeals.length === 0 || !hasMeaningfulRevenueData ? (
-            <div className="dashboard-revenue-empty">
-              <EmptyState title="No revenue data yet" description="Revenue and deals will appear here after the first tracked transactions." />
-              <div className="dashboard-revenue-empty-bars" aria-hidden="true">
-                {[32, 44, 36, 48, 42, 50].map((h, i) => <span key={`rev-${i}`} style={{ height: `${h}%` }} />)}
-              </div>
-            </div>
-          ) : (
-            <div className="revenue-grid">
-              {revenueDeals.map((item) => (
-                <div key={item.month} className="revenue-bar-item" title={`${item.month}: ${formatCurrency(item.revenue)} - Deals ${item.deals}`}>
-                  <div className="bars-wrap">
-                    <span className="bar revenue" style={{ height: `${Math.max((Number(item.revenue || 0) / maxRevenue) * 100, 6)}%` }} />
-                    <span className="bar deals" style={{ height: `${Math.max((Number(item.deals || 0) / maxDeals) * 100, 6)}%` }} />
-                  </div>
-                  <p>{item.month}</p>
-                </div>
-              ))}
-              <div className="chart-legend">
-                <span><i className="dot revenue" /> Revenue</span>
-                <span><i className="dot deals" /> Deals</span>
-              </div>
-            </div>
-          )}
-        </article>
-
         <article className="panel lead-sources-card">
           <div className="panel-head">
             <h3>Lead Sources</h3>
@@ -393,9 +280,7 @@ function DashboardPage() {
             </div>
           )}
         </article>
-      </div>
 
-      <div className="dashboard-main-grid">
         <article className="panel sales-funnel-card">
           <div className="panel-head"><h3>Sales Funnel</h3></div>
           {loading ? <LoadingSkeleton rows={4} /> : salesFunnel.length === 0 ? <EmptyState title="No funnel data" description="Pipeline stage data will appear here once leads are tracked." /> : (
@@ -422,33 +307,47 @@ function DashboardPage() {
       </div>
 
       <div className="dashboard-main-grid">
-        <article className="panel">
-          <div className="panel-head"><h3>Monthly Revenue vs Deals</h3></div>
-          {loading ? <LoadingSkeleton rows={4} /> : revenueTrendDisplayData.length === 0 || !hasMeaningfulRevenueData ? (
-            <EmptyState title="No revenue trend data" description="Monthly revenue and deals trend will appear after transactions are tracked." />
+        <article className="panel revenue-trend-card">
+          <div className="panel-head">
+            <h3>Revenue Trend Area</h3>
+            <div className="tabs-row">
+              {[
+                { key: '6m', label: 'Last 6 months' },
+                { key: '12m', label: '12 months' },
+                { key: 'year', label: 'This year' }
+              ].map((tab) => (
+                <button key={tab.key} type="button" className={`chip-btn ${revenueView === tab.key ? 'active' : ''}`} onClick={() => setRevenueView(tab.key)}>{tab.label}</button>
+              ))}
+            </div>
+          </div>
+          {loading ? <LoadingSkeleton rows={4} /> : !hasMeaningfulRevenueData ? (
+            <EmptyState title="No revenue data yet" description="Revenue trends will appear after transactions are recorded." />
           ) : (
             <div style={{ height: 260 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={revenueTrendDisplayData}>
+                <AreaChart data={revenueTrendDisplayData}>
+                  <defs>
+                    <linearGradient id="revFillGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.7} />
+                      <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.08} />
+                    </linearGradient>
+                  </defs>
                   <CartesianGrid stroke="rgba(255,255,255,0.12)" strokeDasharray="4 4" />
                   <XAxis dataKey="month" tick={{ fill: 'var(--muted)', fontSize: 12 }} axisLine={false} tickLine={false} />
-                  <YAxis yAxisId="left" tick={{ fill: 'var(--muted)', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${Math.round(Number(v || 0) / 1000000)}M`} />
-                  <YAxis yAxisId="right" orientation="right" tick={{ fill: 'var(--muted)', fontSize: 12 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: 'var(--muted)', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${Math.round(Number(v || 0) / 1000000)}M`} />
                   <Tooltip
                     contentStyle={{ background: 'var(--panel-tint)', border: '1px solid var(--line)', borderRadius: 10 }}
                     labelStyle={{ color: 'var(--text)' }}
                     itemStyle={{ color: 'var(--text)' }}
                   />
-                  <Legend />
-                  <Line yAxisId="left" type="monotone" dataKey="revenue" stroke="#8b5cf6" strokeWidth={2.5} dot={{ r: 2 }} name="Revenue" />
-                  <Line yAxisId="right" type="monotone" dataKey="deals" stroke="#22d3ee" strokeWidth={2.5} dot={{ r: 2 }} name="Deals" />
-                </LineChart>
+                  <Area type="monotone" dataKey="revenue" stroke="#a78bfa" fill="url(#revFillGrad)" strokeWidth={2.5} />
+                </AreaChart>
               </ResponsiveContainer>
             </div>
           )}
         </article>
 
-        <article className="panel">
+        <article className="panel ticket-distribution-card">
           <div className="panel-head"><h3>Ticket Distribution</h3></div>
           {loading ? <LoadingSkeleton rows={4} /> : (
             <div style={{ height: 260 }}>
@@ -465,7 +364,7 @@ function DashboardPage() {
                     paddingAngle={4}
                   >
                     {ticketChartDisplayData.map((entry) => {
-                      const map = { Open: '#8b5cf6', Pending: '#f59e0b', Resolved: '#10b981' }
+                      const map = { Open: '#8b5cf6', Pending: '#f59e0b', Resolved: '#10b981', 'No Data': '#64748b' }
                       return <Cell key={`cell-${entry.name}`} fill={map[entry.name] || '#22d3ee'} />
                     })}
                   </Pie>
@@ -481,109 +380,62 @@ function DashboardPage() {
         </article>
       </div>
 
-      <article className="panel">
-        <div className="panel-head"><h3>Sales Funnel Stage Chart</h3></div>
-        {loading ? <LoadingSkeleton rows={4} /> : !hasSalesFunnelChartData ? (
-          <EmptyState title="No sales funnel chart data" description="Stage-wise opportunity count will appear once funnel data is tracked." />
-        ) : (
-          <div style={{ height: 320 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={salesFunnelChartData}>
-                <CartesianGrid stroke="rgba(255,255,255,0.12)" strokeDasharray="4 4" />
-                <XAxis dataKey="stage" tick={{ fill: 'var(--muted)', fontSize: 12 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: 'var(--muted)', fontSize: 12 }} axisLine={false} tickLine={false} />
-                <Tooltip
-                  contentStyle={{ background: 'var(--panel-tint)', border: '1px solid var(--line)', borderRadius: 10 }}
-                  labelStyle={{ color: 'var(--text)' }}
-                  itemStyle={{ color: 'var(--text)' }}
-                />
-                <Legend />
-                <Bar dataKey="count" name="Opportunities" radius={[8, 8, 0, 0]} fill="#60a5fa" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-      </article>
-
       <div className="dashboard-main-grid">
-        <article className="panel">
-          <div className="panel-head"><h3>Platform KPI Comparison</h3></div>
+        <article className="panel system-health-card">
+          <div className="panel-head"><h3>System Health</h3></div>
           {loading ? <LoadingSkeleton rows={4} /> : (
-            <div style={{ height: 280 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={kpiMixData}>
-                  <CartesianGrid stroke="rgba(255,255,255,0.12)" strokeDasharray="4 4" />
-                  <XAxis dataKey="label" tick={{ fill: 'var(--muted)', fontSize: 12 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: 'var(--muted)', fontSize: 12 }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={{ background: 'var(--panel-tint)', border: '1px solid var(--line)', borderRadius: 10 }} />
-                  <Legend />
-                  <Bar dataKey="total" name="Total" fill="#6366f1" radius={[8, 8, 0, 0]} />
-                  <Bar dataKey="active" name="Active" fill="#22c55e" radius={[8, 8, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+            <div className="health-list">
+              <div><Server size={15} /><span>API</span><strong>{systemHealth.apiStatus || 'Operational'}</strong></div>
+              <div><Database size={15} /><span>Database</span><strong>{systemHealth.databaseStatus || 'Operational'}</strong></div>
+              <div><HardDrive size={15} /><span>Storage</span><strong>{systemHealth.storageStatus || 'Operational'}</strong></div>
+              <div><Activity size={15} /><span>Queue/Jobs</span><strong>Operational</strong></div>
+              <div><Mail size={15} /><span>Email/SMS</span><strong>Operational</strong></div>
+              <div><ShieldCheck size={15} /><span>Uptime</span><strong>{systemHealth.uptime || '99.9%'}</strong></div>
             </div>
           )}
         </article>
 
-        <article className="panel">
-          <div className="panel-head"><h3>Organization Breakdown</h3></div>
-          {loading ? <LoadingSkeleton rows={4} /> : (
-            <div style={{ height: 280 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={orgBreakdownDisplayData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={52} outerRadius={92} paddingAngle={4}>
-                    {orgBreakdownDisplayData.map((entry) => {
-                      const colorMap = { Companies: '#3b82f6', Admins: '#f59e0b', Users: '#a855f7' }
-                      return <Cell key={`org-${entry.name}`} fill={colorMap[entry.name] || '#22d3ee'} />
-                    })}
-                  </Pie>
-                  <Tooltip contentStyle={{ background: 'var(--panel-tint)', border: '1px solid var(--line)', borderRadius: 10 }} />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
+        <article className="panel recent-activities-card">
+          <div className="panel-head">
+            <h3>Recent Activities</h3>
+            <Button variant="ghost">View All</Button>
+          </div>
+          {loading ? <LoadingSkeleton rows={6} /> : activities.length === 0 ? (
+            <EmptyState title="No recent activities" description="Activity feed will appear here once events are logged." />
+          ) : (
+            <div className="timeline">
+              {activities.map((item, index) => (
+                <div key={`${item.title}-${index}`} className="timeline-item">
+                  <span className="timeline-dot" />
+                  <div>
+                    <strong>{item.title}</strong>
+                    <p>{item.description}</p>
+                    <small>{timeAgo(item.createdAt)} - {item.type}</small>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </article>
       </div>
 
-      <article className="panel recent-activities-card">
-        <div className="panel-head">
-          <h3>Recent Activities</h3>
-          <Button variant="ghost">View All</Button>
-        </div>
-        {loading ? <LoadingSkeleton rows={6} /> : activities.length === 0 ? (
-          <EmptyState title="No recent activities" description="Activity feed will appear here once events are logged." />
-        ) : (
-          <div className="timeline">
-            {activities.map((item, index) => (
-              <div key={`${item.title}-${index}`} className="timeline-item">
-                <span className="timeline-dot" />
-                <div>
-                  <strong>{item.title}</strong>
-                  <p>{item.description}</p>
-                  <small>{timeAgo(item.createdAt)} - {item.type}</small>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </article>
-
-      <article className="panel">
-        <div className="panel-head"><h3>Platform Overview Widgets</h3></div>
-        {loading ? <LoadingSkeleton rows={4} /> : platformDataError ? (
-          <EmptyState title="Failed to load platform overview/widgets" description={platformDataError} />
-        ) : (platformOverviewRows.length === 0 && platformWidgets.length === 0) ? (
-          <EmptyState title="No platform overview widgets found" description="Create platform overview records or dashboard widgets to populate this section." />
-        ) : (
-          <div className="modal-form">
-            <div><strong>Platform Overview Items:</strong> {platformOverviewRows.length}</div>
-            <div><strong>Dashboard Widgets:</strong> {platformWidgets.length}</div>
-            <div><strong>Latest Overview:</strong> {platformOverviewRows[0]?.name || '-'}</div>
-            <div><strong>Latest Widget:</strong> {platformWidgets[0]?.name || '-'}</div>
-          </div>
-        )}
-      </article>
+      <div className="dashboard-main-grid">
+        <article className="panel platform-widgets-card">
+          <div className="panel-head"><h3>Platform Overview Widgets</h3></div>
+          {loading ? <LoadingSkeleton rows={4} /> : platformDataError ? (
+            <EmptyState title="Failed to load platform overview/widgets" description={platformDataError} />
+          ) : (platformOverviewRows.length === 0 && platformWidgets.length === 0) ? (
+            <EmptyState title="No platform overview widgets found" description="Create platform overview records or dashboard widgets to populate this section." />
+          ) : (
+            <div className="modal-form">
+              <div><strong>Platform Overview Items:</strong> {platformOverviewRows.length}</div>
+              <div><strong>Dashboard Widgets:</strong> {platformWidgets.length}</div>
+              <div><strong>Latest Overview:</strong> {platformOverviewRows[0]?.name || '-'}</div>
+              <div><strong>Latest Widget:</strong> {platformWidgets[0]?.name || '-'}</div>
+            </div>
+          )}
+        </article>
+      </div>
     </section>
   )
 }
