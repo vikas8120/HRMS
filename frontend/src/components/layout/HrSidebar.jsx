@@ -1,5 +1,6 @@
-import { LogOut, Menu } from 'lucide-react'
+import { LogOut, Menu, Search } from 'lucide-react'
 import { motion } from 'framer-motion'
+import { useMemo, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { hrNavItems } from '../../data/hrPortalData'
 import { useAuth } from '../../hooks/useAuth'
@@ -7,7 +8,13 @@ import { useAuth } from '../../hooks/useAuth'
 function HrSidebar({ isCollapsed, isMobileOpen, isMobile, onToggle, onClose }) {
   const { logout } = useAuth()
   const isCompact = !isMobile && isCollapsed
-  const sidebarClass = ['sidebar', 'employee-sidebar', isMobileOpen ? 'sidebar-open' : '', isCompact ? 'sidebar-collapsed' : ''].filter(Boolean).join(' ')
+  const [menuSearch, setMenuSearch] = useState('')
+  const sidebarClass = ['sidebar', 'employee-sidebar', 'super-admin-sidebar', isMobileOpen ? 'sidebar-open' : '', isCompact ? 'sidebar-collapsed' : ''].filter(Boolean).join(' ')
+  const filteredItems = useMemo(() => {
+    const query = menuSearch.trim().toLowerCase()
+    if (!query) return hrNavItems
+    return hrNavItems.filter((item) => item.label.toLowerCase().includes(query))
+  }, [menuSearch])
 
   const handleLinkClick = () => {
     onClose?.()
@@ -41,8 +48,20 @@ function HrSidebar({ isCollapsed, isMobileOpen, isMobile, onToggle, onClose }) {
         </button>
       </div>
 
+      {!isCompact && !isMobile ? (
+        <div className="sidebar-search-wrap">
+          <Search size={15} />
+          <input
+            className="sidebar-search-input"
+            value={menuSearch}
+            onChange={(event) => setMenuSearch(event.target.value)}
+            placeholder="Search modules"
+          />
+        </div>
+      ) : null}
+
       <nav id="hr-sidebar-nav">
-        {hrNavItems.map((item) => {
+        {filteredItems.map((item) => {
           const Icon = item.icon
           return (
             <div key={item.path} className="menu-group">

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { RefreshCw, Download } from 'lucide-react'
+import { Download, RefreshCw } from 'lucide-react'
 import PageHeader from '../components/ui/PageHeader'
 import SearchBar from '../components/ui/SearchBar'
 import FilterDropdown from '../components/ui/FilterDropdown'
@@ -7,51 +7,101 @@ import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
 import FormInput from '../components/ui/FormInput'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
-import LoadingSkeleton from '../components/ui/LoadingSkeleton'
 import EmptyState from '../components/ui/EmptyState'
-import {
-  getEmployees,
-  getEmployeeById,
-  createEmployee,
-  updateEmployee,
-  deleteEmployee,
-  updateEmployeeStatus,
-  getDepartments,
-  getManagers,
-  getHRList
-} from '../api/adminEmployeeApi'
 
+const STORAGE_KEY = 'company_admin_employees_v2'
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const normalize = (value) => String(value || '').trim().toLowerCase()
+
+const DEPARTMENTS = [
+  { id: 'eng', name: 'Engineering' },
+  { id: 'product', name: 'Product' },
+  { id: 'sales', name: 'Sales' },
+  { id: 'hr', name: 'HR' },
+  { id: 'finance', name: 'Finance' },
+  { id: 'design', name: 'Design' }
+]
+
+const MANAGERS = [
+  { id: 'mgr-201', name: 'Anita Sharma', departmentId: 'eng' },
+  { id: 'mgr-202', name: 'Ritesh Nair', departmentId: 'sales' },
+  { id: 'mgr-203', name: 'Pooja Iyer', departmentId: 'product' },
+  { id: 'mgr-204', name: 'Imran Ali', departmentId: 'design' }
+]
+
+const initialRows = [
+  {
+    id: 'emp-001',
+    employeeId: 'EMP001',
+    name: 'Arjun Mehta',
+    email: 'arjun.mehta@acme.com',
+    phone: '+91-9810011001',
+    departmentId: 'eng',
+    managerId: 'mgr-201',
+    designation: 'Software Engineer',
+    joiningDate: '2025-09-12',
+    status: 'active',
+    createdAt: '2026-05-20T09:40:00.000Z',
+    updatedAt: '2026-06-01T08:10:00.000Z'
+  },
+  {
+    id: 'emp-002',
+    employeeId: 'EMP002',
+    name: 'Kritika Jain',
+    email: 'kritika.jain@acme.com',
+    phone: '+91-9810011002',
+    departmentId: 'product',
+    managerId: 'mgr-203',
+    designation: 'Product Analyst',
+    joiningDate: '2025-10-05',
+    status: 'active',
+    createdAt: '2026-05-19T12:20:00.000Z',
+    updatedAt: '2026-06-01T07:55:00.000Z'
+  },
+  {
+    id: 'emp-003',
+    employeeId: 'EMP003',
+    name: 'Naman Verma',
+    email: 'naman.verma@acme.com',
+    phone: '+91-9810011003',
+    departmentId: 'sales',
+    managerId: 'mgr-202',
+    designation: 'Sales Executive',
+    joiningDate: '2025-11-18',
+    status: 'inactive',
+    createdAt: '2026-05-18T16:30:00.000Z',
+    updatedAt: '2026-05-30T14:10:00.000Z'
+  }
+]
 
 const initialForm = {
+  employeeId: '',
   name: '',
   email: '',
   phone: '',
-  password: '',
-  gender: '',
-  dob: '',
-  joiningDate: '',
   departmentId: '',
   managerId: '',
-  hrId: '',
   designation: '',
-  salary: '',
-  address: '',
+  joiningDate: '',
   status: 'active'
 }
 
+const formatDate = (value) => {
+  if (!value) return '-'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '-'
+  return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
 function CompanyAdminEmployeesPage({ embedded = false, title = 'Employees', breadcrumb = ['Company Admin', 'Employees'] }) {
-  const [loading, setLoading] = useState(true)
-  const [submitting, setSubmitting] = useState(false)
   const [rows, setRows] = useState([])
-  const [search, setSearch] = useState('')
-  const [status, setStatus] = useState('all')
+  const [loading, setLoading] = useState(true)
+
+  const [searchDraft, setSearchDraft] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
   const [departmentFilter, setDepartmentFilter] = useState('all')
   const [managerFilter, setManagerFilter] = useState('all')
-  const [page, setPage] = useState(1)
-  const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 })
-  const [error, setError] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [toast, setToast] = useState(null)
 
   const [formOpen, setFormOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
@@ -60,317 +110,170 @@ function CompanyAdminEmployeesPage({ embedded = false, title = 'Employees', brea
   const [selected, setSelected] = useState(null)
   const [form, setForm] = useState(initialForm)
   const [formErrors, setFormErrors] = useState({})
-  const [profileData, setProfileData] = useState(null)
 
-  const [departments, setDepartments] = useState([])
-  const [managers, setManagers] = useState([])
-  const [hrs, setHrs] = useState([])
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY)
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed)) {
+          setRows(parsed)
+          setLoading(false)
+          return
+        }
+      }
+    } catch (_err) {
+      // fallback to seed
+    }
 
-  const [toast, setToast] = useState(null)
+    setRows(initialRows)
+    setLoading(false)
+  }, [])
 
-  const deptMap = useMemo(() => Object.fromEntries(departments.map((d) => [String(d.id || d._id), d.name || 'Department'])), [departments])
-  const managerMap = useMemo(() => Object.fromEntries(managers.map((m) => [String(m.id || m._id), m.name || 'Manager'])), [managers])
-  const hrMap = useMemo(() => Object.fromEntries(hrs.map((h) => [String(h.id || h._id), h.name || 'HR'])), [hrs])
-  const filteredManagers = useMemo(() => {
-    if (departmentFilter === 'all') return managers
-    return managers.filter((m) => String(m.departmentId || '') === String(departmentFilter))
-  }, [managers, departmentFilter])
+  useEffect(() => {
+    if (loading) return
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(rows))
+  }, [rows, loading])
 
   useEffect(() => {
     if (!toast) return undefined
-    const t = setTimeout(() => setToast(null), 2800)
-    return () => clearTimeout(t)
+    const timer = setTimeout(() => setToast(null), 2500)
+    return () => clearTimeout(timer)
   }, [toast])
 
-  const loadMeta = async () => {
-    try {
-      const [deptRes, mgrRes, hrRes] = await Promise.all([
-        getDepartments({ limit: 300 }),
-        getManagers({ limit: 300, status: 'all' }),
-        getHRList({ limit: 300, status: 'all' })
-      ])
-      setDepartments(deptRes?.data || [])
-      setManagers(mgrRes?.data || [])
-      setHrs(hrRes?.data || [])
-    } catch (_err) {
-      setDepartments([])
-      setManagers([])
-      setHrs([])
-    }
-  }
+  const departmentMap = useMemo(() => Object.fromEntries(DEPARTMENTS.map((item) => [item.id, item.name])), [])
+  const managerMap = useMemo(() => Object.fromEntries(MANAGERS.map((item) => [item.id, item.name])), [])
 
-  const loadEmployees = async ({
-    pageArg = page,
-    searchArg = search,
-    statusArg = status,
-    departmentArg = departmentFilter,
-    managerArg = managerFilter,
-    keepLoading = false
-  } = {}) => {
-    if (!keepLoading) setLoading(true)
-    setError('')
+  const visibleManagers = useMemo(() => {
+    if (departmentFilter === 'all') return MANAGERS
+    return MANAGERS.filter((item) => item.departmentId === departmentFilter)
+  }, [departmentFilter])
 
-    try {
-      const normalizedSearch = String(searchArg || '').trim()
-      const params = {
-        page: pageArg,
-        limit: 10
-      }
-      if (normalizedSearch) params.search = normalizedSearch
-      if (statusArg && statusArg !== 'all') params.status = statusArg
-      if (departmentArg && departmentArg !== 'all') params.departmentId = departmentArg
-      if (managerArg && managerArg !== 'all') params.managerId = managerArg
+  const filteredRows = useMemo(() => {
+    return rows.filter((row) => {
+      const bag = `${row.employeeId} ${row.name} ${row.email} ${row.phone}`.toLowerCase()
+      const searchOk = searchQuery.trim() ? bag.includes(searchQuery.trim().toLowerCase()) : true
+      const deptOk = departmentFilter === 'all' ? true : row.departmentId === departmentFilter
+      const managerOk = managerFilter === 'all' ? true : row.managerId === managerFilter
+      const statusOk = statusFilter === 'all' ? true : row.status === statusFilter
+      return searchOk && deptOk && managerOk && statusOk
+    })
+  }, [rows, searchQuery, departmentFilter, managerFilter, statusFilter])
 
-      const res = await getEmployees(params)
-      const apiRows = Array.isArray(res?.data) ? res.data : []
-      const filteredRows = apiRows.filter((item) => {
-        const itemStatus = normalize(item?.status)
-        const itemDepartmentId = String(item?.departmentId || '')
-        const itemManagerId = String(item?.managerId || '')
-
-        if (statusArg && statusArg !== 'all' && itemStatus !== normalize(statusArg)) return false
-        if (departmentArg && departmentArg !== 'all' && itemDepartmentId !== String(departmentArg)) return false
-        if (managerArg && managerArg !== 'all' && itemManagerId !== String(managerArg)) return false
-
-        if (normalizedSearch) {
-          const bag = [
-            item?.employeeId,
-            item?.name,
-            item?.email,
-            item?.phone,
-            item?.designation
-          ].map(normalize).join(' ')
-          if (!bag.includes(normalize(normalizedSearch))) return false
-        }
-        return true
-      })
-
-      setRows(filteredRows)
-      setPagination({
-        page: 1,
-        limit: filteredRows.length || 10,
-        total: filteredRows.length,
-        totalPages: 1
-      })
-    } catch (err) {
-      setError(err?.response?.data?.message || 'Failed to load employees')
-      setRows([])
-    } finally {
-      if (!keepLoading) setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    loadMeta()
-    loadEmployees({ pageArg: page })
-  }, [page])
-
-  const resetForm = () => {
-    setForm(initialForm)
-    setFormErrors({})
-  }
+  const stats = useMemo(() => {
+    const total = rows.length
+    const active = rows.filter((item) => item.status === 'active').length
+    const inactive = rows.filter((item) => item.status === 'inactive').length
+    const departments = new Set(rows.map((item) => item.departmentId)).size
+    return { total, active, inactive, departments }
+  }, [rows])
 
   const openAdd = () => {
     setSelected(null)
-    resetForm()
+    setForm(initialForm)
+    setFormErrors({})
     setFormOpen(true)
   }
 
   const openEdit = (row) => {
     setSelected(row)
     setForm({
-      name: row.name || '',
-      email: row.email || '',
-      phone: row.phone || '',
-      password: '',
-      gender: row.gender || '',
-      dob: row.dob ? String(row.dob).slice(0, 10) : '',
-      joiningDate: row.joiningDate ? String(row.joiningDate).slice(0, 10) : '',
-      departmentId: row.departmentId || '',
-      managerId: row.managerId || '',
-      hrId: row.hrId || '',
-      designation: row.designation || '',
-      salary: row.salary != null ? String(row.salary) : '',
-      address: row.address || '',
-      status: row.status || 'active'
+      employeeId: row.employeeId,
+      name: row.name,
+      email: row.email,
+      phone: row.phone,
+      departmentId: row.departmentId,
+      managerId: row.managerId,
+      designation: row.designation,
+      joiningDate: row.joiningDate,
+      status: row.status
     })
     setFormErrors({})
     setFormOpen(true)
   }
 
-  const openProfile = async (row) => {
-    setSelected(row)
-    setProfileData(null)
-    setProfileOpen(true)
-    try {
-      const res = await getEmployeeById(row.id)
-      setProfileData(res?.data || null)
-    } catch (_err) {
-      setProfileData(null)
-    }
-  }
-
   const validateForm = () => {
     const next = {}
+    if (!form.employeeId.trim()) next.employeeId = 'Employee ID is required'
     if (!form.name.trim()) next.name = 'Name is required'
     if (!form.email.trim()) next.email = 'Email is required'
     else if (!EMAIL_REGEX.test(form.email.trim())) next.email = 'Invalid email format'
     if (!form.phone.trim()) next.phone = 'Phone is required'
-    if (!selected && !form.password.trim()) next.password = 'Password is required'
-    if (!selected && form.password.trim().length > 0 && form.password.trim().length < 6) next.password = 'Password must be at least 6 characters'
+    if (!form.departmentId) next.departmentId = 'Department is required'
+    if (!form.managerId) next.managerId = 'Manager is required'
+    if (!form.designation.trim()) next.designation = 'Designation is required'
     if (!form.joiningDate) next.joiningDate = 'Joining date is required'
-    if (form.salary && Number(form.salary) < 0) next.salary = 'Salary must be positive'
+
+    const duplicateEmpId = rows.some((item) => item.employeeId.toLowerCase() === form.employeeId.trim().toLowerCase() && item.id !== selected?.id)
+    if (duplicateEmpId) next.employeeId = 'Employee ID already exists'
+
+    const duplicateEmail = rows.some((item) => item.email.toLowerCase() === form.email.trim().toLowerCase() && item.id !== selected?.id)
+    if (duplicateEmail) next.email = 'Email already exists'
+
+    const duplicatePhone = rows.some((item) => item.phone === form.phone.trim() && item.id !== selected?.id)
+    if (duplicatePhone) next.phone = 'Phone already exists'
+
     setFormErrors(next)
     return Object.keys(next).length === 0
   }
 
-  const onSubmit = async (event) => {
+  const onSubmit = (event) => {
     event.preventDefault()
     if (!validateForm()) return
 
-    setSubmitting(true)
-    try {
-      if (selected) {
-        const res = await updateEmployee(selected.id, {
-          name: form.name.trim(),
-          phone: form.phone.trim(),
-          gender: form.gender || '',
-          dob: form.dob || null,
-          joiningDate: form.joiningDate || null,
-          departmentId: form.departmentId || null,
-          managerId: form.managerId || null,
-          hrId: form.hrId || null,
-          designation: form.designation || '',
-          salary: form.salary === '' ? 0 : Number(form.salary),
-          address: form.address || '',
-          status: form.status
-        })
-        const updated = res?.data
-        if (!updated?.id) throw new Error('Database update confirmation not received')
-        setRows((prev) => prev.map((item) => (item.id === updated.id ? updated : item)))
-        setToast({ type: 'success', message: `Saved in database successfully (ID: ${updated.id})` })
-      } else {
-        const res = await createEmployee({
-          name: form.name.trim(),
-          email: form.email.trim(),
-          phone: form.phone.trim(),
-          password: form.password,
-          gender: form.gender || '',
-          dob: form.dob || null,
-          joiningDate: form.joiningDate || null,
-          departmentId: form.departmentId || null,
-          managerId: form.managerId || null,
-          hrId: form.hrId || null,
-          designation: form.designation || '',
-          salary: form.salary === '' ? 0 : Number(form.salary),
-          address: form.address || '',
-          status: form.status
-        })
-
-        const created = res?.data
-        if (!created?.id) throw new Error('Database save confirmation not received')
-        setRows((prev) => [created, ...prev].slice(0, 10))
-        setPagination((prev) => ({ ...prev, total: (prev.total || 0) + 1 }))
-        setToast({ type: 'success', message: `Saved in database successfully (ID: ${created.id})` })
-      }
-
-      setFormOpen(false)
-      resetForm()
-      await loadEmployees({ pageArg: 1, keepLoading: true })
-      setPage(1)
-    } catch (err) {
-      setToast({ type: 'error', message: `Not saved in database: ${err?.response?.data?.message || err?.message || 'Operation failed'}` })
-    } finally {
-      setSubmitting(false)
+    const now = new Date().toISOString()
+    const payload = {
+      employeeId: form.employeeId.trim().toUpperCase(),
+      name: form.name.trim(),
+      email: form.email.trim().toLowerCase(),
+      phone: form.phone.trim(),
+      departmentId: form.departmentId,
+      managerId: form.managerId,
+      designation: form.designation.trim(),
+      joiningDate: form.joiningDate,
+      status: form.status,
+      updatedAt: now
     }
+
+    if (selected) {
+      setRows((prev) => prev.map((item) => (item.id === selected.id ? { ...item, ...payload } : item)))
+      setToast({ type: 'success', message: 'Employee updated successfully' })
+    } else {
+      setRows((prev) => [{ id: `emp-${Date.now()}`, createdAt: now, ...payload }, ...prev])
+      setToast({ type: 'success', message: 'Employee created successfully' })
+    }
+
+    setFormOpen(false)
+    setSelected(null)
   }
 
-  const onDelete = async () => {
+  const onToggleStatus = (row) => {
+    const nextStatus = row.status === 'active' ? 'inactive' : 'active'
+    setRows((prev) => prev.map((item) => (item.id === row.id ? { ...item, status: nextStatus, updatedAt: new Date().toISOString() } : item)))
+    setToast({ type: 'success', message: `Employee ${nextStatus === 'active' ? 'activated' : 'deactivated'}` })
+  }
+
+  const onDelete = () => {
     if (!selected?.id) return
-    setSubmitting(true)
-    try {
-      await deleteEmployee(selected.id)
-      setRows((prev) => prev.filter((row) => row.id !== selected.id))
-      setPagination((prev) => ({ ...prev, total: Math.max((prev.total || 1) - 1, 0) }))
-      setToast({ type: 'success', message: 'Employee deleted successfully' })
-      setConfirmOpen(false)
-      setSelected(null)
-      await loadEmployees({ pageArg: page, keepLoading: true })
-    } catch (err) {
-      setToast({ type: 'error', message: err?.response?.data?.message || 'Delete failed' })
-    } finally {
-      setSubmitting(false)
-    }
+    setRows((prev) => prev.filter((item) => item.id !== selected.id))
+    setConfirmOpen(false)
+    setSelected(null)
+    setToast({ type: 'success', message: 'Employee deleted successfully' })
   }
-
-  const onToggleStatus = async (row) => {
-    const next = row.status === 'active' ? 'inactive' : 'active'
-    try {
-      const res = await updateEmployeeStatus(row.id, next)
-      const updated = res?.data
-      setRows((prev) => prev.map((item) => (item.id === row.id ? updated : item)))
-      setToast({ type: 'success', message: `Employee ${next === 'active' ? 'activated' : 'deactivated'} successfully` })
-    } catch (err) {
-      setToast({ type: 'error', message: err?.response?.data?.message || 'Status update failed' })
-    }
-  }
-
-  const onApplySearch = async () => {
-    setPage(1)
-    await loadEmployees({ pageArg: 1, searchArg: search, statusArg: status, departmentArg: departmentFilter, managerArg: managerFilter })
-  }
-
-  const onStatusChange = async (value) => {
-    setStatus(value)
-    setPage(1)
-    await loadEmployees({ pageArg: 1, searchArg: search, statusArg: value, departmentArg: departmentFilter, managerArg: managerFilter })
-  }
-
-  const onDepartmentChange = async (value) => {
-    setDepartmentFilter(value)
-    setManagerFilter('all')
-    setPage(1)
-    await loadEmployees({ pageArg: 1, searchArg: search, statusArg: status, departmentArg: value, managerArg: 'all' })
-  }
-
-  const onManagerChange = async (value) => {
-    setManagerFilter(value)
-    setPage(1)
-    await loadEmployees({ pageArg: 1, searchArg: search, statusArg: status, departmentArg: departmentFilter, managerArg: value })
-  }
-
-  const onResetFilters = async () => {
-    setSearch('')
-    setStatus('all')
-    setDepartmentFilter('all')
-    setManagerFilter('all')
-    setPage(1)
-    await loadEmployees({ pageArg: 1, searchArg: '', statusArg: 'all', departmentArg: 'all', managerArg: 'all' })
-  }
-
-  const displayRows = useMemo(
-    () => rows.map((item) => ({
-      ...item,
-      departmentName: deptMap[String(item.departmentId || '')] || '-',
-      managerName: managerMap[String(item.managerId || '')] || '-',
-      createdDate: item.createdAt ? String(item.createdAt).slice(0, 10) : '-'
-    })),
-    [rows, deptMap, managerMap]
-  )
 
   const exportCsv = () => {
-    const headers = ['Employee ID', 'Name', 'Email', 'Phone', 'Department', 'Manager', 'Status', 'Created Date']
-    const lines = displayRows.map((row) => [
-      row.employeeId || '',
-      row.name || '',
-      row.email || '',
-      row.phone || '',
-      row.departmentName || '',
-      row.managerName || '',
-      row.status || '',
-      row.createdDate || ''
+    const headers = ['Employee ID', 'Name', 'Email', 'Phone', 'Department', 'Manager', 'Designation', 'Status', 'Joining Date']
+    const lines = filteredRows.map((row) => [
+      row.employeeId,
+      row.name,
+      row.email,
+      row.phone,
+      departmentMap[row.departmentId] || '-',
+      managerMap[row.managerId] || '-',
+      row.designation,
+      row.status,
+      row.joiningDate
     ])
-
     const csv = [headers, ...lines]
       .map((line) => line.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
       .join('\n')
@@ -394,45 +297,62 @@ function CompanyAdminEmployeesPage({ embedded = false, title = 'Employees', brea
           description="Manage employee profiles, assignments, and lifecycle for your company."
           breadcrumb={breadcrumb}
           primaryActionLabel="Add Employee"
-          onPrimaryAction={() => openAdd()}
+          onPrimaryAction={openAdd}
         />
       ) : null}
 
       {toast ? <div className={`toast ${toast.type === 'success' ? 'toast-success' : 'toast-error'}`}>{toast.message}</div> : null}
 
+      <div className="panel" style={{ marginBottom: 16 }}>
+        <div className="stats-grid stats-grid-4">
+          <div className="stat-card"><p>Total Employees</p><h3>{stats.total}</h3></div>
+          <div className="stat-card"><p>Active Employees</p><h3>{stats.active}</h3></div>
+          <div className="stat-card"><p>Inactive Employees</p><h3>{stats.inactive}</h3></div>
+          <div className="stat-card"><p>Departments Covered</p><h3>{stats.departments}</h3></div>
+        </div>
+      </div>
+
       <div className="panel filters-panel employee-filter-panel">
         <div className="filters-row admin-filters-grid employee-filters-grid">
           <div className="search-wrap">
             <label>Search</label>
-            <SearchBar value={search} onChange={setSearch} placeholder="Search by employee ID, name, or email" />
+            <SearchBar value={searchDraft} onChange={setSearchDraft} placeholder="Search by employee ID, name, email, phone" />
           </div>
 
           <FilterDropdown
             label="Department"
             value={departmentFilter}
-            onChange={onDepartmentChange}
-            options={[{ value: 'all', label: 'All Departments' }, ...departments.map((d) => ({ value: String(d.id || d._id), label: d.name || 'Department' }))]}
+            onChange={(value) => {
+              setDepartmentFilter(value)
+              setManagerFilter('all')
+            }}
+            options={[{ value: 'all', label: 'All Departments' }, ...DEPARTMENTS.map((item) => ({ value: item.id, label: item.name }))]}
           />
 
           <FilterDropdown
             label="Manager"
             value={managerFilter}
-            onChange={onManagerChange}
-            options={[{ value: 'all', label: 'All Managers' }, ...filteredManagers.map((m) => ({ value: String(m.id || m._id), label: m.name || 'Manager' }))]}
+            onChange={setManagerFilter}
+            options={[{ value: 'all', label: 'All Managers' }, ...visibleManagers.map((item) => ({ value: item.id, label: item.name }))]}
           />
 
           <FilterDropdown
             label="Status"
-            value={status}
-            onChange={onStatusChange}
+            value={statusFilter}
+            onChange={setStatusFilter}
             options={[{ value: 'all', label: 'All' }, { value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }]}
           />
         </div>
 
         <div className="actions-row employee-filter-actions" style={{ marginTop: 10 }}>
-          <Button variant="ghost" onClick={onApplySearch}>Apply Search</Button>
-          <Button variant="ghost" onClick={() => loadEmployees({ pageArg: page })}><RefreshCw size={14} /> Refresh</Button>
-          <Button variant="ghost" onClick={onResetFilters}>Reset Filters</Button>
+          <Button variant="ghost" onClick={() => setSearchQuery(searchDraft)}>Apply Search</Button>
+          <Button variant="ghost" onClick={() => {
+            setSearchDraft('')
+            setSearchQuery('')
+            setDepartmentFilter('all')
+            setManagerFilter('all')
+            setStatusFilter('all')
+          }}><RefreshCw size={14} /> Reset Filters</Button>
           <Button variant="ghost" onClick={exportCsv}><Download size={14} /> Export</Button>
         </div>
       </div>
@@ -443,13 +363,11 @@ function CompanyAdminEmployeesPage({ embedded = false, title = 'Employees', brea
           <div className="actions-row"><Button onClick={openAdd}>Add Employee</Button></div>
         </div>
 
-        {loading ? <LoadingSkeleton rows={8} /> : error ? (
-          <EmptyState title="Unable to load employees" description={error} />
-        ) : displayRows.length === 0 ? (
-          <EmptyState title="No employees found" description="Add an employee to get started." />
+        {loading ? null : filteredRows.length === 0 ? (
+          <EmptyState title="No employees found" description="Adjust filters or add a new employee." />
         ) : (
           <div className="table-wrap">
-            <div className="table-meta"><p>{pagination.total || displayRows.length} records</p></div>
+            <div className="table-meta"><p>{filteredRows.length} records</p></div>
             <table>
               <thead>
                 <tr>
@@ -459,23 +377,23 @@ function CompanyAdminEmployeesPage({ embedded = false, title = 'Employees', brea
                   <th>Department</th>
                   <th>Manager</th>
                   <th>Status</th>
-                  <th>Created Date</th>
+                  <th>Joining Date</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {displayRows.map((row) => (
+                {filteredRows.map((row) => (
                   <tr key={row.id}>
-                    <td>{row.employeeId || '-'}</td>
+                    <td>{row.employeeId}</td>
                     <td>{row.name}</td>
                     <td>{row.email}</td>
-                    <td>{row.departmentName}</td>
-                    <td>{row.managerName}</td>
+                    <td>{departmentMap[row.departmentId] || '-'}</td>
+                    <td>{managerMap[row.managerId] || '-'}</td>
                     <td><span className={`badge badge-${row.status}`}>{row.status}</span></td>
-                    <td>{row.createdDate}</td>
+                    <td>{formatDate(row.joiningDate)}</td>
                     <td>
                       <div className="table-actions">
-                        <button className="text-btn" onClick={() => openProfile(row)}>View</button>
+                        <button className="text-btn" onClick={() => { setSelected(row); setProfileOpen(true) }}>View</button>
                         <button className="text-btn" onClick={() => openEdit(row)}>Edit</button>
                         <button className="text-btn" onClick={() => onToggleStatus(row)}>{row.status === 'active' ? 'Deactivate' : 'Activate'}</button>
                         <button className="text-btn danger" onClick={() => { setSelected(row); setConfirmOpen(true) }}>Delete</button>
@@ -485,80 +403,76 @@ function CompanyAdminEmployeesPage({ embedded = false, title = 'Employees', brea
                 ))}
               </tbody>
             </table>
-
-            <div className="pagination-row">
-              <Button variant="ghost" disabled={page <= 1} onClick={() => setPage((prev) => Math.max(prev - 1, 1))}>Previous</Button>
-              <span>Page {pagination.page} of {Math.max(pagination.totalPages || 1, 1)}</span>
-              <Button variant="ghost" disabled={page >= (pagination.totalPages || 1)} onClick={() => setPage((prev) => prev + 1)}>Next</Button>
-            </div>
           </div>
         )}
       </div>
 
-      <Modal open={formOpen} title={`${selected ? 'Edit' : 'Add'} Employee`} onClose={() => { if (!submitting) setFormOpen(false) }}>
+      <Modal open={formOpen} title={selected ? 'Edit Employee' : 'Add Employee'} onClose={() => setFormOpen(false)}>
         <form className="modal-form" onSubmit={onSubmit}>
-          <FormInput label="Name" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="Enter name" />
+          <FormInput label="Employee ID" value={form.employeeId} onChange={(e) => setForm((prev) => ({ ...prev, employeeId: e.target.value }))} />
+          {formErrors.employeeId ? <p className="error">{formErrors.employeeId}</p> : null}
+
+          <FormInput label="Full Name" value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} />
           {formErrors.name ? <p className="error">{formErrors.name}</p> : null}
 
-          <FormInput label="Email" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} placeholder="Enter email" disabled={Boolean(selected)} />
+          <FormInput label="Work Email" value={form.email} onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))} />
           {formErrors.email ? <p className="error">{formErrors.email}</p> : null}
 
-          <FormInput label="Phone" value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} placeholder="Enter phone" />
+          <FormInput label="Phone Number" value={form.phone} onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))} />
           {formErrors.phone ? <p className="error">{formErrors.phone}</p> : null}
 
-          {!selected ? (
-            <>
-              <FormInput label="Password" type="password" value={form.password} onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))} placeholder="Enter password" />
-              {formErrors.password ? <p className="error">{formErrors.password}</p> : null}
-            </>
-          ) : null}
+          <FilterDropdown
+            label="Department"
+            value={form.departmentId}
+            onChange={(value) => setForm((prev) => ({ ...prev, departmentId: value, managerId: '' }))}
+            options={[{ value: '', label: 'Select Department' }, ...DEPARTMENTS.map((item) => ({ value: item.id, label: item.name }))]}
+          />
+          {formErrors.departmentId ? <p className="error">{formErrors.departmentId}</p> : null}
 
-          <FilterDropdown label="Gender" value={form.gender} onChange={(value) => setForm((p) => ({ ...p, gender: value }))} options={[{ value: '', label: 'Select Gender' }, { value: 'male', label: 'Male' }, { value: 'female', label: 'Female' }, { value: 'other', label: 'Other' }]} />
+          <FilterDropdown
+            label="Manager"
+            value={form.managerId}
+            onChange={(value) => setForm((prev) => ({ ...prev, managerId: value }))}
+            options={[
+              { value: '', label: 'Select Manager' },
+              ...MANAGERS.filter((item) => !form.departmentId || item.departmentId === form.departmentId).map((item) => ({ value: item.id, label: item.name }))
+            ]}
+          />
+          {formErrors.managerId ? <p className="error">{formErrors.managerId}</p> : null}
 
-          <FormInput label="DOB" type="date" value={form.dob} onChange={(e) => setForm((p) => ({ ...p, dob: e.target.value }))} />
+          <FormInput label="Designation" value={form.designation} onChange={(e) => setForm((prev) => ({ ...prev, designation: e.target.value }))} />
+          {formErrors.designation ? <p className="error">{formErrors.designation}</p> : null}
 
-          <FormInput label="Joining Date" type="date" value={form.joiningDate} onChange={(e) => setForm((p) => ({ ...p, joiningDate: e.target.value }))} />
+          <FormInput label="Joining Date" type="date" value={form.joiningDate} onChange={(e) => setForm((prev) => ({ ...prev, joiningDate: e.target.value }))} />
           {formErrors.joiningDate ? <p className="error">{formErrors.joiningDate}</p> : null}
 
-          <FilterDropdown label="Department" value={form.departmentId} onChange={(value) => setForm((p) => ({ ...p, departmentId: value }))} options={[{ value: '', label: 'Unassigned' }, ...departments.map((d) => ({ value: String(d.id || d._id), label: d.name || 'Department' }))]} />
-
-          <FilterDropdown label="Manager" value={form.managerId} onChange={(value) => setForm((p) => ({ ...p, managerId: value }))} options={[{ value: '', label: 'Unassigned' }, ...managers.map((m) => ({ value: String(m.id || m._id), label: m.name || 'Manager' }))]} />
-
-          <FilterDropdown label="HR" value={form.hrId} onChange={(value) => setForm((p) => ({ ...p, hrId: value }))} options={[{ value: '', label: 'Unassigned' }, ...hrs.map((h) => ({ value: String(h.id || h._id), label: h.name || 'HR' }))]} />
-
-          <FormInput label="Designation" value={form.designation} onChange={(e) => setForm((p) => ({ ...p, designation: e.target.value }))} placeholder="Enter designation" />
-
-          <FormInput label="Salary" type="number" value={form.salary} onChange={(e) => setForm((p) => ({ ...p, salary: e.target.value }))} placeholder="Enter salary" />
-          {formErrors.salary ? <p className="error">{formErrors.salary}</p> : null}
-
-          <FormInput label="Address" value={form.address} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} placeholder="Enter address" />
-
-          <FilterDropdown label="Status" value={form.status} onChange={(value) => setForm((p) => ({ ...p, status: value }))} options={[{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }]} />
+          <FilterDropdown
+            label="Status"
+            value={form.status}
+            onChange={(value) => setForm((prev) => ({ ...prev, status: value }))}
+            options={[{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }]}
+          />
 
           <div className="modal-actions">
-            <Button type="button" variant="ghost" onClick={() => setFormOpen(false)} disabled={submitting}>Cancel</Button>
-            <Button type="submit" disabled={submitting}>{submitting ? 'Submitting...' : 'Submit'}</Button>
+            <Button type="button" variant="ghost" onClick={() => setFormOpen(false)}>Cancel</Button>
+            <Button type="submit">{selected ? 'Save Changes' : 'Create Employee'}</Button>
           </div>
         </form>
       </Modal>
 
-      <Modal open={profileOpen} title={`Employee Profile - ${profileData?.name || selected?.name || ''}`} onClose={() => setProfileOpen(false)}>
-        {!profileData ? <LoadingSkeleton rows={4} /> : (
+      <Modal open={profileOpen} title={`Employee Profile - ${selected?.name || ''}`} onClose={() => setProfileOpen(false)}>
+        {!selected ? null : (
           <div className="modal-form">
-            <div className="inline-action-card"><strong>Employee ID:</strong> <span>{profileData.employeeId || '-'}</span></div>
-            <div className="inline-action-card"><strong>Name:</strong> <span>{profileData.name || '-'}</span></div>
-            <div className="inline-action-card"><strong>Email:</strong> <span>{profileData.email || '-'}</span></div>
-            <div className="inline-action-card"><strong>Phone:</strong> <span>{profileData.phone || '-'}</span></div>
-            <div className="inline-action-card"><strong>Gender:</strong> <span>{profileData.gender || '-'}</span></div>
-            <div className="inline-action-card"><strong>DOB:</strong> <span>{profileData.dob ? String(profileData.dob).slice(0, 10) : '-'}</span></div>
-            <div className="inline-action-card"><strong>Joining Date:</strong> <span>{profileData.joiningDate ? String(profileData.joiningDate).slice(0, 10) : '-'}</span></div>
-            <div className="inline-action-card"><strong>Department:</strong> <span>{deptMap[String(profileData.departmentId || '')] || '-'}</span></div>
-            <div className="inline-action-card"><strong>Manager:</strong> <span>{managerMap[String(profileData.managerId || '')] || '-'}</span></div>
-            <div className="inline-action-card"><strong>HR:</strong> <span>{hrMap[String(profileData.hrId || '')] || '-'}</span></div>
-            <div className="inline-action-card"><strong>Designation:</strong> <span>{profileData.designation || '-'}</span></div>
-            <div className="inline-action-card"><strong>Salary:</strong> <span>{profileData.salary ?? '-'}</span></div>
-            <div className="inline-action-card"><strong>Address:</strong> <span>{profileData.address || '-'}</span></div>
-            <div className="inline-action-card"><strong>Status:</strong> <span>{profileData.status || '-'}</span></div>
+            <div className="inline-action-card"><strong>Employee ID:</strong> <span>{selected.employeeId}</span></div>
+            <div className="inline-action-card"><strong>Name:</strong> <span>{selected.name}</span></div>
+            <div className="inline-action-card"><strong>Email:</strong> <span>{selected.email}</span></div>
+            <div className="inline-action-card"><strong>Phone:</strong> <span>{selected.phone}</span></div>
+            <div className="inline-action-card"><strong>Department:</strong> <span>{departmentMap[selected.departmentId] || '-'}</span></div>
+            <div className="inline-action-card"><strong>Manager:</strong> <span>{managerMap[selected.managerId] || '-'}</span></div>
+            <div className="inline-action-card"><strong>Designation:</strong> <span>{selected.designation}</span></div>
+            <div className="inline-action-card"><strong>Joining Date:</strong> <span>{formatDate(selected.joiningDate)}</span></div>
+            <div className="inline-action-card"><strong>Status:</strong> <span>{selected.status}</span></div>
+            <div className="inline-action-card"><strong>Last Updated:</strong> <span>{formatDate(selected.updatedAt)}</span></div>
           </div>
         )}
       </Modal>
@@ -566,8 +480,8 @@ function CompanyAdminEmployeesPage({ embedded = false, title = 'Employees', brea
       <ConfirmDialog
         open={confirmOpen}
         title="Delete Employee"
-        message={`Are you sure you want to delete ${selected?.name || 'this employee'}?`}
-        onCancel={() => { if (!submitting) setConfirmOpen(false) }}
+        message={`Delete ${selected?.name || 'this employee'} from employee records?`}
+        onCancel={() => setConfirmOpen(false)}
         onConfirm={onDelete}
       />
     </>

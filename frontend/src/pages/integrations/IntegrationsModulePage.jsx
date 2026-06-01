@@ -6,7 +6,7 @@ import FormInput from '../../components/ui/FormInput'
 import FilterDropdown from '../../components/ui/FilterDropdown'
 import DataTable from '../../components/ui/DataTable'
 
-const INTEGRATIONS_STORAGE_KEY = 'hrms_frontend_integrations_v2'
+const INTEGRATIONS_STORAGE_KEY = 'hrms_frontend_integrations_v3'
 
 const integrationGroups = {
   'Identity & Collaboration': ['Google Workspace', 'Microsoft 365', 'Slack', 'Zoom', 'Teams'],
@@ -85,6 +85,7 @@ function IntegrationsModulePage({ page }) {
   const [modalOpen, setModalOpen] = useState(false)
   const [selectedId, setSelectedId] = useState('')
   const [form, setForm] = useState({ name: '', configText: '{}' })
+  const [selectedProvider, setSelectedProvider] = useState('')
   const [providerForm, setProviderForm] = useState({ endpoint: '', apiKey: '', environment: 'production' })
 
   useEffect(() => {
@@ -97,12 +98,17 @@ function IntegrationsModulePage({ page }) {
     return found?.[0] || 'Identity & Collaboration'
   }, [page])
 
-  const isProviderPage = Boolean(page && allProviders.includes(page))
-  const activeProvider = isProviderPage ? page : ''
-
   const groupItems = integrationGroups[activeGroup] || integrationGroups['Identity & Collaboration']
-  const visibleCards = useMemo(() => integrations.filter((item) => groupItems.includes(item.name)), [integrations, groupItems])
-  const activeProviderItem = integrations.find((item) => item.name === activeProvider) || null
+
+  useEffect(() => {
+    if (page && allProviders.includes(page)) {
+      setSelectedProvider(page)
+      return
+    }
+    setSelectedProvider(groupItems[0])
+  }, [page, activeGroup])
+
+  const activeProviderItem = integrations.find((item) => item.name === selectedProvider) || null
 
   useEffect(() => {
     if (!activeProviderItem) return
@@ -162,57 +168,35 @@ function IntegrationsModulePage({ page }) {
   ]
 
   const eventRows = useMemo(() => events
-    .filter((evt) => {
-      if (activeProvider) return evt.provider === activeProvider
-      return groupItems.includes(evt.provider)
-    })
-    .map((evt) => ({ ...evt, dateTime: new Date(evt.dateTime).toLocaleString() })), [events, activeProvider, groupItems])
+    .filter((evt) => evt.provider === selectedProvider)
+    .map((evt) => ({ ...evt, dateTime: new Date(evt.dateTime).toLocaleString() })), [events, selectedProvider])
 
   return (
     <section className="section-layout">
       <PageHeader
-        title={activeProvider || activeGroup}
-        description="Frontend-only integration workspace with live connect, test, and configuration controls."
-        breadcrumb={['Super Admin', 'Integrations', activeProvider || activeGroup]}
+        title={selectedProvider || activeGroup}
+        description="Step-based integration workflow: select provider, configure, connect, and test."
+        breadcrumb={['Super Admin', 'Integrations', selectedProvider || activeGroup]}
         primaryActionLabel="Refresh"
         onPrimaryAction={() => showToast('success', 'Refreshed (frontend state)')}
       />
       {toast.message ? <div className={`toast toast-${toast.type}`}>{toast.message}</div> : null}
 
-      {!isProviderPage ? (
+      <div className="panel">
+        <h3>Integration Workflow</h3>
+        <p style={{ color: 'var(--muted)' }}>Step 1: Select provider. Step 2: Configure fields. Step 3: Save, Connect, then Test.</p>
+        <div className="form-grid">
+          <FilterDropdown label="Integration Group" value={activeGroup} onChange={() => {}} options={Object.keys(integrationGroups).map((g) => ({ value: g, label: g }))} disabled />
+          <FilterDropdown label="Provider" value={selectedProvider} onChange={setSelectedProvider} options={groupItems.map((name) => ({ value: name, label: name }))} />
+        </div>
+      </div>
+
+      {activeProviderItem ? (
         <>
           <div className="panel">
+            <h3>{selectedProvider} Configuration</h3>
             <div className="form-grid">
-              <FilterDropdown label="Integration Group" value={activeGroup} onChange={() => {}} options={Object.keys(integrationGroups).map((g) => ({ value: g, label: g }))} disabled />
-              <FormInput label="Visible Providers" value={`${visibleCards.length}`} disabled />
-            </div>
-          </div>
-
-          <div id="integrations-list-section" className="permission-grid">
-            {visibleCards.map((item) => (
-              <div className="permission-card" key={item.id}>
-                <h4>{item.name}</h4>
-                <p style={{ color: 'var(--muted)' }}>Status: <strong>{item.status}</strong></p>
-                <p style={{ color: 'var(--muted)' }}>Connected: {item.connected ? 'Yes' : 'No'}</p>
-                <p style={{ color: 'var(--muted)' }}>Last Test: {item.lastTestAt ? new Date(item.lastTestAt).toLocaleString() : 'Never'} ({item.lastTestStatus})</p>
-                <div className="actions-row" style={{ flexWrap: 'wrap' }}>
-                  <Button onClick={() => openConfig(item)}>Configure</Button>
-                  <Button variant="ghost" onClick={() => handleConnect(item)}>Connect</Button>
-                  <Button variant="ghost" onClick={() => handleDisconnect(item)}>Disconnect</Button>
-                  <Button variant="ghost" onClick={() => handleTest(item)}>Test</Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </>
-      ) : null}
-
-      {isProviderPage && activeProviderItem ? (
-        <>
-          <div className="panel">
-            <h3>{activeProvider} Configuration</h3>
-            <div className="form-grid">
-              {(providerFieldSchema[activeProvider] || [
+              {(providerFieldSchema[selectedProvider] || [
                 { key: 'endpoint', label: 'Endpoint', placeholder: 'https://api.provider.com' },
                 { key: 'apiKey', label: 'API Key', placeholder: 'api-key' },
                 { key: 'environment', label: 'Environment', placeholder: 'production' }
@@ -230,18 +214,22 @@ function IntegrationsModulePage({ page }) {
             <div className="actions-row" style={{ marginTop: 10 }}>
               <Button onClick={() => {
                 patchItem(activeProviderItem.id, { config: providerForm })
-                pushEvent(activeProvider, 'SAVE_CONFIG')
-                showToast('success', `${activeProvider} config saved`)
+                pushEvent(selectedProvider, 'SAVE_CONFIG')
+                showToast('success', `${selectedProvider} config saved`)
               }}>Save Config</Button>
               <Button variant="ghost" onClick={() => handleConnect(activeProviderItem)}>Connect Provider</Button>
               <Button variant="ghost" onClick={() => handleDisconnect(activeProviderItem)}>Disable Provider</Button>
               <Button variant="ghost" onClick={() => handleTest(activeProviderItem)}>Run Health Test</Button>
+              <Button variant="ghost" onClick={() => openConfig(activeProviderItem)}>Advanced JSON</Button>
+            </div>
+            <div className="panel" style={{ marginTop: 10, marginBottom: 0 }}>
+              <strong>Current Status:</strong> {activeProviderItem.connected ? 'Connected' : 'Not Connected'} | Last Test: {activeProviderItem.lastTestAt ? new Date(activeProviderItem.lastTestAt).toLocaleString() : 'Never'} ({activeProviderItem.lastTestStatus})
             </div>
           </div>
 
           <div className="panel">
-            <h3>{activeProvider} Activity</h3>
-            <DataTable columns={eventCols} rows={eventRows} showActions={false} emptyTitle={`No activity found for ${activeProvider}`} />
+            <h3>{selectedProvider} Activity</h3>
+            <DataTable columns={eventCols} rows={eventRows} showActions={false} emptyTitle={`No activity found for ${selectedProvider}`} />
           </div>
         </>
       ) : null}

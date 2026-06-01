@@ -267,12 +267,23 @@ function SuperAdminLayout() {
   }, [workspaceGroups, activeChildPath])
   const showGroupedNav = workspaceGroups.some((group) => group.title)
   const activeGroup = workspaceGroups[activeGroupIndex] || null
-  const hideWorkspaceNavInLayout = activeModule?.label === 'Admin Management'
-  const hideSubmoduleNavInLayout =
-    activeModule?.label === 'Reports' ||
-    activeModule?.label === 'Backup & Restore' ||
-    activeModule?.label === 'AI Center' ||
-    activeModule?.label === 'Integrations'
+  const modulesWithOwnTopNav = new Set([
+    'Admin Management',
+    'Company Management',
+    'Subscription & Billing',
+    'Revenue & Analytics',
+    'Feature Management'
+  ])
+  const hideWorkspacePrefixes = [
+    '/super-admin/company-management',
+    '/super-admin/subscription-and-billing',
+    '/super-admin/revenue-and-analytics',
+    '/super-admin/feature-management'
+  ]
+  const hideWorkspaceNavInLayout =
+    modulesWithOwnTopNav.has(activeModule?.label || '') ||
+    hideWorkspacePrefixes.some((prefix) => pathname.startsWith(prefix))
+  const hideSubmoduleNavInLayout = hideWorkspaceNavInLayout
   const collapseWorkspaceGroupsToSingleRow =
     activeModule?.label === 'Audit & Security' ||
     activeModule?.label === 'System Settings'

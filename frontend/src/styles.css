@@ -4701,6 +4701,28 @@ textarea {
   color: #335fd4 !important;
 }
 
+/* Keep HR/Manager/Employee sidebars visually identical to super-admin sidebar */
+[data-theme='light'] .manager-shell .super-admin-sidebar .menu-link,
+[data-theme='light'] .employee-shell .super-admin-sidebar .menu-link {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+[data-theme='light'] .manager-shell .super-admin-sidebar .menu-link:hover,
+[data-theme='light'] .employee-shell .super-admin-sidebar .menu-link:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-color: rgba(205, 220, 255, 0.35) !important;
+  box-shadow: none !important;
+}
+
+[data-theme='light'] .manager-shell .super-admin-sidebar .menu-link.active,
+[data-theme='light'] .employee-shell .super-admin-sidebar .menu-link.active {
+  background: linear-gradient(120deg, #f6f9ff 0%, #ffffff 100%) !important;
+  color: #2f4ea0 !important;
+  border-color: rgba(208, 221, 255, 0.95) !important;
+  box-shadow: 0 10px 24px rgba(18, 33, 75, 0.28) !important;
+}
+
 [data-theme='light'] .super-admin-shell .super-admin-sidebar .sidebar-upgrade-card {
   margin-top: 12px;
   border-radius: 14px;
@@ -5058,6 +5080,137 @@ textarea {
   filter: brightness(1.03);
 }
 
+/* Company Admin UI upgrade (platform-admin style, UI only) */
+[data-theme='light'] .admin-shell {
+  --brand: #5b6bff;
+  --brand-2: #10b5d8;
+  --panel-glow: rgba(77, 102, 255, 0.18);
+}
+
+[data-theme='light'] .admin-shell .sidebar {
+  background:
+    radial-gradient(360px 240px at -8% -8%, rgba(160, 174, 255, 0.32), transparent 70%),
+    radial-gradient(440px 280px at 110% 118%, rgba(120, 144, 255, 0.22), transparent 72%),
+    linear-gradient(180deg, #2f3f75 0%, #3d568f 48%, #4f6ca9 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.24);
+}
+
+[data-theme='light'] .admin-shell .sidebar-title {
+  color: #f6f9ff;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+[data-theme='light'] .admin-shell .menu-link {
+  color: #ecf2ff;
+  border: 1px solid transparent;
+  background: transparent;
+}
+
+[data-theme='light'] .admin-shell .menu-link:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+[data-theme='light'] .admin-shell .menu-link.active {
+  background: linear-gradient(120deg, #f8fbff 0%, #ffffff 100%);
+  color: #2d4ea0;
+  border-color: rgba(212, 223, 255, 0.95);
+  box-shadow: 0 10px 24px rgba(21, 35, 76, 0.28);
+}
+
+[data-theme='light'] .admin-shell .menu-link.active .sidebar-item-icon {
+  color: #355ecc;
+}
+
+[data-theme='light'] .admin-shell .navbar {
+  border-color: rgba(166, 183, 234, 0.52);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.82), rgba(245, 249, 255, 0.72));
+  box-shadow: 0 14px 34px rgba(61, 87, 167, 0.16);
+}
+
+[data-theme='light'] .admin-shell .breadcrumb {
+  border-color: rgba(168, 183, 232, 0.46);
+  background: linear-gradient(140deg, rgba(235, 241, 255, 0.78), rgba(227, 236, 255, 0.62));
+}
+
+[data-theme='light'] .admin-shell .page-content .panel,
+[data-theme='light'] .admin-shell .page-content .workspace-nav,
+[data-theme='light'] .admin-shell .page-content .workspace-subnav {
+  border-color: rgba(167, 182, 235, 0.42);
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.84), rgba(244, 248, 255, 0.72));
+  box-shadow: 0 14px 32px rgba(70, 98, 175, 0.18);
+}
+
+[data-theme='light'] .admin-shell .page-content .panel-head h3 {
+  color: #22335f;
+}
+
+[data-theme='light'] .admin-shell .page-content .panel-head h3::before {
+  background: linear-gradient(180deg, #5b6bff, #16b9d8);
+}
+
+[data-theme='light'] .admin-shell .page-content .page-header {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(157, 177, 234, 0.5);
+  background:
+    radial-gradient(430px 200px at 88% -18%, rgba(108, 96, 255, 0.3), transparent 72%),
+    linear-gradient(145deg, rgba(249, 252, 255, 0.93), rgba(233, 240, 255, 0.82));
+  box-shadow: 0 20px 40px rgba(66, 96, 180, 0.24);
+}
+
+[data-theme='light'] .admin-shell .page-content .page-header h1 {
+  color: #1f2d58;
+  letter-spacing: -0.02em;
+}
+
+[data-theme='light'] .admin-shell .page-content .search-input-wrap,
+[data-theme='light'] .admin-shell .page-content .search-input,
+[data-theme='light'] .admin-shell .page-content .form-input,
+[data-theme='light'] .admin-shell .page-content textarea.form-input {
+  border-color: rgba(159, 177, 233, 0.5);
+  background: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme='light'] .admin-shell .page-content .search-input-wrap:focus-within,
+[data-theme='light'] .admin-shell .page-content .form-input:focus {
+  border-color: rgba(96, 117, 255, 0.72);
+  box-shadow: 0 0 0 3px rgba(108, 130, 255, 0.14);
+}
+
+[data-theme='light'] .admin-shell .page-content .btn {
+  border-radius: 12px;
+}
+
+[data-theme='light'] .admin-shell .page-content .btn-primary {
+  background: linear-gradient(135deg, #5c6fff, #6e59f6);
+  box-shadow: 0 10px 22px rgba(84, 94, 232, 0.33);
+}
+
+[data-theme='light'] .admin-shell .page-content .btn-primary:hover {
+  filter: brightness(1.04);
+}
+
+[data-theme='light'] .admin-shell .page-content .table-wrap {
+  border-color: rgba(163, 179, 234, 0.45);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+[data-theme='light'] .admin-shell .page-content thead th {
+  background: linear-gradient(180deg, rgba(246, 250, 255, 0.95), rgba(238, 245, 255, 0.82));
+  color: #3e578f;
+  font-weight: 800;
+}
+
+[data-theme='light'] .admin-shell .page-content tbody tr:nth-child(even) td {
+  background: rgba(247, 251, 255, 0.56);
+}
+
+[data-theme='light'] .admin-shell .page-content tbody tr:hover td {
+  background: rgba(233, 242, 255, 0.76);
+}
+
 .audit-setting-card p {
   margin: 4px 0 10px;
   color: var(--muted);
@@ -5342,3 +5495,66 @@ textarea {
 .module-dashboard .dashboard-main-grid {
   gap: 14px;
 }
+
+/* Attendance calendar layout (HR/Manager/Employee dashboards) */
+.orbit-calendar {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.orbit-cell {
+  min-height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  background: rgba(255, 255, 255, 0.68);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  color: #334155;
+}
+
+.orbit-cell.head {
+  min-height: 30px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 12px;
+}
+
+.orbit-cell.absent {
+  background: rgba(248, 113, 113, 0.16);
+  border-color: rgba(248, 113, 113, 0.38);
+  color: #b91c1c;
+}
+
+.orbit-legend {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  color: #475569;
+  font-weight: 600;
+}
+
+.orbit-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.dot.present { background: #22c55e; }
+.dot.absent { background: #ef4444; }
+.dot.off { background: #64748b; }

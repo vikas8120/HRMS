@@ -11,9 +11,11 @@ import {
   BookOpen,
   Settings,
   Bell,
-  UserRound
+  UserRound,
+  Search
 } from 'lucide-react'
 import { motion } from 'framer-motion'
+import { useMemo, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 
@@ -36,7 +38,13 @@ function EmployeeSidebar({ isCollapsed, isMobileOpen, isMobile, onToggle, onClos
   const auth = useAuth()
   const logout = auth?.logout || (() => {})
   const isCompact = !isMobile && isCollapsed
-  const sidebarClass = ['sidebar', 'employee-sidebar', isMobileOpen ? 'sidebar-open' : '', isCompact ? 'sidebar-collapsed' : ''].filter(Boolean).join(' ')
+  const [menuSearch, setMenuSearch] = useState('')
+  const sidebarClass = ['sidebar', 'employee-sidebar', 'super-admin-sidebar', isMobileOpen ? 'sidebar-open' : '', isCompact ? 'sidebar-collapsed' : ''].filter(Boolean).join(' ')
+  const filteredItems = useMemo(() => {
+    const query = menuSearch.trim().toLowerCase()
+    if (!query) return employeeItems
+    return employeeItems.filter((item) => item.label.toLowerCase().includes(query))
+  }, [menuSearch])
 
   const handleLinkClick = () => {
     onClose?.()
@@ -70,8 +78,20 @@ function EmployeeSidebar({ isCollapsed, isMobileOpen, isMobile, onToggle, onClos
         </button>
       </div>
 
+      {!isCompact && !isMobile ? (
+        <div className="sidebar-search-wrap">
+          <Search size={15} />
+          <input
+            className="sidebar-search-input"
+            value={menuSearch}
+            onChange={(event) => setMenuSearch(event.target.value)}
+            placeholder="Search modules"
+          />
+        </div>
+      ) : null}
+
       <nav id="employee-sidebar-nav">
-        {employeeItems.map((item) => {
+        {filteredItems.map((item) => {
           const Icon = item.icon
           return (
             <div key={item.path} className="menu-group">

@@ -99,7 +99,7 @@ function ManagerLayout() {
     : 'module-manager-dashboard'
 
   return (
-    <div className={`app-shell manager-shell ${moduleClass} ${isSidebarCollapsed && !isMobile ? 'sidebar-collapsed' : ''}`}>
+    <div className={`app-shell super-admin-shell manager-shell ${moduleClass} ${isSidebarCollapsed && !isMobile ? 'sidebar-collapsed' : ''}`}>
       {!isMobile ? (
         <ManagerSidebar
           isCollapsed={isSidebarCollapsed}

@@ -57,7 +57,7 @@ function HrLayout() {
   const closeSidebar = () => setIsMobileOpen(false)
 
   return (
-    <div className={`app-shell manager-shell employee-shell ${isSidebarCollapsed && !isMobile ? 'sidebar-collapsed' : ''}`}>
+    <div className={`app-shell super-admin-shell manager-shell employee-shell ${isSidebarCollapsed && !isMobile ? 'sidebar-collapsed' : ''}`}>
       <HrSidebar
         isCollapsed={isSidebarCollapsed}
         isMobileOpen={isMobileOpen}

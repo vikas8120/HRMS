@@ -1,248 +1,370 @@
 import { useEffect, useMemo, useState } from 'react'
 import PageHeader from '../components/ui/PageHeader'
 import Button from '../components/ui/Button'
-import FilterDropdown from '../components/ui/FilterDropdown'
 import SearchBar from '../components/ui/SearchBar'
-import EmptyState from '../components/ui/EmptyState'
 import DataTable from '../components/ui/DataTable'
 import Modal from '../components/ui/Modal'
 import FormInput from '../components/ui/FormInput'
+import FilterDropdown from '../components/ui/FilterDropdown'
+import ConfirmDialog from '../components/ui/ConfirmDialog'
 
-const STORAGE_KEY = 'hrms_admin_hr_workspace_v1'
+const STORAGE_KEY = 'company_admin_hr_flow_v3'
 
-const modules = [
+const steps = [
   {
-    key: 'hr-dashboard',
-    label: 'HR Dashboard',
-    submodules: ['Executive Overview', 'Workforce Snapshot', 'Today Attendance Summary', 'Leave Summary', 'Payroll Cycle Status', 'Pending Approvals Widget', 'Recent Activity Feed'],
-    summary: 'Live HR KPI overview and pending action center.'
+    key: 'create-hr',
+    pipeline: 'Access Setup',
+    label: 'Create HR',
+    hint: 'Create HR profile and base department assignment.',
+    columns: [
+      { key: 'hrName', label: 'HR Name' },
+      { key: 'email', label: 'Email' },
+      { key: 'department', label: 'Department' },
+      { key: 'joiningDate', label: 'Joining' },
+      { key: 'status', label: 'Status' }
+    ],
+    fields: [
+      { key: 'hrName', label: 'HR Name', type: 'text' },
+      { key: 'email', label: 'Email', type: 'text' },
+      { key: 'department', label: 'Department', type: 'select', options: ['HR Operations', 'Recruitment', 'L&D', 'Payroll'] },
+      { key: 'joiningDate', label: 'Joining Date', type: 'text' },
+      { key: 'status', label: 'Status', type: 'select', options: ['active', 'pending', 'disabled'] }
+    ]
   },
   {
-    key: 'employee',
-    label: 'Employee',
-    submodules: ['Employee Directory', 'Add Employee', 'Employee Profile (360)', 'Onboarding Checklist', 'Offboarding/Exit', 'Employment History', 'Bank & Tax Details', 'Bulk Import/Export'],
-    summary: 'Employee lifecycle management from onboarding to exit.'
+    key: 'assign-role',
+    pipeline: 'Access Setup',
+    label: 'Assign Role',
+    hint: 'Map HR account with business role and scope.',
+    columns: [
+      { key: 'hrName', label: 'HR Name' },
+      { key: 'role', label: 'Role' },
+      { key: 'scope', label: 'Scope' },
+      { key: 'assignedBy', label: 'Assigned By' },
+      { key: 'status', label: 'Status' }
+    ],
+    fields: [
+      { key: 'hrName', label: 'HR Name', type: 'text' },
+      { key: 'role', label: 'Role', type: 'select', options: ['HR Admin', 'Recruitment Lead', 'Payroll Officer', 'L&D Coordinator'] },
+      { key: 'scope', label: 'Scope', type: 'select', options: ['Company', 'Department', 'Payroll', 'Recruitment'] },
+      { key: 'assignedBy', label: 'Assigned By', type: 'text' },
+      { key: 'status', label: 'Status', type: 'select', options: ['active', 'pending', 'disabled'] }
+    ]
   },
   {
-    key: 'attendance',
-    label: 'Attendance',
-    submodules: ['Daily Attendance Register', 'Shift Roster Management', 'Punch In/Out Logs', 'Late/Early Tracking', 'Overtime Requests', 'Regularization Queue', 'Missing Punch Resolver', 'Attendance Reports'],
-    summary: 'Attendance operations, exceptions, and compliance tracking.'
+    key: 'assign-permissions',
+    pipeline: 'Access Setup',
+    label: 'Assign Permissions',
+    hint: 'Grant module-level permissions to HR account.',
+    columns: [
+      { key: 'hrName', label: 'HR Name' },
+      { key: 'module', label: 'Module' },
+      { key: 'permissions', label: 'Permissions' },
+      { key: 'approvedBy', label: 'Approved By' },
+      { key: 'status', label: 'Status' }
+    ],
+    fields: [
+      { key: 'hrName', label: 'HR Name', type: 'text' },
+      { key: 'module', label: 'Module', type: 'select', options: ['Attendance', 'Leaves', 'Recruitment', 'Payroll', 'Documents'] },
+      { key: 'permissions', label: 'Permissions', type: 'text' },
+      { key: 'approvedBy', label: 'Approved By', type: 'text' },
+      { key: 'status', label: 'Status', type: 'select', options: ['active', 'pending', 'disabled'] }
+    ]
   },
   {
-    key: 'leave',
-    label: 'Leave',
-    submodules: ['Leave Dashboard', 'Leave Type Master', 'Leave Policy Configuration', 'Leave Balance Ledger', 'Apply Leave', 'Leave Calendar', 'Approval Workflow', 'Comp-Off & Encashment'],
-    summary: 'Leave policy, balances, approvals, and holiday workflow.'
+    key: 'monitor-activities',
+    pipeline: 'Monitoring',
+    label: 'Monitor Activities',
+    hint: 'Track sensitive actions and manual overrides.',
+    columns: [
+      { key: 'activity', label: 'Activity' },
+      { key: 'actor', label: 'Actor' },
+      { key: 'severity', label: 'Severity' },
+      { key: 'timeStamp', label: 'Time' },
+      { key: 'status', label: 'Status' }
+    ],
+    fields: [
+      { key: 'activity', label: 'Activity', type: 'text' },
+      { key: 'actor', label: 'Actor', type: 'text' },
+      { key: 'severity', label: 'Severity', type: 'select', options: ['Low', 'Medium', 'High'] },
+      { key: 'timeStamp', label: 'Time', type: 'text' },
+      { key: 'status', label: 'Status', type: 'select', options: ['active', 'pending', 'completed'] }
+    ]
   },
   {
-    key: 'payroll',
-    label: 'Payroll',
-    submodules: ['Salary Components', 'Salary Structure Templates', 'Variable Pay Inputs', 'Deductions & Statutory', 'Payroll Run', 'Payslip Generation', 'Bank Transfer File', 'Payroll Audit Trail'],
-    summary: 'Payroll operations, statutory controls, and payout readiness.'
+    key: 'view-attendance',
+    pipeline: 'Monitoring',
+    label: 'View Attendance',
+    hint: 'Attendance snapshots for HR users.',
+    columns: [
+      { key: 'hrName', label: 'HR Name' },
+      { key: 'month', label: 'Month' },
+      { key: 'presentDays', label: 'Present' },
+      { key: 'lateMarks', label: 'Late' },
+      { key: 'status', label: 'Status' }
+    ],
+    fields: [
+      { key: 'hrName', label: 'HR Name', type: 'text' },
+      { key: 'month', label: 'Month', type: 'text' },
+      { key: 'presentDays', label: 'Present Days', type: 'number' },
+      { key: 'lateMarks', label: 'Late Marks', type: 'number' },
+      { key: 'status', label: 'Status', type: 'select', options: ['active', 'pending', 'completed'] }
+    ]
   },
   {
-    key: 'department',
-    label: 'Department',
-    submodules: ['Department Master', 'Hierarchy & Sub-departments', 'Department Head Assignment', 'Role/Designation Mapping', 'Cost Center Mapping', 'Department Transfers', 'Department KPI View'],
-    summary: 'Department structure, ownership, and org mapping.'
+    key: 'view-performance',
+    pipeline: 'Monitoring',
+    label: 'View Performance',
+    hint: 'Quarterly review and goal completion tracking.',
+    columns: [
+      { key: 'hrName', label: 'HR Name' },
+      { key: 'rating', label: 'Rating' },
+      { key: 'goals', label: 'Goals' },
+      { key: 'reviewCycle', label: 'Review Cycle' },
+      { key: 'status', label: 'Status' }
+    ],
+    fields: [
+      { key: 'hrName', label: 'HR Name', type: 'text' },
+      { key: 'rating', label: 'Rating', type: 'select', options: ['A', 'B', 'C'] },
+      { key: 'goals', label: 'Goals', type: 'text' },
+      { key: 'reviewCycle', label: 'Review Cycle', type: 'text' },
+      { key: 'status', label: 'Status', type: 'select', options: ['active', 'pending', 'completed'] }
+    ]
   },
   {
-    key: 'recruitment',
-    label: 'Recruitment',
-    submodules: ['Manpower Requisition', 'Job Posting Management', 'Candidate Pipeline', 'Interview Scheduling', 'Interview Feedback', 'Offer Letter Generation', 'Joining Confirmation', 'Recruitment Analytics'],
-    summary: 'Hiring pipeline from requisition to joining conversion.'
+    key: 'manage-recruitment',
+    pipeline: 'Operations',
+    label: 'Manage Recruitment',
+    hint: 'Manage requisitions, candidates and interview pipeline.',
+    columns: [
+      { key: 'owner', label: 'Owner' },
+      { key: 'positions', label: 'Open Positions' },
+      { key: 'candidates', label: 'Candidates' },
+      { key: 'pipelineStage', label: 'Pipeline' },
+      { key: 'status', label: 'Status' }
+    ],
+    fields: [
+      { key: 'owner', label: 'Owner', type: 'text' },
+      { key: 'positions', label: 'Open Positions', type: 'number' },
+      { key: 'candidates', label: 'Candidates', type: 'number' },
+      { key: 'pipelineStage', label: 'Pipeline Stage', type: 'select', options: ['Screening', 'Interview', 'Offer', 'Joining'] },
+      { key: 'status', label: 'Status', type: 'select', options: ['active', 'pending', 'completed'] }
+    ]
   },
   {
-    key: 'performance',
-    label: 'Performance',
-    submodules: ['Review Cycle Setup', 'Goal/KRA Assignment', 'Self & Manager Assessment', '360 Feedback', 'Calibration Panel', 'Rating Finalization', 'PIP Management', 'Performance Reports'],
-    summary: 'Performance cycles, ratings, and growth planning.'
+    key: 'manage-payroll-access',
+    pipeline: 'Operations',
+    label: 'Manage Payroll Access',
+    hint: 'Control payroll module access by HR user.',
+    columns: [
+      { key: 'hrName', label: 'HR Name' },
+      { key: 'accessLevel', label: 'Access Level' },
+      { key: 'approvedBy', label: 'Approved By' },
+      { key: 'auditDate', label: 'Audit Date' },
+      { key: 'status', label: 'Status' }
+    ],
+    fields: [
+      { key: 'hrName', label: 'HR Name', type: 'text' },
+      { key: 'accessLevel', label: 'Access Level', type: 'select', options: ['Read', 'Approve', 'Full Control'] },
+      { key: 'approvedBy', label: 'Approved By', type: 'text' },
+      { key: 'auditDate', label: 'Audit Date', type: 'text' },
+      { key: 'status', label: 'Status', type: 'select', options: ['active', 'pending', 'disabled'] }
+    ]
   },
   {
-    key: 'document',
-    label: 'Document',
-    submodules: ['Document Categories', 'Employee Document Vault', 'Upload & Version Control', 'Verification Queue', 'Expiry Alerts', 'Template Library', 'Access Controls', 'Document Audit Trail'],
-    summary: 'Secure document storage, verification, and audit history.'
+    key: 'manage-documents',
+    pipeline: 'Operations',
+    label: 'Manage Documents',
+    hint: 'Validate and track HR-led employee documentation.',
+    columns: [
+      { key: 'hrName', label: 'HR Name' },
+      { key: 'verified', label: 'Verified Docs' },
+      { key: 'pending', label: 'Pending Docs' },
+      { key: 'lastAudit', label: 'Last Audit' },
+      { key: 'status', label: 'Status' }
+    ],
+    fields: [
+      { key: 'hrName', label: 'HR Name', type: 'text' },
+      { key: 'verified', label: 'Verified Docs', type: 'number' },
+      { key: 'pending', label: 'Pending Docs', type: 'number' },
+      { key: 'lastAudit', label: 'Last Audit', type: 'text' },
+      { key: 'status', label: 'Status', type: 'select', options: ['active', 'pending', 'completed'] }
+    ]
   },
   {
-    key: 'announcement',
-    label: 'Announcement',
-    submodules: ['Create Announcement', 'Audience Targeting', 'Priority & Pinning', 'Schedule Publish', 'Read Receipt Tracking', 'Acknowledgement Required', 'Archive & History'],
-    summary: 'Internal communication with targeting and engagement tracking.'
+    key: 'manage-training',
+    pipeline: 'Operations',
+    label: 'Manage Training',
+    hint: 'Track L&D plans assigned to HR team.',
+    columns: [
+      { key: 'hrName', label: 'HR Name' },
+      { key: 'program', label: 'Program' },
+      { key: 'completion', label: 'Completion' },
+      { key: 'dueDate', label: 'Due Date' },
+      { key: 'status', label: 'Status' }
+    ],
+    fields: [
+      { key: 'hrName', label: 'HR Name', type: 'text' },
+      { key: 'program', label: 'Program', type: 'text' },
+      { key: 'completion', label: 'Completion', type: 'text' },
+      { key: 'dueDate', label: 'Due Date', type: 'text' },
+      { key: 'status', label: 'Status', type: 'select', options: ['active', 'pending', 'completed'] }
+    ]
   },
   {
-    key: 'report',
-    label: 'Report',
-    submodules: ['Report Builder', 'Saved Templates', 'Scheduled Reports', 'Attendance Reports', 'Leave Reports', 'Payroll Reports', 'Compliance Reports', 'Export Center'],
-    summary: 'Operational and compliance reporting with export controls.'
-  },
-  {
-    key: 'hr-settings',
-    label: 'HR Settings',
-    submodules: ['Organization Profile', 'Approval Matrix', 'Attendance Policy', 'Leave Policy', 'Payroll Policy', 'Notification Templates', 'Role & Permission', 'Integration Settings'],
-    summary: 'Central HR policy and configuration management.'
+    key: 'disable-delete-hr',
+    pipeline: 'Exit Control',
+    label: 'Disable/Delete HR',
+    hint: 'Final risk action panel for disable/delete operations.',
+    columns: [
+      { key: 'hrName', label: 'HR Name' },
+      { key: 'actionType', label: 'Action' },
+      { key: 'reason', label: 'Reason' },
+      { key: 'requestedBy', label: 'Requested By' },
+      { key: 'status', label: 'Status' }
+    ],
+    fields: [
+      { key: 'hrName', label: 'HR Name', type: 'text' },
+      { key: 'actionType', label: 'Action Type', type: 'select', options: ['Disable', 'Delete'] },
+      { key: 'reason', label: 'Reason', type: 'text' },
+      { key: 'requestedBy', label: 'Requested By', type: 'text' },
+      { key: 'status', label: 'Status', type: 'select', options: ['pending', 'completed'] }
+    ]
   }
 ]
 
-const statusOptions = [
-  { value: 'all', label: 'All Status' },
-  { value: 'active', label: 'Active' },
-  { value: 'pending', label: 'Pending' },
-  { value: 'blocked', label: 'Blocked' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'draft', label: 'Draft' }
-]
+const pipelineGroups = ['Access Setup', 'Monitoring', 'Operations', 'Exit Control']
+const stepByKey = Object.fromEntries(steps.map((s) => [s.key, s]))
 
-const owners = ['HR Team', 'Operations Team', 'Payroll Team', 'Admin Team']
-
-const rowColumns = [
-  { key: 'name', label: 'Record' },
-  { key: 'owner', label: 'Owner' },
-  { key: 'status', label: 'Status' },
-  { key: 'updated', label: 'Updated' },
-  { key: 'notes', label: 'Notes', sortable: false }
-]
-
-const toKey = (value) => String(value).toLowerCase().replace(/[^a-z0-9]+/g, '-')
-
-const getSeedRow = (moduleLabel, submodule, idx) => ({
-  id: `${toKey(moduleLabel)}-${toKey(submodule)}-${idx + 1}`,
-  name: `${submodule} Item ${idx + 1}`,
-  owner: owners[idx % owners.length],
-  status: idx % 3 === 0 ? 'active' : idx % 3 === 1 ? 'pending' : 'completed',
-  updated: `${idx + 1}h ago`,
-  notes: `${moduleLabel} workflow record for ${submodule}`
-})
-
-const buildSeedStore = () => {
-  const store = {}
-  modules.forEach((module) => {
-    module.submodules.forEach((submodule) => {
-      store[submodule] = [0, 1, 2].map((idx) => getSeedRow(module.label, submodule, idx))
-    })
-  })
-  return store
+const seed = {
+  'create-hr': [{ id: '1', hrName: 'Anita Sharma', email: 'anita.hr@acme.com', department: 'HR Operations', joiningDate: '15-04-2026', status: 'active' }],
+  'assign-role': [{ id: '2', hrName: 'Anita Sharma', role: 'HR Admin', scope: 'Company', assignedBy: 'Company Admin', status: 'active' }],
+  'assign-permissions': [{ id: '3', hrName: 'Anita Sharma', module: 'Payroll', permissions: 'View, Approve, Export', approvedBy: 'Security Desk', status: 'active' }],
+  'monitor-activities': [{ id: '4', activity: 'Updated leave routing', actor: 'Anita Sharma', severity: 'Medium', timeStamp: 'Today 12:10 PM', status: 'completed' }],
+  'view-attendance': [{ id: '5', hrName: 'Anita Sharma', month: 'May 2026', presentDays: 24, lateMarks: 1, status: 'completed' }],
+  'view-performance': [{ id: '6', hrName: 'Anita Sharma', rating: 'A', goals: '6/6', reviewCycle: 'Q1 FY26', status: 'completed' }],
+  'manage-recruitment': [{ id: '7', owner: 'Recruitment Team', positions: 4, candidates: 29, pipelineStage: 'Interview', status: 'active' }],
+  'manage-payroll-access': [{ id: '8', hrName: 'Anita Sharma', accessLevel: 'Full Control', approvedBy: 'Finance Admin', auditDate: '30-05-2026', status: 'active' }],
+  'manage-documents': [{ id: '9', hrName: 'Neha Singh', verified: 22, pending: 3, lastAudit: 'Today 09:40 AM', status: 'active' }],
+  'manage-training': [{ id: '10', hrName: 'Anita Sharma', program: 'Policy Compliance', completion: '92%', dueDate: '10-06-2026', status: 'active' }],
+  'disable-delete-hr': [{ id: '11', hrName: 'Vivek Rao', actionType: 'Disable', reason: 'Investigation pending', requestedBy: 'Company Admin', status: 'pending' }]
 }
 
 function CompanyAdminHRPage() {
-  const defaultModule = modules[0]
-  const [activeModuleKey, setActiveModuleKey] = useState(defaultModule.key)
-  const [activeSubmodule, setActiveSubmodule] = useState(defaultModule.submodules[0])
-  const [search, setSearch] = useState('')
-  const [status, setStatus] = useState('all')
-  const [recordsBySubmodule, setRecordsBySubmodule] = useState(buildSeedStore)
-  const [modalOpen, setModalOpen] = useState(false)
-  const [modalMode, setModalMode] = useState('create')
-  const [selectedRowId, setSelectedRowId] = useState('')
-  const [form, setForm] = useState({ name: '', owner: owners[0], status: 'active', notes: '' })
-
-  const activeModule = useMemo(
-    () => modules.find((item) => item.key === activeModuleKey) || defaultModule,
-    [activeModuleKey]
-  )
-
-  useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY)
-    if (!saved) return
+  const [activeGroup, setActiveGroup] = useState(pipelineGroups[0])
+  const [activeStep, setActiveStep] = useState(steps[0].key)
+  const [query, setQuery] = useState('')
+  const [data, setData] = useState(() => {
     try {
-      const parsed = JSON.parse(saved)
-      if (parsed && typeof parsed === 'object') {
-        setRecordsBySubmodule((prev) => ({ ...prev, ...parsed }))
-      }
-    } catch (_error) {}
-  }, [])
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(recordsBySubmodule))
-  }, [recordsBySubmodule])
-
-  useEffect(() => {
-    if (!activeModule.submodules.includes(activeSubmodule)) {
-      setActiveSubmodule(activeModule.submodules[0])
+      const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}')
+      return Object.keys(parsed).length ? parsed : seed
+    } catch {
+      return seed
     }
-  }, [activeModule, activeSubmodule])
+  })
+  const [modalOpen, setModalOpen] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [mode, setMode] = useState('create')
+  const [selected, setSelected] = useState(null)
+  const [form, setForm] = useState({})
+  const [errors, setErrors] = useState({})
 
-  const rows = useMemo(() => recordsBySubmodule[activeSubmodule] || [], [recordsBySubmodule, activeSubmodule])
+  const groupSteps = useMemo(() => steps.filter((s) => s.pipeline === activeGroup), [activeGroup])
+  useEffect(() => {
+    if (!groupSteps.find((x) => x.key === activeStep)) setActiveStep(groupSteps[0]?.key || steps[0].key)
+  }, [groupSteps, activeStep])
 
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+  }, [data])
+
+  const currentStep = stepByKey[activeStep] || steps[0]
+  const rawRows = data[activeStep] || []
   const filteredRows = useMemo(() => {
-    return rows.filter((row) => {
-      const matchStatus = status === 'all' ? true : String(row.status).toLowerCase() === status
-      const q = search.trim().toLowerCase()
-      const matchSearch = q
-        ? [row.name, row.owner, row.status, row.notes].some((value) => String(value || '').toLowerCase().includes(q))
-        : true
-      return matchStatus && matchSearch
+    const term = query.trim().toLowerCase()
+    if (!term) return rawRows
+    return rawRows.filter((row) => Object.values(row).some((v) => String(v || '').toLowerCase().includes(term)))
+  }, [rawRows, query])
+
+  const summary = useMemo(() => {
+    const allGroupRows = groupSteps.flatMap((step) => data[step.key] || [])
+    return {
+      total: allGroupRows.length,
+      active: allGroupRows.filter((r) => String(r.status || '') === 'active').length,
+      pending: allGroupRows.filter((r) => String(r.status || '') === 'pending').length,
+      completed: allGroupRows.filter((r) => String(r.status || '') === 'completed').length,
+      disabled: allGroupRows.filter((r) => String(r.status || '') === 'disabled').length
+    }
+  }, [groupSteps, data])
+
+  const resetForm = (row = null) => {
+    const initial = {}
+    currentStep.fields.forEach((field) => {
+      initial[field.key] = row?.[field.key] ?? (field.type === 'select' ? field.options[0] : '')
     })
-  }, [rows, status, search])
+    setForm(initial)
+  }
 
   const openCreate = () => {
-    setModalMode('create')
-    setSelectedRowId('')
-    setForm({ name: '', owner: owners[0], status: 'active', notes: '' })
+    setMode('create')
+    setSelected(null)
+    resetForm()
+    setErrors({})
     setModalOpen(true)
   }
 
-  const openEdit = (row, mode = 'edit') => {
-    setModalMode(mode)
-    setSelectedRowId(row.id)
-    setForm({
-      name: row.name || '',
-      owner: row.owner || owners[0],
-      status: row.status || 'active',
-      notes: row.notes || ''
+  const openView = (row) => {
+    setMode('view')
+    setSelected(row)
+    resetForm(row)
+    setErrors({})
+    setModalOpen(true)
+  }
+
+  const openEdit = (row) => {
+    setMode('edit')
+    setSelected(row)
+    resetForm(row)
+    setErrors({})
+    setModalOpen(true)
+  }
+
+  const validate = () => {
+    const next = {}
+    currentStep.fields.forEach((field) => {
+      if (String(form[field.key] ?? '').trim() === '') next[field.key] = `${field.label} is required`
     })
-    setModalOpen(true)
+    setErrors(next)
+    return Object.keys(next).length === 0
   }
 
-  const saveRecord = () => {
-    if (!form.name.trim()) return
-    const nowStamp = 'just now'
-    setRecordsBySubmodule((prev) => {
-      const current = prev[activeSubmodule] || []
-      if (modalMode === 'create') {
-        const newRow = {
-          id: `${toKey(activeModule.label)}-${toKey(activeSubmodule)}-${Date.now()}`,
-          name: form.name.trim(),
-          owner: form.owner,
-          status: form.status,
-          notes: form.notes.trim(),
-          updated: nowStamp
-        }
-        return { ...prev, [activeSubmodule]: [newRow, ...current] }
-      }
-      const next = current.map((row) => (
-        row.id === selectedRowId
-          ? { ...row, name: form.name.trim(), owner: form.owner, status: form.status, notes: form.notes.trim(), updated: nowStamp }
-          : row
-      ))
-      return { ...prev, [activeSubmodule]: next }
+  const save = () => {
+    if (!validate()) return
+    const payload = { ...form }
+    setData((prev) => {
+      const list = prev[activeStep] || []
+      if (mode === 'create') return { ...prev, [activeStep]: [{ id: `${activeStep}-${Date.now()}`, ...payload }, ...list] }
+      return { ...prev, [activeStep]: list.map((row) => (row.id === selected.id ? { ...row, ...payload } : row)) }
     })
     setModalOpen(false)
   }
 
-  const deleteRecord = (row) => {
-    const yes = window.confirm(`Delete "${row.name}" from ${activeSubmodule}?`)
-    if (!yes) return
-    setRecordsBySubmodule((prev) => ({
-      ...prev,
-      [activeSubmodule]: (prev[activeSubmodule] || []).filter((item) => item.id !== row.id)
-    }))
+  const remove = () => {
+    setData((prev) => ({ ...prev, [activeStep]: (prev[activeStep] || []).filter((row) => row.id !== selected?.id) }))
+    setConfirmOpen(false)
   }
 
-  const exportCurrent = () => {
-    const list = filteredRows
-    if (!list.length) return
-    const csv = [
-      'Record,Owner,Status,Updated,Notes',
-      ...list.map((row) => `"${row.name}","${row.owner}","${row.status}","${row.updated}","${String(row.notes || '').replace(/"/g, '""')}"`)
-    ].join('\n')
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const exportCsv = () => {
+    const header = currentStep.columns.map((c) => c.label).join(',')
+    const body = filteredRows.map((row) => currentStep.columns.map((c) => `"${String(row[c.key] ?? '').replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob([`${header}\n${body}`], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${toKey(activeModule.label)}-${toKey(activeSubmodule)}.csv`
+    a.download = `hr-${activeStep}.csv`
+    document.body.appendChild(a)
     a.click()
+    document.body.removeChild(a)
     URL.revokeObjectURL(url)
   }
 
@@ -250,108 +372,96 @@ function CompanyAdminHRPage() {
     <section className="section-layout">
       <PageHeader
         title="HR Management"
-        description="Frontend-only complete HR workspace with module-wise operations for Admin control."
+        description="Action-based HR governance workspace with clear module-wise working flows."
         breadcrumb={['Company Admin', 'HR Management']}
-        primaryActionLabel="Add Record"
+        primaryActionLabel="Create Record"
         onPrimaryAction={openCreate}
       />
 
-      <div className="workspace-nav" aria-label="HR module navigation">
-        {modules.map((module) => (
-          <button
-            key={module.key}
-            type="button"
-            className={`chip-btn ${activeModuleKey === module.key ? 'active' : ''}`}
-            onClick={() => setActiveModuleKey(module.key)}
-          >
-            {module.label}
+      <div className="workspace-subnav">
+        {pipelineGroups.map((group) => (
+          <button key={group} type="button" className={`chip-btn ${group === activeGroup ? 'active' : ''}`} onClick={() => setActiveGroup(group)}>
+            {group}
           </button>
         ))}
       </div>
 
-      <div className="workspace-subnav" aria-label="HR submodule navigation">
-        {activeModule.submodules.map((submodule) => (
-          <button
-            key={submodule}
-            type="button"
-            className={`chip-btn ${activeSubmodule === submodule ? 'active' : ''}`}
-            onClick={() => setActiveSubmodule(submodule)}
-          >
-            {submodule}
-          </button>
-        ))}
-      </div>
-
-      <div className="panel filters-panel">
-        <div className="filters-row">
-          <div className="search-wrap">
-            <label>Search</label>
-            <SearchBar value={search} onChange={setSearch} placeholder={`Search in ${activeSubmodule}`} />
+      <div className="panel">
+        <div className="panel-head">
+          <h3>{activeGroup}</h3>
+          <div className="actions-row">
+            <span className="chip-btn">Total {summary.total}</span>
+            <span className="chip-btn">Active {summary.active}</span>
+            <span className="chip-btn">Pending {summary.pending}</span>
+            <span className="chip-btn">Completed {summary.completed}</span>
+            <span className="chip-btn">Disabled {summary.disabled}</span>
           </div>
-          <FilterDropdown label="Status" value={status} onChange={setStatus} options={statusOptions} />
+        </div>
+        <div className="tabs-row">
+          {groupSteps.map((step) => (
+            <button key={step.key} type="button" className={`chip-btn ${step.key === activeStep ? 'active' : ''}`} onClick={() => setActiveStep(step.key)}>
+              {step.label}
+            </button>
+          ))}
         </div>
       </div>
 
       <div className="panel">
         <div className="panel-head">
-          <h3>{activeSubmodule}</h3>
+          <h3>{currentStep.label}</h3>
           <div className="actions-row">
-            <Button variant="ghost" onClick={exportCurrent}>Export</Button>
-            <Button variant="ghost" onClick={openCreate}>Create</Button>
+            <Button variant="ghost" onClick={exportCsv}>Export</Button>
+            <Button onClick={openCreate}>Create</Button>
           </div>
         </div>
-        <p style={{ marginTop: 0 }}>{activeModule.summary}</p>
-        {filteredRows.length === 0 ? (
-          <EmptyState title={`No records found in ${activeSubmodule}`} description="Try changing filters or create a new record." />
-        ) : (
-          <DataTable
-            columns={rowColumns}
-            rows={filteredRows}
-            onView={(row) => openEdit(row, 'view')}
-            onEdit={(row) => openEdit(row, 'edit')}
-            onDelete={deleteRecord}
-          />
-        )}
+        <p style={{ marginTop: 0 }}>{currentStep.hint}</p>
+        <SearchBar value={query} onChange={setQuery} placeholder={`Search in ${currentStep.label}`} />
       </div>
 
-      <Modal
-        open={modalOpen}
-        title={modalMode === 'create' ? `Create Record • ${activeSubmodule}` : modalMode === 'view' ? `View Record • ${activeSubmodule}` : `Edit Record • ${activeSubmodule}`}
-        onClose={() => setModalOpen(false)}
-      >
+      <div className="panel">
+        <DataTable
+          columns={currentStep.columns}
+          rows={filteredRows}
+          onView={openView}
+          onEdit={openEdit}
+          onDelete={(row) => { setSelected(row); setConfirmOpen(true) }}
+          emptyTitle={`No records in ${currentStep.label}`}
+          emptyDescription="Create first record to start this step."
+        />
+      </div>
+
+      <Modal open={modalOpen} title={`${mode === 'create' ? 'Create' : mode === 'edit' ? 'Edit' : 'View'} - ${currentStep.label}`} onClose={() => setModalOpen(false)}>
         <div className="form-grid">
-          <FormInput
-            label="Record Name"
-            value={form.name}
-            onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-            disabled={modalMode === 'view'}
-          />
-          <FilterDropdown
-            label="Owner"
-            value={form.owner}
-            onChange={(value) => setForm((prev) => ({ ...prev, owner: value }))}
-            options={owners.map((owner) => ({ value: owner, label: owner }))}
-            disabled={modalMode === 'view'}
-          />
-          <FilterDropdown
-            label="Status"
-            value={form.status}
-            onChange={(value) => setForm((prev) => ({ ...prev, status: value }))}
-            options={statusOptions.filter((item) => item.value !== 'all')}
-            disabled={modalMode === 'view'}
-          />
-          <FormInput
-            label="Notes"
-            value={form.notes}
-            onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
-            disabled={modalMode === 'view'}
-          />
+          {currentStep.fields.map((field) => (
+            field.type === 'select' ? (
+              <FilterDropdown
+                key={field.key}
+                label={field.label}
+                value={form[field.key] ?? ''}
+                onChange={(value) => setForm((prev) => ({ ...prev, [field.key]: value }))}
+                options={(field.options || []).map((item) => ({ value: item, label: item }))}
+                disabled={mode === 'view'}
+              />
+            ) : (
+              <FormInput
+                key={field.key}
+                label={field.label}
+                type={field.type === 'number' ? 'number' : 'text'}
+                value={form[field.key] ?? ''}
+                error={errors[field.key]}
+                onChange={(event) => setForm((prev) => ({ ...prev, [field.key]: event.target.value }))}
+                disabled={mode === 'view'}
+              />
+            )
+          ))}
         </div>
         <div className="actions-row">
-          <Button variant="ghost" onClick={() => setModalOpen(false)}>{modalMode === 'view' ? 'Close' : 'Cancel'}</Button>
-          {modalMode !== 'view' ? <Button onClick={saveRecord}>Save Record</Button> : null}
+          <Button variant="ghost" onClick={() => setModalOpen(false)}>{mode === 'view' ? 'Close' : 'Cancel'}</Button>
+          {mode !== 'view' ? <Button onClick={save}>Save</Button> : null}
         </div>
       </Modal>
+
+      <ConfirmDialog open={confirmOpen} title="Delete Record" message="Delete selected record?" onCancel={() => setConfirmOpen(false)} onConfirm={remove} />
     </section>
   )
 }

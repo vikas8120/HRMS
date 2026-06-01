@@ -3,15 +3,10 @@ import {
   Area,
   AreaChart,
   CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
-  YAxis,
-  Bar,
-  BarChart
+  YAxis
 } from 'recharts'
 import {
   Building2,
@@ -77,7 +72,6 @@ function CompanyAdminDashboardPage() {
 
   const attendanceChartData = dashboard?.attendanceChartData || []
   const payrollChartData = dashboard?.payrollChartData || []
-  const departmentWiseEmployees = dashboard?.departmentWiseEmployees || []
 
   const recentEmployees = (dashboard?.recentEmployees || []).map((item, index) => ({
     id: item._id || `emp-${index}`,
@@ -211,69 +205,27 @@ function CompanyAdminDashboardPage() {
         </div>
       ) : null}
 
-      <div className="dashboard-main-grid">
-        <article className="panel revenue-chart-card">
-          <div className="panel-head"><h3>Attendance Overview</h3></div>
-          {loading ? <LoadingSkeleton rows={4} /> : attendanceChartData.length === 0 ? (
-            <EmptyState title="No attendance data" description="Attendance entries will appear here once records are marked." />
-          ) : (
-            <div style={{ height: 270 }}>
-              <ResponsiveContainer width="100%" height="100%" minWidth={240} minHeight={220}>
-                <AreaChart data={attendanceChartData}>
-                  <defs>
-                    <linearGradient id="attPresent" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#10b981" stopOpacity={0.65} />
-                      <stop offset="100%" stopColor="#10b981" stopOpacity={0.08} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid stroke="rgba(255,255,255,0.12)" strokeDasharray="4 4" />
-                  <XAxis dataKey="date" tick={{ fill: 'var(--muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: 'var(--muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={{ background: 'var(--panel-tint)', border: '1px solid var(--line)', borderRadius: 10 }} />
-                  <Area type="monotone" dataKey="present" stroke="#10b981" fill="url(#attPresent)" strokeWidth={2.5} />
-                  <Area type="monotone" dataKey="absent" stroke="#ef4444" fillOpacity={0} strokeWidth={2} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </article>
-
-        <article className="panel lead-sources-card">
-          <div className="panel-head"><h3>Payroll Overview</h3></div>
-          {loading ? <LoadingSkeleton rows={4} /> : payrollChartData.length === 0 ? (
-            <EmptyState title="No payroll data" description="Payroll trends appear after payroll generation." />
-          ) : (
-            <div style={{ height: 270 }}>
-              <ResponsiveContainer width="100%" height="100%" minWidth={240} minHeight={220}>
-                <BarChart data={payrollChartData}>
-                  <CartesianGrid stroke="rgba(255,255,255,0.12)" strokeDasharray="4 4" />
-                  <XAxis dataKey="month" tick={{ fill: 'var(--muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: 'var(--muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={{ background: 'var(--panel-tint)', border: '1px solid var(--line)', borderRadius: 10 }} formatter={(value) => formatCurrency(value)} />
-                  <Bar dataKey="total" fill="#8b5cf6" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </article>
-      </div>
-
-      <article className="panel">
-        <div className="panel-head"><h3>Department-wise Employees</h3></div>
-        {loading ? <LoadingSkeleton rows={4} /> : departmentWiseEmployees.length === 0 ? (
-          <EmptyState title="No department data" description="Department headcount distribution will appear here." />
+      <article className="panel revenue-chart-card">
+        <div className="panel-head"><h3>Attendance Trend</h3></div>
+        {loading ? <LoadingSkeleton rows={4} /> : attendanceChartData.length === 0 ? (
+          <EmptyState title="No attendance data" description="Attendance entries will appear here once records are marked." />
         ) : (
-          <div style={{ height: 290 }}>
-            <ResponsiveContainer width="100%" height="100%" minWidth={240} minHeight={240}>
-              <PieChart>
-                <Pie data={departmentWiseEmployees} dataKey="totalEmployees" nameKey="department" cx="50%" cy="50%" outerRadius={100}>
-                  {departmentWiseEmployees.map((item, index) => {
-                    const colors = ['#8b5cf6', '#22d3ee', '#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#ec4899']
-                    return <Cell key={`dept-${item.department}-${index}`} fill={colors[index % colors.length]} />
-                  })}
-                </Pie>
+          <div style={{ height: 260 }}>
+            <ResponsiveContainer width="100%" height="100%" minWidth={240} minHeight={220}>
+              <AreaChart data={attendanceChartData}>
+                <defs>
+                  <linearGradient id="attPresent" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#10b981" stopOpacity={0.65} />
+                    <stop offset="100%" stopColor="#10b981" stopOpacity={0.08} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid stroke="rgba(255,255,255,0.12)" strokeDasharray="4 4" />
+                <XAxis dataKey="date" tick={{ fill: 'var(--muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: 'var(--muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
                 <Tooltip contentStyle={{ background: 'var(--panel-tint)', border: '1px solid var(--line)', borderRadius: 10 }} />
-              </PieChart>
+                <Area type="monotone" dataKey="present" stroke="#10b981" fill="url(#attPresent)" strokeWidth={2.5} />
+                <Area type="monotone" dataKey="absent" stroke="#ef4444" fillOpacity={0} strokeWidth={2} />
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         )}
