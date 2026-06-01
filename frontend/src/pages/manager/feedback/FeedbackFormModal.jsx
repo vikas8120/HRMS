@@ -24,19 +24,47 @@ function FeedbackFormModal({ open, onClose, form, setForm, submitting = false, e
 
   return (
     <Modal open={open} title={editing ? 'Edit Feedback' : 'Submit Feedback'} onClose={onClose}>
-      <form className="modal-form" onSubmit={handleSubmit}>
-        <label className="form-input-wrap"><span>Feedback No.</span><input className="form-input" value={form.feedbackNo} disabled /></label>
-        <label className="form-input-wrap"><span>Employee Name</span><input className="form-input" value={form.employeeName} disabled /></label>
-        <label className="form-input-wrap"><span>Department</span><input className="form-input" value={form.department} disabled /></label>
-        <label className="form-input-wrap"><span>Date Submitted</span><input className="form-input" value={form.dateSubmitted} disabled /></label>
-        <FilterDropdown label="Feedback Category" value={form.feedbackCategory} onChange={(value) => setForm((prev) => ({ ...prev, feedbackCategory: value }))} options={categoryOptions} disabled={submitting} />
-        <FilterDropdown label="Feedback Type" value={form.feedbackType} onChange={(value) => setForm((prev) => ({ ...prev, feedbackType: value }))} options={typeOptions} disabled={submitting} />
-        <label className="form-input-wrap">
-          <span>Feedback Details</span>
-          <textarea className="form-input" rows={4} value={form.feedbackDetails} onChange={(event) => setForm((prev) => ({ ...prev, feedbackDetails: event.target.value }))} disabled={submitting} maxLength={1000} placeholder="Describe your feedback..." />
-        </label>
-        {editing ? <label className="form-input-wrap"><span>Status</span><input className="form-input" value={form.status} disabled /></label> : null}
-        {editing ? <label className="form-input-wrap"><span>Action Taken</span><textarea className="form-input" rows={3} value={form.actionTaken} disabled readOnly /></label> : null}
+      <form className="modal-form company-form-modal" onSubmit={handleSubmit}>
+        <div className="company-form-section">
+          <div className="company-form-section-head">
+            <h4>Feedback Info</h4>
+            <p>Reference details of submitter and date.</p>
+          </div>
+          <div className="form-grid company-form-grid">
+            <label className="form-input-wrap"><span>Feedback No.</span><input className="form-input" value={form.feedbackNo} disabled /></label>
+            <label className="form-input-wrap"><span>Employee Name</span><input className="form-input" value={form.employeeName} disabled /></label>
+            <label className="form-input-wrap"><span>Department</span><input className="form-input" value={form.department} disabled /></label>
+            <label className="form-input-wrap"><span>Date Submitted</span><input className="form-input" value={form.dateSubmitted} disabled /></label>
+          </div>
+        </div>
+
+        <div className="company-form-section">
+          <div className="company-form-section-head">
+            <h4>Feedback Content</h4>
+            <p>Category, type and detailed feedback message.</p>
+          </div>
+          <div className="form-grid company-form-grid">
+            <FilterDropdown label="Feedback Category" value={form.feedbackCategory} onChange={(value) => setForm((prev) => ({ ...prev, feedbackCategory: value }))} options={categoryOptions} disabled={submitting} />
+            <FilterDropdown label="Feedback Type" value={form.feedbackType} onChange={(value) => setForm((prev) => ({ ...prev, feedbackType: value }))} options={typeOptions} disabled={submitting} />
+            <label className="form-input-wrap" style={{ gridColumn: '1 / -1' }}>
+              <span>Feedback Details</span>
+              <textarea className="form-input" rows={4} value={form.feedbackDetails} onChange={(event) => setForm((prev) => ({ ...prev, feedbackDetails: event.target.value }))} disabled={submitting} maxLength={1000} placeholder="Describe your feedback..." />
+            </label>
+          </div>
+        </div>
+
+        {editing ? (
+          <div className="company-form-section">
+            <div className="company-form-section-head">
+              <h4>Resolution</h4>
+              <p>Review current status and action summary.</p>
+            </div>
+            <div className="form-grid company-form-grid">
+              <label className="form-input-wrap"><span>Status</span><input className="form-input" value={form.status} disabled /></label>
+              <label className="form-input-wrap" style={{ gridColumn: '1 / -1' }}><span>Action Taken</span><textarea className="form-input" rows={3} value={form.actionTaken} disabled readOnly /></label>
+            </div>
+          </div>
+        ) : null}
         <div className="modal-actions">
           <Button variant="ghost" onClick={onClose} disabled={submitting}>Cancel</Button>
           <Button type="submit" disabled={submitting}>{submitting ? 'Saving...' : (editing ? 'Update Feedback' : 'Submit Feedback')}</Button>

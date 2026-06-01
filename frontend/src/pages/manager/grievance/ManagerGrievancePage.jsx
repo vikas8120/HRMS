@@ -12,23 +12,6 @@ import GrievanceDetailsModal from './GrievanceDetailsModal'
 
 const STORAGE_KEY = 'manager_grievances_v1'
 
-const grievanceTypeOptions = [
-  { value: 'all', label: 'All Types' },
-  { value: 'Salary', label: 'Salary' },
-  { value: 'Manager', label: 'Manager' },
-  { value: 'Leave', label: 'Leave' },
-  { value: 'Behavior', label: 'Behavior' },
-  { value: 'Workload', label: 'Workload' },
-  { value: 'Other', label: 'Other' }
-]
-
-const priorityOptions = [
-  { value: 'all', label: 'All Priorities' },
-  { value: 'Low', label: 'Low' },
-  { value: 'Medium', label: 'Medium' },
-  { value: 'High', label: 'High' }
-]
-
 const statusOptions = [
   { value: 'all', label: 'All Status' },
   { value: 'Open', label: 'Open' },
@@ -85,7 +68,7 @@ const createForm = (ctx, grievanceNo = '') => ({
   resolutionDate: ''
 })
 
-function ManagerGrievancePage({ portalLabel = 'Manager Portal', title = 'Grievance Module', description = 'Raise and track your grievances with status updates.', primaryActionLabel = 'Raise New Grievance', listTitle = 'My Grievances' }) {
+function ManagerGrievancePage({ portalLabel = 'Manager Portal', title = 'Grievance Module', description = 'Raise and track your grievances with status updates.', primaryActionLabel = 'Raise New Grievance', listTitle = 'My Grievances', enableDateFilters = false, scope = 'manager' }) {
   const { user } = useAuth()
 
   const [loading, setLoading] = useState(true)
@@ -95,8 +78,12 @@ function ManagerGrievancePage({ portalLabel = 'Manager Portal', title = 'Grievan
 
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
-  const [priorityFilter, setPriorityFilter] = useState('all')
-  const [typeFilter, setTypeFilter] = useState('all')
+  const [dateFilterMode, setDateFilterMode] = useState('all')
+  const [exactDate, setExactDate] = useState('')
+  const [monthFilter, setMonthFilter] = useState('')
+  const [yearFilter, setYearFilter] = useState('')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
 
   const [formOpen, setFormOpen] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
@@ -130,7 +117,7 @@ function ManagerGrievancePage({ portalLabel = 'Manager Portal', title = 'Grievan
     setError('')
     try {
       const all = readAllFromStorage()
-      const mine = all.filter((item) => String(item?.managerId || '') === managerCtx.managerId)
+      const mine = all.filter((item) => (scope === 'admin' ? true : String(item?.managerId || '') === managerCtx.managerId))
       setRows(mine.sort((a, b) => (a.dateRaised < b.dateRaised ? 1 : -1)))
     } catch (err) {
       setRows([])
@@ -247,8 +234,19 @@ function ManagerGrievancePage({ portalLabel = 'Manager Portal', title = 'Grievan
     const q = search.trim().toLowerCase()
     return rows.filter((item) => {
       if (statusFilter !== 'all' && item.status !== statusFilter) return false
-      if (priorityFilter !== 'all' && item.priority !== priorityFilter) return false
-      if (typeFilter !== 'all' && item.grievanceType !== typeFilter) return false
+      if (enableDateFilters) {
+        const rowDate = String(item.dateRaised || '').slice(0, 10)
+        if (dateFilterMode === 'date' && exactDate && rowDate !== exactDate) return false
+        if (dateFilterMode === 'month-year') {
+          const [yr, mo] = rowDate.split('-')
+          if (monthFilter && mo !== monthFilter) return false
+          if (yearFilter && yr !== yearFilter) return false
+        }
+        if (dateFilterMode === 'range') {
+          if (fromDate && rowDate < fromDate) return false
+          if (toDate && rowDate > toDate) return false
+        }
+      }
       if (!q) return true
       const bag = [
         item.grievanceNo,
@@ -259,7 +257,12 @@ function ManagerGrievancePage({ portalLabel = 'Manager Portal', title = 'Grievan
       ].join(' ').toLowerCase()
       return bag.includes(q)
     })
-  }, [rows, search, statusFilter, priorityFilter, typeFilter])
+  }, [rows, search, statusFilter, enableDateFilters, dateFilterMode, exactDate, monthFilter, yearFilter, fromDate, toDate])
+
+  const yearOptions = useMemo(() => {
+    const years = Array.from(new Set(rows.map((item) => String(item.dateRaised || '').slice(0, 4)).filter(Boolean))).sort((a, b) => b.localeCompare(a))
+    return [{ value: '', label: 'All Years' }, ...years.map((y) => ({ value: y, label: y }))]
+  }, [rows])
 
   return (
     <section className="section-layout">
@@ -277,7 +280,7 @@ function ManagerGrievancePage({ portalLabel = 'Manager Portal', title = 'Grievan
       <GrievanceStatsCards rows={rows} loading={loading} />
 
       <div className="panel">
-        <div className="filters-row grievance-filters-grid">
+        <div className={`filters-row grievance-filters-grid ${enableDateFilters && dateFilterMode === 'range' ? 'range-inline-layout' : ''}`}>
           <label className="form-input-wrap grievance-search-wrap">
             <span>Search</span>
             <input
@@ -288,9 +291,64 @@ function ManagerGrievancePage({ portalLabel = 'Manager Portal', title = 'Grievan
             />
           </label>
           <FilterDropdown label="Status" value={statusFilter} onChange={setStatusFilter} options={statusOptions} />
-          <FilterDropdown label="Priority" value={priorityFilter} onChange={setPriorityFilter} options={priorityOptions} />
-          <FilterDropdown label="Grievance Type" value={typeFilter} onChange={setTypeFilter} options={grievanceTypeOptions} />
-          <div className="actions-row" style={{ alignSelf: 'end' }}>
+          {enableDateFilters ? (
+            <div className="date-mode-filter">
+              <FilterDropdown
+                label="Date Mode"
+                value={dateFilterMode}
+                onChange={(value) => {
+                  setDateFilterMode(value)
+                  setExactDate('')
+                  setMonthFilter('')
+                  setYearFilter('')
+                  setFromDate('')
+                  setToDate('')
+                }}
+                options={[
+                  { value: 'all', label: 'All Dates' },
+                  { value: 'date', label: 'Exact Date' },
+                  { value: 'month-year', label: 'Month + Year' },
+                  { value: 'range', label: 'Date Range' }
+                ]}
+              />
+            </div>
+          ) : null}
+          {enableDateFilters && dateFilterMode === 'date' ? (
+            <label className="form-input-wrap">
+              <span>Date</span>
+              <input className="form-input" type="date" value={exactDate} onChange={(event) => setExactDate(event.target.value)} />
+            </label>
+          ) : null}
+          {enableDateFilters && dateFilterMode === 'month-year' ? (
+            <>
+              <FilterDropdown
+                label="Month"
+                value={monthFilter}
+                onChange={setMonthFilter}
+                options={[
+                  { value: '', label: 'All Months' },
+                  { value: '01', label: 'January' }, { value: '02', label: 'February' }, { value: '03', label: 'March' },
+                  { value: '04', label: 'April' }, { value: '05', label: 'May' }, { value: '06', label: 'June' },
+                  { value: '07', label: 'July' }, { value: '08', label: 'August' }, { value: '09', label: 'September' },
+                  { value: '10', label: 'October' }, { value: '11', label: 'November' }, { value: '12', label: 'December' }
+                ]}
+              />
+              <FilterDropdown label="Year" value={yearFilter} onChange={setYearFilter} options={yearOptions} />
+            </>
+          ) : null}
+          {enableDateFilters && dateFilterMode === 'range' ? (
+            <>
+              <label className="form-input-wrap range-from-field">
+                <span>From</span>
+                <input className="form-input" type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
+              </label>
+              <label className="form-input-wrap range-to-field">
+                <span>To</span>
+                <input className="form-input" type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} />
+              </label>
+            </>
+          ) : null}
+          <div className="actions-row range-refresh-action" style={{ alignSelf: 'end' }}>
             <Button variant="ghost" onClick={loadRows}>Refresh</Button>
           </div>
         </div>

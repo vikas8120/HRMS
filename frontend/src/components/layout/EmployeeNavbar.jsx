@@ -14,7 +14,6 @@ const employeeSearchItems = [
   { type: 'module', title: 'Leaves', subtitle: 'Leave requests and balance', route: '/employee/leaves' },
   { type: 'module', title: 'Salary Slip', subtitle: 'Salary and payslips', route: '/employee/payroll' },
   { type: 'module', title: 'Policy', subtitle: 'View and download policies', route: '/employee/policy' },
-  { type: 'module', title: 'Announcements', subtitle: 'Company announcements', route: '/employee/announcements' },
   { type: 'module', title: 'Notifications', subtitle: 'Alerts and reminders', route: '/employee/notifications' },
   { type: 'module', title: 'Settings', subtitle: 'Account settings', route: '/employee/settings' }
 ]

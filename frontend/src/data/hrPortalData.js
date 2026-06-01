@@ -7,10 +7,10 @@ import {
   Building2,
   BriefcaseBusiness,
   TrendingUp,
-  Megaphone,
   MessageSquareWarning,
   Inbox,
   MessageSquareText,
+  Bell,
   ShieldCheck,
   BarChart3,
   Settings,
@@ -27,9 +27,8 @@ export const hrNavItems = [
   { key: 'leave', label: 'Leave', icon: CalendarClock, path: '/hr/leave' },
   { key: 'payroll', label: 'Payroll', icon: Wallet, path: '/hr/payroll' },
   { key: 'policy', label: 'Policy', icon: ShieldCheck, path: '/hr/policy' },
-  { key: 'announcement', label: 'Announcement', icon: Megaphone, path: '/hr/announcement' },
+  { key: 'notifications', label: 'Notifications', icon: Bell, path: '/hr/notifications' },
   { key: 'settings', label: 'HR Settings', icon: Settings, path: '/hr/settings' },
-  { key: 'employee', label: 'Employee', icon: Users, path: '/hr/employee' },
   { key: 'department', label: 'Department', icon: Building2, path: '/hr/department' },
   { key: 'recruitment', label: 'Recruitment', icon: BriefcaseBusiness, path: '/hr/recruitment' },
   { key: 'performance', label: 'Performance', icon: TrendingUp, path: '/hr/performance' },
@@ -77,11 +76,6 @@ export const hrModuleConfig = {
     description: 'Goal setting, appraisal, and reviews.',
     submodules: ['Review Cycle Setup', 'Goal/KRA Assignment', 'Self & Manager Assessment', '360 Feedback', 'Calibration', 'Rating Finalization', 'PIP Management', 'Performance Reports']
   },
-  announcement: {
-    title: 'Announcement',
-    description: 'Internal communication and acknowledgements.',
-    submodules: ['Create Announcement', 'Audience Targeting', 'Priority & Pinning', 'Schedule Publish', 'Read Receipts', 'Acknowledgements', 'Archive & History']
-  },
   report: {
     title: 'Report',
     description: 'HR operational and compliance reports.',
@@ -96,5 +90,10 @@ export const hrModuleConfig = {
     title: 'HR Settings',
     description: 'HR configuration, policies, and permissions.',
     submodules: ['Organization Profile', 'Approval Matrix', 'Attendance Policy', 'Leave Policy', 'Payroll Policy', 'Notification Templates', 'Role & Permission', 'Integration Settings']
+  },
+  notifications: {
+    title: 'Notifications',
+    description: 'Track and send HR notifications to employees and teams.',
+    submodules: ['All Notifications', 'Leave Notifications', 'Attendance Notifications', 'HR/Admin Messages', 'Mark as Read', 'Create Notification']
   }
 }

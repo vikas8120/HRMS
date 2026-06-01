@@ -12,33 +12,11 @@ import ComplaintTable from './ComplaintTable'
 
 const STORAGE_KEY = 'manager_complaint_box_v1'
 
-const categoryOptions = [
-  { value: 'all', label: 'All Categories' },
-  { value: 'Harassment', label: 'Harassment' },
-  { value: 'Misconduct', label: 'Misconduct' },
-  { value: 'Attendance', label: 'Attendance' },
-  { value: 'Policy Violation', label: 'Policy Violation' },
-  { value: 'Other', label: 'Other' }
-]
-
-const severityOptions = [
-  { value: 'all', label: 'All Severity' },
-  { value: 'Low', label: 'Low' },
-  { value: 'Medium', label: 'Medium' },
-  { value: 'High', label: 'High' }
-]
-
 const statusOptions = [
   { value: 'all', label: 'All Status' },
   { value: 'Open', label: 'Open' },
   { value: 'Under Review', label: 'Under Review' },
   { value: 'Closed', label: 'Closed' }
-]
-
-const confidentialOptions = [
-  { value: 'all', label: 'All' },
-  { value: 'Yes', label: 'Yes' },
-  { value: 'No', label: 'No' }
 ]
 
 const today = () => new Date().toISOString().slice(0, 10)
@@ -74,7 +52,7 @@ const createForm = (ctx, complaintNo = '') => ({
   confidential: 'No'
 })
 
-function ManagerComplaintBoxPage({ portalLabel = 'Manager Portal', title = 'Complaint Box Module', description = 'Raise and track confidential workplace complaints.', primaryActionLabel = 'Raise Complaint', listTitle = 'My Complaints' }) {
+function ManagerComplaintBoxPage({ portalLabel = 'Manager Portal', title = 'Complaint Box Module', description = 'Raise and track confidential workplace complaints.', primaryActionLabel = 'Raise Complaint', listTitle = 'My Complaints', enableDateFilters = false, scope = 'manager' }) {
   const { user } = useAuth()
   const managerCtx = useMemo(() => resolveManagerContext(user), [user])
 
@@ -84,10 +62,13 @@ function ManagerComplaintBoxPage({ portalLabel = 'Manager Portal', title = 'Comp
   const [rows, setRows] = useState([])
 
   const [search, setSearch] = useState('')
-  const [categoryFilter, setCategoryFilter] = useState('all')
-  const [severityFilter, setSeverityFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
-  const [confidentialFilter, setConfidentialFilter] = useState('all')
+  const [dateFilterMode, setDateFilterMode] = useState('all')
+  const [exactDate, setExactDate] = useState('')
+  const [monthFilter, setMonthFilter] = useState('')
+  const [yearFilter, setYearFilter] = useState('')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
 
   const [formOpen, setFormOpen] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
@@ -118,7 +99,7 @@ function ManagerComplaintBoxPage({ portalLabel = 'Manager Portal', title = 'Comp
     setError('')
     try {
       const all = readAll()
-      const mine = all.filter((item) => String(item.managerId) === managerCtx.managerId)
+      const mine = all.filter((item) => (scope === 'admin' ? true : String(item.managerId) === managerCtx.managerId))
       setRows(mine)
     } catch (err) {
       setRows([])
@@ -217,10 +198,20 @@ function ManagerComplaintBoxPage({ portalLabel = 'Manager Portal', title = 'Comp
   const filteredRows = useMemo(() => {
     const q = search.trim().toLowerCase()
     return rows.filter((item) => {
-      if (categoryFilter !== 'all' && item.complaintCategory !== categoryFilter) return false
-      if (severityFilter !== 'all' && item.severityLevel !== severityFilter) return false
       if (statusFilter !== 'all' && item.status !== statusFilter) return false
-      if (confidentialFilter !== 'all' && item.confidential !== confidentialFilter) return false
+      if (enableDateFilters) {
+        const rowDate = String(item.complaintDate || '').slice(0, 10)
+        if (dateFilterMode === 'date' && exactDate && rowDate !== exactDate) return false
+        if (dateFilterMode === 'month-year') {
+          const [yr, mo] = rowDate.split('-')
+          if (monthFilter && mo !== monthFilter) return false
+          if (yearFilter && yr !== yearFilter) return false
+        }
+        if (dateFilterMode === 'range') {
+          if (fromDate && rowDate < fromDate) return false
+          if (toDate && rowDate > toDate) return false
+        }
+      }
       if (!q) return true
       const bag = [
         item.complaintNo,
@@ -233,7 +224,12 @@ function ManagerComplaintBoxPage({ portalLabel = 'Manager Portal', title = 'Comp
       ].join(' ').toLowerCase()
       return bag.includes(q)
     })
-  }, [rows, search, categoryFilter, severityFilter, statusFilter, confidentialFilter])
+  }, [rows, search, statusFilter, enableDateFilters, dateFilterMode, exactDate, monthFilter, yearFilter, fromDate, toDate])
+
+  const yearOptions = useMemo(() => {
+    const years = Array.from(new Set(rows.map((item) => String(item.complaintDate || '').slice(0, 4)).filter(Boolean))).sort((a, b) => b.localeCompare(a))
+    return [{ value: '', label: 'All Years' }, ...years.map((y) => ({ value: y, label: y }))]
+  }, [rows])
 
   return (
     <section className="section-layout">
@@ -251,16 +247,70 @@ function ManagerComplaintBoxPage({ portalLabel = 'Manager Portal', title = 'Comp
       <ComplaintStatsCards rows={rows} loading={loading} />
 
       <div className="panel">
-        <div className="filters-row complaint-filters-grid">
+        <div className={`filters-row complaint-filters-grid ${enableDateFilters && dateFilterMode === 'range' ? 'range-inline-layout' : ''}`}>
           <label className="form-input-wrap complaint-search-wrap">
             <span>Search</span>
             <input className="form-input" placeholder="Search by no, category, status, severity, names, details" value={search} onChange={(event) => setSearch(event.target.value)} />
           </label>
-          <FilterDropdown label="Category" value={categoryFilter} onChange={setCategoryFilter} options={categoryOptions} />
-          <FilterDropdown label="Severity" value={severityFilter} onChange={setSeverityFilter} options={severityOptions} />
           <FilterDropdown label="Status" value={statusFilter} onChange={setStatusFilter} options={statusOptions} />
-          <FilterDropdown label="Confidential" value={confidentialFilter} onChange={setConfidentialFilter} options={confidentialOptions} />
-          <div className="actions-row" style={{ alignSelf: 'end' }}>
+          {enableDateFilters ? (
+            <div className="date-mode-filter">
+              <FilterDropdown
+                label="Date Mode"
+                value={dateFilterMode}
+                onChange={(value) => {
+                  setDateFilterMode(value)
+                  setExactDate('')
+                  setMonthFilter('')
+                  setYearFilter('')
+                  setFromDate('')
+                  setToDate('')
+                }}
+                options={[
+                  { value: 'all', label: 'All Dates' },
+                  { value: 'date', label: 'Exact Date' },
+                  { value: 'month-year', label: 'Month + Year' },
+                  { value: 'range', label: 'Date Range' }
+                ]}
+              />
+            </div>
+          ) : null}
+          {enableDateFilters && dateFilterMode === 'date' ? (
+            <label className="form-input-wrap">
+              <span>Date</span>
+              <input className="form-input" type="date" value={exactDate} onChange={(event) => setExactDate(event.target.value)} />
+            </label>
+          ) : null}
+          {enableDateFilters && dateFilterMode === 'month-year' ? (
+            <>
+              <FilterDropdown
+                label="Month"
+                value={monthFilter}
+                onChange={setMonthFilter}
+                options={[
+                  { value: '', label: 'All Months' },
+                  { value: '01', label: 'January' }, { value: '02', label: 'February' }, { value: '03', label: 'March' },
+                  { value: '04', label: 'April' }, { value: '05', label: 'May' }, { value: '06', label: 'June' },
+                  { value: '07', label: 'July' }, { value: '08', label: 'August' }, { value: '09', label: 'September' },
+                  { value: '10', label: 'October' }, { value: '11', label: 'November' }, { value: '12', label: 'December' }
+                ]}
+              />
+              <FilterDropdown label="Year" value={yearFilter} onChange={setYearFilter} options={yearOptions} />
+            </>
+          ) : null}
+          {enableDateFilters && dateFilterMode === 'range' ? (
+            <>
+              <label className="form-input-wrap range-from-field">
+                <span>From</span>
+                <input className="form-input" type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
+              </label>
+              <label className="form-input-wrap range-to-field">
+                <span>To</span>
+                <input className="form-input" type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} />
+              </label>
+            </>
+          ) : null}
+          <div className="actions-row range-refresh-action" style={{ alignSelf: 'end' }}>
             <Button variant="ghost" onClick={loadRows}>Refresh</Button>
           </div>
         </div>

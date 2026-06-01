@@ -12,22 +12,6 @@ import FeedbackTable from './FeedbackTable'
 
 const STORAGE_KEY = 'employee_feedback_v1'
 
-const categoryOptions = [
-  { value: 'all', label: 'All Categories' },
-  { value: 'Work Culture', label: 'Work Culture' },
-  { value: 'Management', label: 'Management' },
-  { value: 'Training', label: 'Training' },
-  { value: 'Facilities', label: 'Facilities' },
-  { value: 'Other', label: 'Other' }
-]
-
-const typeOptions = [
-  { value: 'all', label: 'All Types' },
-  { value: 'Suggestion', label: 'Suggestion' },
-  { value: 'Appreciation', label: 'Appreciation' },
-  { value: 'Improvement', label: 'Improvement' }
-]
-
 const statusOptions = [
   { value: 'all', label: 'All Status' },
   { value: 'Pending', label: 'Pending' },
@@ -74,8 +58,6 @@ function EmployeeFeedbackPage() {
   const [rows, setRows] = useState([])
 
   const [search, setSearch] = useState('')
-  const [categoryFilter, setCategoryFilter] = useState('all')
-  const [typeFilter, setTypeFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
 
   const [formOpen, setFormOpen] = useState(false)
@@ -205,14 +187,12 @@ function EmployeeFeedbackPage() {
   const filteredRows = useMemo(() => {
     const q = search.trim().toLowerCase()
     return rows.filter((item) => {
-      if (categoryFilter !== 'all' && item.feedbackCategory !== categoryFilter) return false
-      if (typeFilter !== 'all' && item.feedbackType !== typeFilter) return false
       if (statusFilter !== 'all' && item.status !== statusFilter) return false
       if (!q) return true
       const bag = [item.feedbackNo, item.feedbackCategory, item.feedbackType, item.status, item.feedbackDetails].join(' ').toLowerCase()
       return bag.includes(q)
     })
-  }, [rows, search, categoryFilter, typeFilter, statusFilter])
+  }, [rows, search, statusFilter])
 
   return (
     <section className="section-layout">
@@ -235,8 +215,6 @@ function EmployeeFeedbackPage() {
             <span>Search</span>
             <input className="form-input" placeholder="Search by no, category, type, status, details" value={search} onChange={(event) => setSearch(event.target.value)} />
           </label>
-          <FilterDropdown label="Category" value={categoryFilter} onChange={setCategoryFilter} options={categoryOptions} />
-          <FilterDropdown label="Type" value={typeFilter} onChange={setTypeFilter} options={typeOptions} />
           <FilterDropdown label="Status" value={statusFilter} onChange={setStatusFilter} options={statusOptions} />
           <div className="actions-row" style={{ alignSelf: 'end' }}>
             <Button variant="ghost" onClick={loadRows}>Refresh</Button>

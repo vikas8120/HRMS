@@ -35,9 +35,13 @@ const seedManagers = [
     id: 'mgr-201',
     name: 'Anita Sharma',
     email: 'anita.sharma@acme.com',
+    loginEmail: 'anita.manager@acme.com',
     phone: '+91-9876543201',
+    employeeCode: 'MGR-001',
+    designation: 'Engineering Manager',
     departmentId: 'eng',
     status: 'active',
+    password: 'Manager@123',
     assignedEmployeeIds: ['emp-101', 'emp-102'],
     createdAt: '2026-05-28T10:25:00.000Z',
     updatedAt: '2026-06-01T08:10:00.000Z'
@@ -46,9 +50,13 @@ const seedManagers = [
     id: 'mgr-202',
     name: 'Ritesh Nair',
     email: 'ritesh.nair@acme.com',
+    loginEmail: 'ritesh.manager@acme.com',
     phone: '+91-9876543202',
+    employeeCode: 'MGR-002',
+    designation: 'Sales Manager',
     departmentId: 'sales',
     status: 'active',
+    password: 'Manager@123',
     assignedEmployeeIds: ['emp-104', 'emp-107'],
     createdAt: '2026-05-25T14:30:00.000Z',
     updatedAt: '2026-06-01T07:50:00.000Z'
@@ -57,9 +65,13 @@ const seedManagers = [
     id: 'mgr-203',
     name: 'Pooja Iyer',
     email: 'pooja.iyer@acme.com',
+    loginEmail: 'pooja.manager@acme.com',
     phone: '+91-9876543203',
+    employeeCode: 'MGR-003',
+    designation: 'Product Manager',
     departmentId: 'product',
     status: 'inactive',
+    password: 'Manager@123',
     assignedEmployeeIds: ['emp-103'],
     createdAt: '2026-05-21T11:40:00.000Z',
     updatedAt: '2026-05-31T15:05:00.000Z'
@@ -69,7 +81,12 @@ const seedManagers = [
 const initialForm = {
   name: '',
   email: '',
+  loginEmail: '',
+  password: '',
+  confirmPassword: '',
   phone: '',
+  employeeCode: '',
+  designation: '',
   departmentId: '',
   status: 'active'
 }
@@ -101,8 +118,10 @@ function CompanyAdminManagersPage() {
   const [assignOpen, setAssignOpen] = useState(false)
   const [teamOpen, setTeamOpen] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [editConfirmOpen, setEditConfirmOpen] = useState(false)
 
   const [selected, setSelected] = useState(null)
+  const [pendingEditRow, setPendingEditRow] = useState(null)
   const [form, setForm] = useState(initialForm)
   const [formErrors, setFormErrors] = useState({})
   const [assignedEmployeeIds, setAssignedEmployeeIds] = useState([])
@@ -161,7 +180,12 @@ function CompanyAdminManagersPage() {
     setForm({
       name: row.name,
       email: row.email,
+      loginEmail: row.loginEmail || '',
+      password: '',
+      confirmPassword: '',
       phone: row.phone,
+      employeeCode: row.employeeCode || '',
+      designation: row.designation || '',
       departmentId: row.departmentId,
       status: row.status
     })
@@ -186,15 +210,26 @@ function CompanyAdminManagersPage() {
     if (!form.name.trim()) next.name = 'Name is required'
     if (!form.email.trim()) next.email = 'Email is required'
     else if (!EMAIL_REGEX.test(form.email.trim())) next.email = 'Enter a valid email'
+    if (!form.loginEmail.trim()) next.loginEmail = 'Login email is required'
+    else if (!EMAIL_REGEX.test(form.loginEmail.trim())) next.loginEmail = 'Enter a valid login email'
 
     if (!form.phone.trim()) next.phone = 'Phone is required'
+    if (!form.employeeCode.trim()) next.employeeCode = 'Employee code is required'
+    if (!form.designation.trim()) next.designation = 'Designation is required'
     if (!form.departmentId) next.departmentId = 'Department is required'
+    if (!selected && !form.password.trim()) next.password = 'Password is required for new manager'
+    if (!selected && form.password.trim().length < 8) next.password = 'Password must be at least 8 characters'
+    if (!selected && form.password !== form.confirmPassword) next.confirmPassword = 'Passwords do not match'
 
     const duplicateEmail = rows.some((item) => item.email.toLowerCase() === form.email.trim().toLowerCase() && item.id !== selected?.id)
     if (duplicateEmail) next.email = 'This email is already assigned to another manager'
+    const duplicateLoginEmail = rows.some((item) => (item.loginEmail || '').toLowerCase() === form.loginEmail.trim().toLowerCase() && item.id !== selected?.id)
+    if (duplicateLoginEmail) next.loginEmail = 'This login email is already assigned'
 
     const duplicatePhone = rows.some((item) => item.phone === form.phone.trim() && item.id !== selected?.id)
     if (duplicatePhone) next.phone = 'This phone number is already assigned to another manager'
+    const duplicateCode = rows.some((item) => (item.employeeCode || '').toLowerCase() === form.employeeCode.trim().toLowerCase() && item.id !== selected?.id)
+    if (duplicateCode) next.employeeCode = 'This employee code is already assigned'
 
     setFormErrors(next)
     return Object.keys(next).length === 0
@@ -212,9 +247,13 @@ function CompanyAdminManagersPage() {
             ...item,
             name: form.name.trim(),
             email: form.email.trim().toLowerCase(),
+            loginEmail: form.loginEmail.trim().toLowerCase(),
             phone: form.phone.trim(),
+            employeeCode: form.employeeCode.trim().toUpperCase(),
+            designation: form.designation.trim(),
             departmentId: form.departmentId,
             status: form.status,
+            password: form.password.trim() ? form.password.trim() : item.password,
             updatedAt: now
           }
         : item)))
@@ -226,9 +265,13 @@ function CompanyAdminManagersPage() {
           id,
           name: form.name.trim(),
           email: form.email.trim().toLowerCase(),
+          loginEmail: form.loginEmail.trim().toLowerCase(),
           phone: form.phone.trim(),
+          employeeCode: form.employeeCode.trim().toUpperCase(),
+          designation: form.designation.trim(),
           departmentId: form.departmentId,
           status: form.status,
+          password: form.password.trim(),
           assignedEmployeeIds: [],
           createdAt: now,
           updatedAt: now
@@ -335,7 +378,6 @@ function CompanyAdminManagersPage() {
       <div className="panel">
         <div className="panel-head">
           <h3>Manager Records</h3>
-          <div className="actions-row"><Button onClick={openAdd}>Add Manager</Button></div>
         </div>
 
         {loading ? null : filteredRows.length === 0 ? (
@@ -368,7 +410,7 @@ function CompanyAdminManagersPage() {
                     <td>{formatDateTime(row.updatedAt)}</td>
                     <td>
                       <div className="table-actions">
-                        <button className="text-btn" onClick={() => openEdit(row)}>Edit</button>
+                        <button className="text-btn" onClick={() => { setPendingEditRow(row); setEditConfirmOpen(true) }}>Edit</button>
                         <button className="text-btn" onClick={() => openAssign(row)}>Assign Team</button>
                         <button className="text-btn" onClick={() => openTeam(row)}>View Team</button>
                         <button className="text-btn" onClick={() => onToggleStatus(row)}>{row.status === 'active' ? 'Deactivate' : 'Activate'}</button>
@@ -385,29 +427,73 @@ function CompanyAdminManagersPage() {
 
       <Modal open={formOpen} title={selected ? 'Edit Manager' : 'Add Manager'} onClose={() => setFormOpen(false)}>
         <form className="modal-form" onSubmit={onSubmit}>
-          <FormInput label="Manager Name" value={form.name} onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))} />
-          {formErrors.name ? <p className="error">{formErrors.name}</p> : null}
+          <div className="company-form-section">
+            <div className="company-form-section-head">
+              <h4>Manager Info</h4>
+              <p>Capture manager profile and contact identity.</p>
+            </div>
+            <div className="form-grid company-form-grid">
+              <FormInput label="Manager Name" value={form.name} onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))} />
+              <FormInput label="Work Email" value={form.email} onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))} />
+              {formErrors.name ? <p className="error">{formErrors.name}</p> : null}
+              {formErrors.email ? <p className="error">{formErrors.email}</p> : null}
+            </div>
+          </div>
 
-          <FormInput label="Work Email" value={form.email} onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))} />
-          {formErrors.email ? <p className="error">{formErrors.email}</p> : null}
+          <div className="company-form-section">
+            <div className="company-form-section-head">
+              <h4>Work Details</h4>
+              <p>Define employment code, role designation and reporting unit.</p>
+            </div>
+            <div className="form-grid company-form-grid">
+              <FormInput label="Employee Code" value={form.employeeCode} onChange={(event) => setForm((prev) => ({ ...prev, employeeCode: event.target.value }))} />
+              <FormInput label="Phone Number" value={form.phone} onChange={(event) => setForm((prev) => ({ ...prev, phone: event.target.value }))} />
+              {formErrors.employeeCode ? <p className="error">{formErrors.employeeCode}</p> : null}
+              {formErrors.phone ? <p className="error">{formErrors.phone}</p> : null}
 
-          <FormInput label="Phone Number" value={form.phone} onChange={(event) => setForm((prev) => ({ ...prev, phone: event.target.value }))} />
-          {formErrors.phone ? <p className="error">{formErrors.phone}</p> : null}
+              <FormInput label="Designation" value={form.designation} onChange={(event) => setForm((prev) => ({ ...prev, designation: event.target.value }))} />
+              <FilterDropdown
+                label="Department"
+                value={form.departmentId}
+                onChange={(value) => setForm((prev) => ({ ...prev, departmentId: value }))}
+                options={[{ value: '', label: 'Select Department' }, ...DEPARTMENTS.map((dept) => ({ value: dept.id, label: dept.name }))]}
+              />
+              {formErrors.designation ? <p className="error">{formErrors.designation}</p> : null}
+              {formErrors.departmentId ? <p className="error">{formErrors.departmentId}</p> : null}
+            </div>
+          </div>
 
-          <FilterDropdown
-            label="Department"
-            value={form.departmentId}
-            onChange={(value) => setForm((prev) => ({ ...prev, departmentId: value }))}
-            options={[{ value: '', label: 'Select Department' }, ...DEPARTMENTS.map((dept) => ({ value: dept.id, label: dept.name }))]}
-          />
-          {formErrors.departmentId ? <p className="error">{formErrors.departmentId}</p> : null}
+          <div className="company-form-section">
+            <div className="company-form-section-head">
+              <h4>Account Setup</h4>
+              <p>Create login credentials and account activation status.</p>
+            </div>
+            <div className="form-grid company-form-grid">
+              <FormInput label="Login Email (ID)" value={form.loginEmail} onChange={(event) => setForm((prev) => ({ ...prev, loginEmail: event.target.value }))} />
+              <FilterDropdown
+                label="Status"
+                value={form.status}
+                onChange={(value) => setForm((prev) => ({ ...prev, status: value }))}
+                options={[{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }]}
+              />
+              {formErrors.loginEmail ? <p className="error">{formErrors.loginEmail}</p> : null}
 
-          <FilterDropdown
-            label="Status"
-            value={form.status}
-            onChange={(value) => setForm((prev) => ({ ...prev, status: value }))}
-            options={[{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }]}
-          />
+              <FormInput
+                label={selected ? 'New Password (Optional)' : 'Password'}
+                type="password"
+                value={form.password}
+                onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
+              />
+              <FormInput
+                label={selected ? 'Confirm New Password' : 'Confirm Password'}
+                type="password"
+                value={form.confirmPassword}
+                onChange={(event) => setForm((prev) => ({ ...prev, confirmPassword: event.target.value }))}
+              />
+              {formErrors.password ? <p className="error">{formErrors.password}</p> : null}
+              {formErrors.confirmPassword ? <p className="error">{formErrors.confirmPassword}</p> : null}
+            </div>
+          </div>
 
           <Button type="submit">{selected ? 'Save Changes' : 'Create Manager'}</Button>
         </form>
@@ -462,6 +548,18 @@ function CompanyAdminManagersPage() {
           </div>
         )}
       </Modal>
+
+      <ConfirmDialog
+        open={editConfirmOpen}
+        title="Edit Manager"
+        message={`Edit details for ${pendingEditRow?.name || 'this manager'}?`}
+        onCancel={() => setEditConfirmOpen(false)}
+        onConfirm={() => {
+          if (pendingEditRow) openEdit(pendingEditRow)
+          setEditConfirmOpen(false)
+          setPendingEditRow(null)
+        }}
+      />
 
       <ConfirmDialog
         open={confirmOpen}

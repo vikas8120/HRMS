@@ -220,7 +220,6 @@ function ManagerDashboardPage() {
       ]
 
   const quickActions = [
-    { label: 'View Team', onClick: () => navigate('/manager/team') },
     { label: 'View Attendance', onClick: () => navigate('/manager/attendance') },
     { label: 'View Pending Leaves', onClick: () => navigate('/manager/leaves') },
     { label: 'Add Review', onClick: () => navigate('/manager/performance') }
@@ -248,16 +247,16 @@ function ManagerDashboardPage() {
             className={`chip-btn ${pathname === '/manager/dashboard' ? 'active' : ''}`}
             onClick={() => navigate('/manager/dashboard')}
           >
-            Employee Dashboard
+            Team Dashboard
           </button>
         </div>
       </div>
 
       {!isMyDashboard ? (
         <PageHeader
-          title="Employee Dashboard"
+          title="Team Dashboard"
           description="Real-time team analytics, pending actions, and execution status for your assigned employees."
-          breadcrumb={['Manager Portal', 'Employee Dashboard']}
+          breadcrumb={['Manager Portal', 'Team Dashboard']}
         />
       ) : null}
 

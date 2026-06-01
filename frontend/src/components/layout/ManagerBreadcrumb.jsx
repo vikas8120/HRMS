@@ -4,7 +4,7 @@ import { Link, useLocation } from 'react-router-dom'
 const prettify = (value) => value.replace(/-/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 const labelMap = {
   'my-dashboard': 'My Dashboard',
-  dashboard: 'Employee Dashboard'
+  dashboard: 'Team Dashboard'
 }
 
 function ManagerBreadcrumb() {

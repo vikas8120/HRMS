@@ -153,15 +153,15 @@ function HrDashboardPage() {
             className={`chip-btn ${!isMyDashboard ? 'active' : ''}`}
             onClick={() => navigate('/hr/dashboard')}
           >
-            Employee Dashboard
+            Team Dashboard
           </button>
         </div>
       </div>
 
       <PageHeader
-        title={isMyDashboard ? 'My Dashboard' : 'Employee Dashboard'}
+        title={isMyDashboard ? 'My Dashboard' : 'Team Dashboard'}
         description="Live HR KPI workspace with attendance, leaves, payroll, and activity tracking."
-        breadcrumb={['HR Portal', isMyDashboard ? 'My Dashboard' : 'Employee Dashboard']}
+        breadcrumb={['HR Portal', isMyDashboard ? 'My Dashboard' : 'Team Dashboard']}
         primaryActionLabel="Refresh"
         onPrimaryAction={load}
       />

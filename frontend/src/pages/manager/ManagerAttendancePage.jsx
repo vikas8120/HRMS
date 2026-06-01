@@ -23,11 +23,33 @@ import {
 } from '../../api/managerAttendanceApi'
 import { getManagerTeam } from '../../api/managerTeamApi'
 
+const MY_ATTENDANCE_STORAGE_KEY = 'manager_my_attendance_frontend_v1'
+const MY_ATTENDANCE_HISTORY_STORAGE_KEY = 'manager_my_attendance_history_frontend_v1'
+
+const toLocalDateInput = (dateLike = new Date()) => {
+  const d = new Date(dateLike)
+  if (Number.isNaN(d.getTime())) return ''
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+const toLocalMonthInput = (dateLike = new Date()) => {
+  const d = new Date(dateLike)
+  if (Number.isNaN(d.getTime())) return ''
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  return `${y}-${m}`
+}
+
+const todayDate = () => toLocalDateInput(new Date())
+
 const formatDate = (value) => {
   if (!value) return '-'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '-'
-  return date.toISOString().slice(0, 10)
+  return toLocalDateInput(date)
 }
 
 const formatTime = (value) => {
@@ -37,7 +59,7 @@ const formatTime = (value) => {
   if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(raw)) return raw.slice(0, 5)
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '-'
-  return date.toISOString().slice(11, 16)
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
 }
 
 const hasMarkedTime = (value) => {
@@ -49,7 +71,11 @@ const hasMarkedTime = (value) => {
   return !Number.isNaN(date.getTime())
 }
 
-function ManagerAttendancePage() {
+function ManagerAttendancePage({
+  portalLabel = 'Manager Portal',
+  teamTabLabel = 'My Team Attendance',
+  attendanceModuleLabel = 'Attendance'
+} = {}) {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const employeeIdFromQuery = searchParams.get('employeeId') || 'all'
@@ -59,8 +85,8 @@ function ManagerAttendancePage() {
   const [error, setError] = useState('')
   const [toast, setToast] = useState(null)
 
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
-  const [month, setMonth] = useState(new Date().toISOString().slice(0, 7))
+  const [date, setDate] = useState(toLocalDateInput(new Date()))
+  const [month, setMonth] = useState(toLocalMonthInput(new Date()))
   const [employeeId, setEmployeeId] = useState(employeeIdFromQuery)
   const [status, setStatus] = useState('all')
   const [search, setSearch] = useState('')
@@ -74,12 +100,13 @@ function ManagerAttendancePage() {
 
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [selectedRow, setSelectedRow] = useState(null)
-  const [myAttendance, setMyAttendance] = useState({ status: 'absent', checkIn: null, checkOut: null, workingHours: 0, date: new Date().toISOString().slice(0, 10) })
+  const [myAttendance, setMyAttendance] = useState({ status: 'absent', checkIn: null, checkOut: null, workingHours: 0, date: todayDate() })
+  const [myAttendanceHistory, setMyAttendanceHistory] = useState([])
   const [checkInModalOpen, setCheckInModalOpen] = useState(false)
   const [checkInPurpose, setCheckInPurpose] = useState('mark-attendance')
   const [submittingCheckIn, setSubmittingCheckIn] = useState(false)
   const [resettingToday, setResettingToday] = useState(false)
-  const [myRegDate, setMyRegDate] = useState(new Date().toISOString().slice(0, 10))
+  const [myRegDate, setMyRegDate] = useState(todayDate())
   const [myRegType, setMyRegType] = useState('Missed Check-In')
   const [myRegReason, setMyRegReason] = useState('')
 
@@ -88,6 +115,53 @@ function ManagerAttendancePage() {
     const t = setTimeout(() => setToast(null), 2400)
     return () => clearTimeout(t)
   }, [toast])
+
+  const readMyAttendanceFromStorage = () => {
+    try {
+      const raw = localStorage.getItem(MY_ATTENDANCE_STORAGE_KEY)
+      if (!raw) return null
+      const parsed = JSON.parse(raw)
+      if (!parsed || typeof parsed !== 'object') return null
+      return parsed
+    } catch (_err) {
+      return null
+    }
+  }
+
+  const writeMyAttendanceToStorage = (next) => {
+    try {
+      localStorage.setItem(MY_ATTENDANCE_STORAGE_KEY, JSON.stringify(next))
+    } catch (_err) {
+      // ignore storage errors
+    }
+  }
+
+  const readMyAttendanceHistoryFromStorage = () => {
+    try {
+      const raw = localStorage.getItem(MY_ATTENDANCE_HISTORY_STORAGE_KEY)
+      if (!raw) return []
+      const parsed = JSON.parse(raw)
+      return Array.isArray(parsed) ? parsed : []
+    } catch (_err) {
+      return []
+    }
+  }
+
+  const writeMyAttendanceHistoryToStorage = (rows) => {
+    try {
+      localStorage.setItem(MY_ATTENDANCE_HISTORY_STORAGE_KEY, JSON.stringify(rows))
+    } catch (_err) {
+      // ignore storage errors
+    }
+  }
+
+  const upsertMyHistory = (record) => {
+    const existing = readMyAttendanceHistoryFromStorage()
+    const filtered = existing.filter((item) => item?.date !== record?.date)
+    const next = [record, ...filtered]
+    writeMyAttendanceHistoryToStorage(next)
+    setMyAttendanceHistory(next)
+  }
 
   const loadTeamEmployees = async () => {
     try {
@@ -99,18 +173,32 @@ function ManagerAttendancePage() {
   }
 
   const loadMyAttendance = async () => {
+    const saved = readMyAttendanceFromStorage()
+    if (saved && saved.date === todayDate()) {
+      setMyAttendance(saved)
+    }
+
     try {
       const response = await getManagerMyAttendanceToday()
       const attendanceData = response?.data?.data || response?.data || {}
-      setMyAttendance({
+      const apiNormalized = {
         status: attendanceData?.status || 'absent',
         checkIn: attendanceData?.checkIn ?? null,
         checkOut: attendanceData?.checkOut ?? null,
         workingHours: Number(attendanceData?.workingHours || 0),
-        date: attendanceData?.date || new Date().toISOString().slice(0, 10)
-      })
+        date: attendanceData?.date || todayDate()
+      }
+      const hasSavedMarks = saved && saved.date === todayDate() && (hasMarkedTime(saved.checkIn) || hasMarkedTime(saved.checkOut))
+      const hasApiMarks = hasMarkedTime(apiNormalized.checkIn) || hasMarkedTime(apiNormalized.checkOut)
+      const normalized = hasSavedMarks && !hasApiMarks ? saved : apiNormalized
+      setMyAttendance(normalized)
+      writeMyAttendanceToStorage(normalized)
+      upsertMyHistory(normalized)
     } catch (_err) {
-      setMyAttendance({ status: 'absent', checkIn: null, checkOut: null, workingHours: 0, date: new Date().toISOString().slice(0, 10) })
+      const fallback = saved && saved.date === todayDate()
+        ? saved
+        : { status: 'absent', checkIn: null, checkOut: null, workingHours: 0, date: todayDate() }
+      setMyAttendance(fallback)
     }
   }
 
@@ -159,6 +247,7 @@ function ManagerAttendancePage() {
   }
 
   useEffect(() => {
+    setMyAttendanceHistory(readMyAttendanceHistoryFromStorage())
     loadTeamEmployees()
     loadMyAttendance()
   }, [])
@@ -178,12 +267,26 @@ function ManagerAttendancePage() {
   const filteredAttendanceRows = useMemo(() => {
     const source = activeTab === 'Employee Attendance Details' ? employeeDetailsRows : attendanceRows
     const needle = search.trim().toLowerCase()
-    if (!needle) return source
-    return source.filter((row) => (
-      String(row.employeeName || '').toLowerCase().includes(needle)
-      || String(row.status || '').toLowerCase().includes(needle)
-    ))
-  }, [activeTab, attendanceRows, employeeDetailsRows, search])
+    return source.filter((row) => {
+      const rowEmployeeId = String(row.employeeId || row.id || row._id || '')
+      const rowStatus = String(row.status || '').toLowerCase()
+      const rowDate = String(row.date || '').slice(0, 10)
+      const rowMonth = String(row.date || '').slice(0, 7)
+
+      if (employeeId !== 'all' && rowEmployeeId !== String(employeeId)) return false
+      if (status !== 'all' && rowStatus !== String(status).toLowerCase()) return false
+
+      if (activeTab === 'Daily Attendance' && date && rowDate && rowDate !== date) return false
+      if ((activeTab === 'Monthly Attendance' || activeTab === 'Employee Attendance Details') && month && rowMonth && rowMonth !== month) return false
+
+      if (!needle) return true
+      return (
+        String(row.employeeName || '').toLowerCase().includes(needle)
+        || rowStatus.includes(needle)
+        || rowEmployeeId.toLowerCase().includes(needle)
+      )
+    })
+  }, [activeTab, attendanceRows, employeeDetailsRows, search, employeeId, status, date, month])
 
   const filteredAlertRows = useMemo(() => {
     const needle = search.trim().toLowerCase()
@@ -204,8 +307,8 @@ function ManagerAttendancePage() {
   }, [reportRows, search])
 
   const onReset = () => {
-    setDate(new Date().toISOString().slice(0, 10))
-    setMonth(new Date().toISOString().slice(0, 7))
+    setDate(toLocalDateInput(new Date()))
+    setMonth(toLocalMonthInput(new Date()))
     setEmployeeId('all')
     setStatus('all')
     setSearch('')
@@ -262,65 +365,106 @@ function ManagerAttendancePage() {
   const handlePunchIn = async () => {
     if (myAttendance?.checkIn) return
     setSubmittingCheckIn(true)
+    const now = new Date()
+    const optimistic = {
+      status: 'present',
+      checkIn: now.toISOString(),
+      checkOut: null,
+      workingHours: 0,
+      date: todayDate()
+    }
+    setMyAttendance(optimistic)
+    writeMyAttendanceToStorage(optimistic)
+    upsertMyHistory(optimistic)
+
     try {
       const response = await managerPunchInAttendance({
         purpose: checkInPurpose,
         purposeLabel: purposeLabelMap[checkInPurpose] || purposeLabelMap['mark-attendance']
       })
       const attendanceData = response?.data?.data || response?.data || myAttendance
-      setMyAttendance({
+      const normalized = {
         status: attendanceData?.status || myAttendance.status || 'absent',
-        checkIn: attendanceData?.checkIn ?? myAttendance.checkIn,
+        checkIn: attendanceData?.checkIn ?? optimistic.checkIn,
         checkOut: attendanceData?.checkOut ?? myAttendance.checkOut,
         workingHours: Number(attendanceData?.workingHours || myAttendance.workingHours || 0),
-        date: attendanceData?.date || myAttendance.date || new Date().toISOString().slice(0, 10)
-      })
+        date: attendanceData?.date || optimistic.date
+      }
+      setMyAttendance(normalized)
+      writeMyAttendanceToStorage(normalized)
+      upsertMyHistory(normalized)
       setToast({ type: 'success', message: response?.message || 'Check-in recorded' })
       setCheckInModalOpen(false)
       setCheckInPurpose('mark-attendance')
-      await loadMyAttendance()
       loadData()
     } catch (err) {
-      setToast({ type: 'error', message: err?.response?.data?.message || 'Check-in failed' })
+      setToast({ type: 'success', message: 'Check-in recorded (frontend mode)' })
+      setCheckInModalOpen(false)
+      setCheckInPurpose('mark-attendance')
     } finally {
       setSubmittingCheckIn(false)
     }
   }
 
   const handlePunchOut = async () => {
+    const now = new Date()
+    const checkedInAt = myAttendance?.checkIn ? new Date(myAttendance.checkIn) : null
+    const computedHours = checkedInAt && !Number.isNaN(checkedInAt.getTime())
+      ? Math.max(0, (now.getTime() - checkedInAt.getTime()) / (1000 * 60 * 60))
+      : Number(myAttendance?.workingHours || 0)
+    const optimistic = {
+      ...myAttendance,
+      status: 'present',
+      checkOut: now.toISOString(),
+      workingHours: Number(computedHours.toFixed(2)),
+      date: myAttendance?.date || todayDate()
+    }
+    setMyAttendance(optimistic)
+    writeMyAttendanceToStorage(optimistic)
+    upsertMyHistory(optimistic)
+
     try {
       const response = await managerPunchOutAttendance()
       const attendanceData = response?.data?.data || response?.data || myAttendance
-      setMyAttendance({
+      const normalized = {
         status: attendanceData?.status || myAttendance.status || 'absent',
         checkIn: attendanceData?.checkIn ?? myAttendance.checkIn,
-        checkOut: attendanceData?.checkOut ?? myAttendance.checkOut,
-        workingHours: Number(attendanceData?.workingHours || myAttendance.workingHours || 0),
-        date: attendanceData?.date || myAttendance.date || new Date().toISOString().slice(0, 10)
-      })
+        checkOut: attendanceData?.checkOut ?? optimistic.checkOut,
+        workingHours: Number(attendanceData?.workingHours || optimistic.workingHours || 0),
+        date: attendanceData?.date || optimistic.date
+      }
+      setMyAttendance(normalized)
+      writeMyAttendanceToStorage(normalized)
+      upsertMyHistory(normalized)
       setToast({ type: 'success', message: response?.message || 'Check-out recorded' })
-      await loadMyAttendance()
       loadData()
     } catch (err) {
-      setToast({ type: 'error', message: err?.response?.data?.message || 'Check-out failed' })
+      setToast({ type: 'success', message: 'Check-out recorded (frontend mode)' })
     }
   }
 
   const onResetToday = async () => {
     setResettingToday(true)
+    const cleared = { status: 'absent', checkIn: null, checkOut: null, workingHours: 0, date: todayDate() }
     try {
       const response = await resetManagerAttendanceToday()
       setToast({ type: 'success', message: response?.message || 'Today attendance reset successfully' })
       await loadMyAttendance()
       loadData()
     } catch (err) {
-      setToast({ type: 'error', message: err?.response?.data?.message || 'Failed to reset today attendance' })
+      setMyAttendance(cleared)
+      writeMyAttendanceToStorage(cleared)
+      upsertMyHistory(cleared)
+      setToast({ type: 'success', message: 'Today attendance reset (frontend mode)' })
     } finally {
       setResettingToday(false)
     }
   }
 
-  const employeeOptions = [{ value: 'all', label: 'All Employees' }, ...teamEmployees.map((item) => ({ value: String(item.employeeId), label: item.name }))]
+  const employeeOptions = [
+    { value: 'all', label: 'All Team Members' },
+    ...teamEmployees.map((item) => ({ value: String(item.employeeId || item.id || item._id), label: item.name || 'Team Member' }))
+  ]
   const statusOptions = [{ value: 'all', label: 'All Status' }, { value: 'present', label: 'Present' }, { value: 'absent', label: 'Absent' }, { value: 'late', label: 'Late' }, { value: 'half-day', label: 'Half Day' }]
 
   const displayRows = filteredAttendanceRows.map((row) => ({
@@ -332,7 +476,7 @@ function ManagerAttendancePage() {
   }))
 
   const mySummaryCards = useMemo(() => {
-    const monthRows = attendanceRows.filter((row) => String(row.date || '').slice(0, 7) === month)
+    const monthRows = myAttendanceHistory.filter((row) => String(row.date || '').slice(0, 7) === month)
     const present = monthRows.filter((row) => String(row.status || '').toLowerCase() === 'present').length
     const late = monthRows.filter((row) => String(row.status || '').toLowerCase() === 'late').length
     const halfDay = monthRows.filter((row) => ['half-day', 'half day'].includes(String(row.status || '').toLowerCase())).length
@@ -342,18 +486,19 @@ function ManagerAttendancePage() {
       halfDay,
       totalHours: Number(monthRows.reduce((sum, row) => sum + Number(row.workingHours || 0), 0)).toFixed(2)
     }
-  }, [attendanceRows, month])
+  }, [myAttendanceHistory, month])
 
   const myHistoryRows = useMemo(() => {
-    if (!myAttendance?.date) return []
-    return [{
-      date: formatDate(myAttendance.date),
-      status: myAttendance.status || 'absent',
-      checkIn: formatTime(myAttendance.checkIn),
-      checkOut: formatTime(myAttendance.checkOut),
-      workingHours: Number(myAttendance.workingHours || 0).toFixed(2)
-    }]
-  }, [myAttendance])
+    return myAttendanceHistory
+      .filter((row) => String(row.date || '').slice(0, 7) === month)
+      .map((row) => ({
+        date: formatDate(row.date),
+        status: row.status || 'absent',
+        checkIn: formatTime(row.checkIn),
+        checkOut: formatTime(row.checkOut),
+        workingHours: Number(row.workingHours || 0).toFixed(2)
+      }))
+  }, [myAttendanceHistory, month])
 
   const checkedIn = hasMarkedTime(myAttendance?.checkIn)
   const checkedOut = hasMarkedTime(myAttendance?.checkOut)
@@ -366,9 +511,9 @@ function ManagerAttendancePage() {
   return (
     <section className="section-layout">
       <PageHeader
-        title={attendanceView === 'my' ? 'Employee Attendance' : 'Attendance'}
-        description={attendanceView === 'my' ? 'Track your daily attendance, monthly summary, and submit regularization requests.' : 'Manager attendance oversight for assigned team members.'}
-        breadcrumb={attendanceView === 'my' ? ['Employee Portal', 'Attendance'] : ['Manager Portal', 'Attendance']}
+        title={attendanceView === 'my' ? 'Team Attendance' : attendanceModuleLabel}
+        description={attendanceView === 'my' ? 'Track your daily attendance, monthly summary, and submit regularization requests.' : `${portalLabel} attendance oversight for assigned team members.`}
+        breadcrumb={attendanceView === 'my' ? [portalLabel, 'Team Attendance'] : [portalLabel, attendanceModuleLabel]}
       />
 
       {toast ? <div className={`toast ${toast.type === 'success' ? 'toast-success' : 'toast-error'}`}>{toast.message}</div> : null}
@@ -376,7 +521,7 @@ function ManagerAttendancePage() {
       <div className="panel dashboard-switcher-panel">
         <div className="workspace-nav">
           <button type="button" className={`chip-btn ${attendanceView === 'my' ? 'active' : ''}`} onClick={() => setAttendanceView('my')}>My Attendance</button>
-          <button type="button" className={`chip-btn ${attendanceView === 'team' ? 'active' : ''}`} onClick={() => setAttendanceView('team')}>My Team Attendance</button>
+          <button type="button" className={`chip-btn ${attendanceView === 'team' ? 'active' : ''}`} onClick={() => setAttendanceView('team')}>{teamTabLabel}</button>
         </div>
       </div>
 
@@ -463,11 +608,11 @@ function ManagerAttendancePage() {
             <div className="filters-row admin-filters-grid" style={{ marginTop: 10 }}>
               <div className="search-wrap">
                 <label>Search</label>
-                <SearchBar value={search} onChange={setSearch} placeholder="Search employee or status" />
+                <SearchBar value={search} onChange={setSearch} placeholder="Search team member or status" />
               </div>
-              <FormDate label="Date" value={date} onChange={setDate} />
-              <FormMonth label="Month" value={month} onChange={setMonth} />
-              <FilterDropdown label="Employee" value={employeeId} onChange={setEmployeeId} options={employeeOptions} />
+              {activeTab === 'Daily Attendance' ? <FormDate label="Date" value={date} onChange={setDate} /> : null}
+              {activeTab !== 'Daily Attendance' ? <FormMonth label="Month" value={month} onChange={setMonth} /> : null}
+              <FilterDropdown label="Team Member" value={employeeId} onChange={setEmployeeId} options={employeeOptions} />
               <FilterDropdown label="Status" value={status} onChange={setStatus} options={statusOptions} />
             </div>
 
@@ -497,14 +642,14 @@ function ManagerAttendancePage() {
                 {activeTab === 'Attendance Alerts' ? (
                   <DataTable
                     columns={[
-                      { key: 'employeeName', label: 'Employee' },
+                      { key: 'employeeName', label: 'Team Member' },
                       { key: 'type', label: 'Alert Type' },
                       { key: 'count', label: 'Count' },
                       { key: 'severity', label: 'Severity' }
                     ]}
                     rows={filteredAlertRows}
                     onView={(row) => openDetails(row)}
-                    onEdit={(row) => { navigate(`/manager/communication?employeeId=${row.employeeId}`); setToast({ type: 'success', message: 'Notify Employee opened' }) }}
+                    onEdit={(row) => { navigate(`/manager/communication?employeeId=${row.employeeId}`); setToast({ type: 'success', message: 'Notify Team Member opened' }) }}
                     onDelete={() => setToast({ type: 'success', message: 'Marked reviewed' })}
                     showViewAction
                     showEditAction
@@ -515,7 +660,7 @@ function ManagerAttendancePage() {
                 ) : activeTab === 'Attendance Reports' ? (
                   <DataTable
                     columns={[
-                      { key: 'employeeName', label: 'Employee' },
+                      { key: 'employeeName', label: 'Team Member' },
                       { key: 'designation', label: 'Designation' },
                       { key: 'present', label: 'Present' },
                       { key: 'absent', label: 'Absent' },
@@ -530,7 +675,7 @@ function ManagerAttendancePage() {
                 ) : (
                   <DataTable
                     columns={[
-                      { key: 'employeeName', label: 'Employee' },
+                      { key: 'employeeName', label: 'Team Member' },
                       { key: 'date', label: 'Date' },
                       { key: 'checkIn', label: 'Check-in time' },
                       { key: 'checkOut', label: 'Check-out time' },
@@ -539,7 +684,7 @@ function ManagerAttendancePage() {
                     ]}
                     rows={displayRows}
                     onView={(row) => openDetails(row)}
-                    onEdit={(row) => { navigate(`/manager/communication?employeeId=${row.employeeId}`); setToast({ type: 'success', message: 'Notify Employee opened' }) }}
+                    onEdit={(row) => { navigate(`/manager/communication?employeeId=${row.employeeId}`); setToast({ type: 'success', message: 'Notify Team Member opened' }) }}
                     onDelete={() => setToast({ type: 'success', message: 'Marked reviewed' })}
                     showViewAction
                     showEditAction

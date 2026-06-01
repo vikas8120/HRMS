@@ -4,6 +4,8 @@ import Button from '../ui/Button'
 import FilterDropdown from '../ui/FilterDropdown'
 import DataTable from '../ui/DataTable'
 import Modal from '../ui/Modal'
+import FormInput from '../ui/FormInput'
+import ConfirmDialog from '../ui/ConfirmDialog'
 
 const POLICY_LIBRARY = [
   {
@@ -117,18 +119,39 @@ const downloadBlob = (content, fileName, type = 'text/plain;charset=utf-8') => {
 }
 
 function PolicyWorkspace({ portalLabel = 'Employee Portal', roleAudience = 'employee' }) {
+  const isAdmin = roleAudience === 'admin'
+  const isEmployeeView = roleAudience === 'employee'
+  const [policies, setPolicies] = useState(POLICY_LIBRARY)
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
   const [audienceFilter, setAudienceFilter] = useState('all')
   const [selected, setSelected] = useState(null)
+  const [formOpen, setFormOpen] = useState(false)
+  const [mode, setMode] = useState('create')
+  const [editingId, setEditingId] = useState('')
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [editConfirmOpen, setEditConfirmOpen] = useState(false)
+  const [pendingEditPolicy, setPendingEditPolicy] = useState(null)
+  const [deletingPolicy, setDeletingPolicy] = useState(null)
+  const [formErrors, setFormErrors] = useState({})
+  const [form, setForm] = useState({
+    policyCode: '',
+    title: '',
+    category: 'Attendance',
+    audience: 'all',
+    status: 'Active',
+    version: 'v1.0',
+    effectiveDate: '',
+    summary: ''
+  })
 
   const availablePolicies = useMemo(
     () => {
-      if (roleAudience === 'admin') return POLICY_LIBRARY
-      return POLICY_LIBRARY.filter((item) => item.audience === 'all' || item.audience === roleAudience)
+      if (roleAudience === 'admin') return policies
+      return policies.filter((item) => item.audience === 'all' || item.audience === roleAudience)
     },
-    [roleAudience]
+    [roleAudience, policies]
   )
 
   const filteredPolicies = useMemo(() => {
@@ -188,6 +211,84 @@ function PolicyWorkspace({ portalLabel = 'Employee Portal', roleAudience = 'empl
     downloadBlob([header, ...lines].join('\n'), `policy-list-${roleAudience}.csv`, 'text/csv;charset=utf-8')
   }
 
+  const resetForm = (policy = null) => {
+    setForm({
+      policyCode: policy?.policyCode || '',
+      title: policy?.title || '',
+      category: policy?.category || 'Attendance',
+      audience: policy?.audience || 'all',
+      status: policy?.status || 'Active',
+      version: policy?.version || 'v1.0',
+      effectiveDate: policy?.effectiveDate || '',
+      summary: policy?.summary || ''
+    })
+    setFormErrors({})
+  }
+
+  const openCreate = () => {
+    setMode('create')
+    setEditingId('')
+    resetForm()
+    setFormOpen(true)
+  }
+
+  const openEdit = (row) => {
+    setMode('edit')
+    setEditingId(row.id)
+    resetForm(row.raw)
+    setFormOpen(true)
+  }
+
+  const validateForm = () => {
+    const next = {}
+    if (!String(form.policyCode || '').trim()) next.policyCode = 'Policy code is required'
+    if (!String(form.title || '').trim()) next.title = 'Title is required'
+    if (!String(form.category || '').trim()) next.category = 'Category is required'
+    if (!String(form.audience || '').trim()) next.audience = 'Audience is required'
+    if (!String(form.status || '').trim()) next.status = 'Status is required'
+    if (!String(form.version || '').trim()) next.version = 'Version is required'
+    if (!String(form.effectiveDate || '').trim()) next.effectiveDate = 'Effective date is required'
+    if (!String(form.summary || '').trim()) next.summary = 'Summary is required'
+
+    const duplicateCode = policies.some((item) =>
+      String(item.policyCode || '').toLowerCase() === String(form.policyCode || '').trim().toLowerCase()
+      && item.id !== editingId
+    )
+    if (duplicateCode) next.policyCode = 'Policy code already exists'
+
+    setFormErrors(next)
+    return Object.keys(next).length === 0
+  }
+
+  const onSavePolicy = (event) => {
+    event.preventDefault()
+    if (!validateForm()) return
+    const payload = {
+      policyCode: String(form.policyCode).trim().toUpperCase(),
+      title: String(form.title).trim(),
+      category: String(form.category).trim(),
+      audience: form.audience,
+      status: form.status,
+      version: String(form.version).trim(),
+      effectiveDate: form.effectiveDate,
+      summary: String(form.summary).trim()
+    }
+
+    if (mode === 'edit' && editingId) {
+      setPolicies((prev) => prev.map((item) => (item.id === editingId ? { ...item, ...payload } : item)))
+    } else {
+      setPolicies((prev) => [{ id: `pl-${Date.now()}`, ...payload }, ...prev])
+    }
+    setFormOpen(false)
+  }
+
+  const onDeletePolicy = () => {
+    if (!deletingPolicy?.id) return
+    setPolicies((prev) => prev.filter((item) => item.id !== deletingPolicy.id))
+    setConfirmOpen(false)
+    setDeletingPolicy(null)
+  }
+
   return (
     <section className="section-layout">
       <PageHeader
@@ -207,11 +308,12 @@ function PolicyWorkspace({ portalLabel = 'Employee Portal', roleAudience = 'empl
               onChange={(event) => setSearch(event.target.value)}
             />
           </label>
-          <FilterDropdown label="Category" value={categoryFilter} onChange={setCategoryFilter} options={CATEGORY_OPTIONS} />
+          {!isEmployeeView ? <FilterDropdown label="Category" value={categoryFilter} onChange={setCategoryFilter} options={CATEGORY_OPTIONS} /> : null}
           <FilterDropdown label="Status" value={statusFilter} onChange={setStatusFilter} options={STATUS_OPTIONS} />
-          <FilterDropdown label="Audience" value={audienceFilter} onChange={setAudienceFilter} options={AUDIENCE_OPTIONS} />
+          {!isEmployeeView ? <FilterDropdown label="Audience" value={audienceFilter} onChange={setAudienceFilter} options={AUDIENCE_OPTIONS} /> : null}
           <div className="actions-row" style={{ alignSelf: 'end' }}>
             <Button variant="ghost" onClick={downloadFilteredList}>Download Filtered List</Button>
+            {isAdmin ? <Button onClick={openCreate}>Add Policy</Button> : null}
           </div>
         </div>
       </div>
@@ -230,11 +332,19 @@ function PolicyWorkspace({ portalLabel = 'Employee Portal', roleAudience = 'empl
           ]}
           rows={rows}
           showViewAction
-          showEditAction
-          showDeleteAction={false}
-          editLabel="Download"
+          showEditAction={isAdmin}
+          showDeleteAction={isAdmin}
+          editLabel="Edit"
+          deleteLabel="Delete"
           onView={(row) => setSelected(row.raw)}
-          onEdit={(row) => handleDownload(row.raw)}
+          onEdit={(row) => {
+            setPendingEditPolicy(row)
+            setEditConfirmOpen(true)
+          }}
+          onDelete={(row) => {
+            setDeletingPolicy(row.raw)
+            setConfirmOpen(true)
+          }}
           emptyTitle="No policies found"
           emptyDescription="Try changing filters or search keywords."
         />
@@ -255,6 +365,119 @@ function PolicyWorkspace({ portalLabel = 'Employee Portal', roleAudience = 'empl
           </div>
         </div>
       </Modal>
+
+      <Modal open={formOpen} title={mode === 'edit' ? 'Edit Policy' : 'Add Policy'} onClose={() => setFormOpen(false)}>
+        <form className="modal-form company-form-modal" onSubmit={onSavePolicy}>
+          <div className="company-form-section">
+            <div className="company-form-section-head">
+              <h4>Policy Info</h4>
+              <p>Define policy identity and categorization details.</p>
+            </div>
+            <div className="form-grid company-form-grid">
+              <FormInput
+                label="Policy Code"
+                value={form.policyCode}
+                onChange={(event) => setForm((prev) => ({ ...prev, policyCode: event.target.value }))}
+                error={formErrors.policyCode}
+              />
+              <FormInput
+                label="Title"
+                value={form.title}
+                onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
+                error={formErrors.title}
+              />
+              <FilterDropdown
+                label="Category"
+                value={form.category}
+                onChange={(value) => setForm((prev) => ({ ...prev, category: value }))}
+                options={CATEGORY_OPTIONS.filter((item) => item.value !== 'all')}
+              />
+              <FilterDropdown
+                label="Audience"
+                value={form.audience}
+                onChange={(value) => setForm((prev) => ({ ...prev, audience: value }))}
+                options={[
+                  { value: 'all', label: 'All Users' },
+                  { value: 'employee', label: 'Employee' },
+                  { value: 'manager', label: 'Manager' }
+                ]}
+              />
+            </div>
+          </div>
+
+          <div className="company-form-section">
+            <div className="company-form-section-head">
+              <h4>Version & Status</h4>
+              <p>Maintain lifecycle state and effective release info.</p>
+            </div>
+            <div className="form-grid company-form-grid">
+              <FilterDropdown
+                label="Status"
+                value={form.status}
+                onChange={(value) => setForm((prev) => ({ ...prev, status: value }))}
+                options={STATUS_OPTIONS.filter((item) => item.value !== 'all')}
+              />
+              <FormInput
+                label="Version"
+                value={form.version}
+                onChange={(event) => setForm((prev) => ({ ...prev, version: event.target.value }))}
+                error={formErrors.version}
+              />
+              <FormInput
+                label="Effective Date"
+                type="date"
+                value={form.effectiveDate}
+                onChange={(event) => setForm((prev) => ({ ...prev, effectiveDate: event.target.value }))}
+                error={formErrors.effectiveDate}
+              />
+            </div>
+          </div>
+
+          <div className="company-form-section">
+            <div className="company-form-section-head">
+              <h4>Policy Summary</h4>
+              <p>Add short description for quick policy understanding.</p>
+            </div>
+            <div className="form-grid company-form-grid">
+              <label className="form-input-wrap" style={{ gridColumn: '1 / -1' }}>
+                <span>Summary</span>
+                <textarea
+                  className="form-input"
+                  rows={4}
+                  value={form.summary}
+                  onChange={(event) => setForm((prev) => ({ ...prev, summary: event.target.value }))}
+                />
+              </label>
+              {formErrors.summary ? <p className="error">{formErrors.summary}</p> : null}
+            </div>
+          </div>
+
+          <div className="modal-actions">
+            <Button type="button" variant="ghost" onClick={() => setFormOpen(false)}>Cancel</Button>
+            <Button type="submit">{mode === 'edit' ? 'Save Changes' : 'Create Policy'}</Button>
+          </div>
+        </form>
+      </Modal>
+
+      <ConfirmDialog
+        open={editConfirmOpen}
+        title="Edit Policy"
+        message={`Edit ${pendingEditPolicy?.raw?.title || 'this policy'}?`}
+        onCancel={() => setEditConfirmOpen(false)}
+        onConfirm={() => {
+          if (pendingEditPolicy) openEdit(pendingEditPolicy)
+          setEditConfirmOpen(false)
+          setPendingEditPolicy(null)
+        }}
+      />
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Delete Policy"
+        message={`Delete ${deletingPolicy?.title || 'this policy'}?`}
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={onDeletePolicy}
+      />
     </section>
   )
 }

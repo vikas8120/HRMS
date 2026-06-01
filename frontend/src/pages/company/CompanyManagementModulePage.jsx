@@ -155,7 +155,7 @@ function CompanyManagementModulePage({ page }) {
   const [statusFilter, setStatusFilter] = useState('all')
   const [planFilter, setPlanFilter] = useState('all')
   const [loading, setLoading] = useState(false)
-  const [toast, setToast] = useState({ type: '', message: '' })
+  const [toast, setToast] = useState({ type: '', title: '', message: '' })
   const [planOptions, setPlanOptions] = useState([
     { value: 'Starter', label: 'Starter' },
     { value: 'Growth', label: 'Growth' },
@@ -175,6 +175,8 @@ function CompanyManagementModulePage({ page }) {
   const [brandingForm, setBrandingForm] = useState(defaultBrandingForm)
   const [activityLogs, setActivityLogs] = useState([])
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [editConfirmOpen, setEditConfirmOpen] = useState(false)
+  const [pendingEditRow, setPendingEditRow] = useState(null)
   const [targetCompany, setTargetCompany] = useState(null)
   const [suspensionReason, setSuspensionReason] = useState('')
   const [statusModalOpen, setStatusModalOpen] = useState(false)
@@ -190,8 +192,9 @@ function CompanyManagementModulePage({ page }) {
     plan: 'Starter'
   })
 
-  const showError = (message) => setToast({ type: 'error', message })
-  const showSuccess = (message) => setToast({ type: 'success', message })
+  const showToast = (type, title, message = '') => setToast({ type, title, message })
+  const showError = (message) => showToast('error', 'Action failed', message)
+  const showSuccess = (title, message = '') => showToast('success', title, message)
   const normalizeId = (value) => String(value || '').trim()
   const getEffectiveCompanyId = () => normalizeId(selectedId || profileData?.id || profileData?._id || targetCompany?.id || '')
   const isTableExpanded = (key) => Boolean(expandedTables[key])
@@ -465,7 +468,7 @@ function CompanyManagementModulePage({ page }) {
         </div>
         {loading ? <LoadingSkeleton rows={8} /> : (
           <>
-            <DataTable columns={companyColumns} rows={tableRows('company-list', companyRows)} onView={openProfile} onEdit={openEdit} onDelete={(row) => { setTargetCompany(row); setConfirmOpen(true) }} showViewAction={false} />
+            <DataTable columns={companyColumns} rows={tableRows('company-list', companyRows)} onView={openProfile} onEdit={(row) => { setPendingEditRow(row); setEditConfirmOpen(true) }} onDelete={(row) => { setTargetCompany(row); setConfirmOpen(true) }} showViewAction={false} />
             {companyRows.length > COMPACT_ROW_LIMIT ? (
               <div className="actions-row" style={{ marginTop: 8 }}>
                 <Button variant="ghost" onClick={() => toggleTable('company-list')}>
@@ -1000,7 +1003,12 @@ function CompanyManagementModulePage({ page }) {
         ))}
       </div>
 
-      {toast.message ? <div className={`toast toast-${toast.type}`}>{toast.message}</div> : null}
+      {toast.title ? (
+        <div className={`toast toast-${toast.type} company-action-toast`} role="status" aria-live="polite">
+          <strong className="company-action-toast-title">{toast.title}</strong>
+          {toast.message ? <p className="company-action-toast-detail">{toast.message}</p> : null}
+        </div>
+      ) : null}
       {renderByPage()}
 
       <Modal
@@ -1172,6 +1180,18 @@ function CompanyManagementModulePage({ page }) {
       </Modal>
 
       <ConfirmDialog
+        open={editConfirmOpen}
+        title="Edit Company"
+        message={`Edit details for ${pendingEditRow?.companyName || 'this company'}?`}
+        onCancel={() => setEditConfirmOpen(false)}
+        onConfirm={async () => {
+          if (pendingEditRow) await openEdit(pendingEditRow)
+          setEditConfirmOpen(false)
+          setPendingEditRow(null)
+        }}
+      />
+
+      <ConfirmDialog
         open={confirmOpen}
         title="Delete Company"
         message={`Are you sure you want to delete ${targetCompany?.companyName || 'this company'}?`}
@@ -1186,7 +1206,7 @@ function CompanyManagementModulePage({ page }) {
               setActivityLogs([])
             }
             setConfirmOpen(false)
-            showSuccess('Company deleted')
+            showSuccess('Delete completed', `${targetCompany.companyName || 'Company'} has been deleted successfully.`)
             await loadCompanies()
           } catch (error) {
             const responseData = error?.response?.data || {}

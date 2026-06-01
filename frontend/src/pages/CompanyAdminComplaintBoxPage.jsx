@@ -8,6 +8,7 @@ function CompanyAdminComplaintBoxPage() {
       description="Track and manage workplace complaints with category/severity filters."
       primaryActionLabel="Raise Complaint"
       listTitle="Company Complaint Records"
+      scope="admin"
     />
   )
 }

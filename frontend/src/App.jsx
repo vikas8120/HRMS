@@ -46,26 +46,26 @@ const EmployeeComplaintBoxPage = safeLazy(() => import('./pages/employee/complai
 const EmployeeLeavesPage = safeLazy(() => import('./pages/employee/EmployeeLeavesPage'))
 const EmployeePayrollPage = safeLazy(() => import('./pages/employee/EmployeePayrollPage'))
 const EmployeePolicyPage = safeLazy(() => import('./pages/employee/EmployeePolicyPage'))
-const EmployeeAnnouncementsPage = safeLazy(() => import('./pages/employee/EmployeeAnnouncementsPage'))
 const EmployeeHelpdeskPage = safeLazy(() => import('./pages/employee/EmployeeHelpdeskPage'))
 const EmployeePerformancePage = safeLazy(() => import('./pages/employee/EmployeePerformancePage'))
 const EmployeeNotificationsPage = safeLazy(() => import('./pages/employee/EmployeeNotificationsPage'))
 const EmployeeSettingsPage = safeLazy(() => import('./pages/employee/EmployeeSettingsPage'))
 const EmployeeProfilePage = safeLazy(() => import('./pages/employee/EmployeeProfilePage'))
 const HrDashboardPage = safeLazy(() => import('./pages/HrDashboardPage'))
-const HrAnnouncementPage = safeLazy(() => import('./pages/HrAnnouncementPage'))
 const HrPerformancePage = safeLazy(() => import('./pages/HrPerformancePage'))
 const HrRecruitmentPage = safeLazy(() => import('./pages/HrRecruitmentPage'))
 const HrGrievancePage = safeLazy(() => import('./pages/HrGrievancePage'))
 const HrComplaintBoxPage = safeLazy(() => import('./pages/HrComplaintBoxPage'))
 const HrFeedbackPage = safeLazy(() => import('./pages/HrFeedbackPage'))
 const HrPolicyPage = safeLazy(() => import('./pages/HrPolicyPage'))
+const HrNotificationsPage = safeLazy(() => import('./pages/HrNotificationsPage'))
+const HrAttendancePage = safeLazy(() => import('./pages/HrAttendancePage'))
+const HrLeavePage = safeLazy(() => import('./pages/HrLeavePage'))
 const ManagerDashboardPage = safeLazy(() => import('./pages/manager/ManagerDashboardPage'))
 const ManagerFeedbackPage = safeLazy(() => import('./pages/manager/feedback/ManagerFeedbackPage'))
 const ManagerGrievancePage = safeLazy(() => import('./pages/manager/grievance/ManagerGrievancePage'))
 const ManagerComplaintBoxPage = safeLazy(() => import('./pages/manager/complaint-box/ManagerComplaintBoxPage'))
 const ManagerPolicyPage = safeLazy(() => import('./pages/manager/ManagerPolicyPage'))
-const ManagerMyTeamPage = safeLazy(() => import('./pages/manager/ManagerMyTeamPage'))
 const ManagerLeaveManagementPage = safeLazy(() => import('./pages/manager/ManagerLeaveManagementPage'))
 const ManagerAttendancePage = safeLazy(() => import('./pages/manager/ManagerAttendancePage'))
 const ManagerPerformanceReviewPage = safeLazy(() => import('./pages/manager/ManagerPerformanceReviewPage'))
@@ -75,7 +75,6 @@ const ManagerSettingsPage = safeLazy(() => import('./pages/manager/ManagerSettin
 const ManagerHelpSupportPage = safeLazy(() => import('./pages/manager/ManagerHelpSupportPage'))
 const ManagerReportsPage = safeLazy(() => import('./pages/manager/ManagerReportsPage'))
 const ManagerPayrollViewPage = safeLazy(() => import('./pages/manager/ManagerPayrollViewPage'))
-const ManagerTeamMemberProfilePage = safeLazy(() => import('./pages/manager/ManagerTeamMemberProfilePage'))
 const PremiumCRMPage = safeLazy(() => import('./pages/PremiumCRMPage'))
 
 function App() {
@@ -138,14 +137,14 @@ function App() {
             <Route path="/hr/my-dashboard" element={<HrDashboardPage />} />
             <Route path="/hr/dashboard" element={<HrDashboardPage />} />
             <Route path="/hr/employee" element={<CompanyAdminEmployeesPage />} />
-            <Route path="/hr/attendance" element={<CompanyAdminAttendancePage />} />
-            <Route path="/hr/leave" element={<CompanyAdminLeavesPage />} />
+            <Route path="/hr/attendance" element={<HrAttendancePage />} />
+            <Route path="/hr/leave" element={<HrLeavePage />} />
             <Route path="/hr/payroll" element={<CompanyAdminPayrollPage />} />
-            <Route path="/hr/announcement" element={<HrAnnouncementPage />} />
             <Route path="/hr/grievance" element={<HrGrievancePage />} />
             <Route path="/hr/complaint-box" element={<HrComplaintBoxPage />} />
             <Route path="/hr/feedback" element={<HrFeedbackPage />} />
             <Route path="/hr/policy" element={<HrPolicyPage />} />
+            <Route path="/hr/notifications" element={<HrNotificationsPage />} />
             <Route path="/hr/performance" element={<HrPerformancePage />} />
             <Route path="/hr/recruitment" element={<HrRecruitmentPage />} />
             <Route path="/hr/department" element={<CompanyAdminDepartmentsPage />} />
@@ -164,9 +163,6 @@ function App() {
             <Route path="/manager/grievance" element={<ManagerGrievancePage />} />
             <Route path="/manager/complaint-box" element={<ManagerComplaintBoxPage />} />
             <Route path="/manager/policy" element={<ManagerPolicyPage />} />
-            <Route path="/manager/my-team" element={<ManagerMyTeamPage />} />
-            <Route path="/manager/team" element={<ManagerMyTeamPage />} />
-            <Route path="/manager/team/:employeeId" element={<ManagerTeamMemberProfilePage />} />
             <Route path="/manager/leave-management" element={<ManagerLeaveManagementPage />} />
             <Route path="/manager/leaves" element={<ManagerLeaveManagementPage />} />
             <Route path="/manager/attendance" element={<ManagerAttendancePage />} />
@@ -198,7 +194,6 @@ function App() {
             <Route path="/employee/leaves" element={<EmployeeLeavesPage />} />
             <Route path="/employee/payroll" element={<EmployeePayrollPage />} />
             <Route path="/employee/policy" element={<EmployeePolicyPage />} />
-            <Route path="/employee/announcements" element={<EmployeeAnnouncementsPage />} />
             <Route path="/employee/helpdesk" element={<EmployeeHelpdeskPage />} />
             <Route path="/employee/performance" element={<EmployeePerformancePage />} />
             <Route path="/employee/notifications" element={<EmployeeNotificationsPage />} />

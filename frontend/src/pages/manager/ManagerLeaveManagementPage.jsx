@@ -37,7 +37,16 @@ const formatDate = (value) => {
   return date.toISOString().slice(0, 10)
 }
 
-function ManagerLeaveManagementPage() {
+function ManagerLeaveManagementPage({
+  portalLabel = 'Manager Portal',
+  myTabLabel = 'My Leave',
+  teamTabLabel = 'Team Leave',
+  myViewTitle = 'Team Leaves',
+  teamViewTitle = 'Leave Management',
+  myViewDescription = 'Apply and track your leave requests with balance and policy visibility.',
+  teamViewDescription = 'Review and action leave requests from employees assigned to you.',
+  entityLabel = 'Team Member'
+} = {}) {
   const [searchParams] = useSearchParams()
   const employeeIdFromQuery = searchParams.get('employeeId') || 'all'
   const [activeTab, setActiveTab] = useState('Pending Requests')
@@ -152,7 +161,7 @@ function ManagerLeaveManagementPage() {
   }, [rows])
 
   const employeeOptions = useMemo(() => ([
-    { value: 'all', label: 'All Employees' },
+    { value: 'all', label: 'All Team Members' },
     ...team.map((item) => ({ value: String(item.employeeId), label: item.name }))
   ]), [team])
 
@@ -325,9 +334,9 @@ function ManagerLeaveManagementPage() {
   return (
     <section className="section-layout manager-leave-management-page">
       <PageHeader
-        title={leaveView === 'my' ? 'Employee Leaves' : 'Leave Management'}
-        description={leaveView === 'my' ? 'Apply and track your leave requests with balance and policy visibility.' : 'Review and action leave requests from employees assigned to you.'}
-        breadcrumb={leaveView === 'my' ? ['Employee Portal', 'Leaves'] : ['Manager Portal', 'Leave Management']}
+        title={leaveView === 'my' ? myViewTitle : teamViewTitle}
+        description={leaveView === 'my' ? myViewDescription : teamViewDescription}
+        breadcrumb={leaveView === 'my' ? [portalLabel, myViewTitle] : [portalLabel, teamViewTitle]}
         primaryActionLabel="Apply Leave"
         onPrimaryAction={() => setApplyOpen(true)}
       />
@@ -341,14 +350,14 @@ function ManagerLeaveManagementPage() {
             className={`chip-btn ${leaveView === 'my' ? 'active' : ''}`}
             onClick={switchToMyLeave}
           >
-            My Leave
+            {myTabLabel}
           </button>
           <button
             type="button"
             className={`chip-btn ${leaveView === 'employee' ? 'active' : ''}`}
             onClick={switchToEmployeeLeave}
           >
-            Employee Leave
+            {teamTabLabel}
           </button>
         </div>
       </div>
@@ -407,10 +416,10 @@ function ManagerLeaveManagementPage() {
             <div className="filters-row admin-filters-grid" style={{ marginTop: 10 }}>
               <div className="search-wrap">
                 <label>Search</label>
-                <SearchBar value={search} onChange={setSearch} placeholder="Search by employee, type, reason" />
+                <SearchBar value={search} onChange={setSearch} placeholder="Search by team member, type, reason" />
               </div>
               <FilterDropdown label="Leave Type" value={leaveType} onChange={setLeaveType} options={leaveTypes} />
-              {activeTab !== 'My Leave Requests' ? <FilterDropdown label="Employee" value={employeeId} onChange={setEmployeeId} options={employeeOptions} /> : null}
+              {activeTab !== 'My Leave Requests' ? <FilterDropdown label={entityLabel} value={employeeId} onChange={setEmployeeId} options={employeeOptions} /> : null}
               <FilterDropdown
                 label="Status"
                 value={statusFilter}
@@ -436,7 +445,7 @@ function ManagerLeaveManagementPage() {
                     <thead>
                       <tr>
                         <th>Date Range</th>
-                        <th>Employee</th>
+                        <th>Team Member</th>
                         <th>Type</th>
                         <th>Status</th>
                         <th>Total Days</th>
@@ -463,7 +472,7 @@ function ManagerLeaveManagementPage() {
                 <table>
                   <thead>
                     <tr>
-                      <th>Employee name</th>
+                      <th>{entityLabel}</th>
                       <th>Leave type</th>
                       <th>Start date</th>
                       <th>End date</th>
@@ -508,7 +517,7 @@ function ManagerLeaveManagementPage() {
       <Modal open={detailsOpen} title="Leave Details" onClose={() => setDetailsOpen(false)}>
         {detailsLoading ? <LoadingSkeleton rows={4} /> : !selectedLeave ? <EmptyState title="Details unavailable" description="Unable to fetch leave details." /> : (
           <div className="modal-form">
-            <div className="inline-action-card"><strong>Employee:</strong> <span>{selectedLeave.employeeName || '-'}</span></div>
+            <div className="inline-action-card"><strong>{entityLabel}:</strong> <span>{selectedLeave.employeeName || '-'}</span></div>
             <div className="inline-action-card"><strong>Type:</strong> <span>{selectedLeave.leaveType || '-'}</span></div>
             <div className="inline-action-card"><strong>Start Date:</strong> <span>{formatDate(selectedLeave.startDate)}</span></div>
             <div className="inline-action-card"><strong>End Date:</strong> <span>{formatDate(selectedLeave.endDate)}</span></div>
@@ -530,12 +539,20 @@ function ManagerLeaveManagementPage() {
       />
 
       <Modal open={rejectOpen} title="Reject Leave" onClose={() => setRejectOpen(false)}>
-        <div className="modal-form">
-          <label className="form-input-wrap">
-            <span>Rejection Reason</span>
-            <textarea className="form-input" rows={4} value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} />
-          </label>
-          <div className="actions-row">
+        <div className="modal-form company-form-modal">
+          <div className="company-form-section">
+            <div className="company-form-section-head">
+              <h4>Rejection Details</h4>
+              <p>Provide a clear reason before rejecting this leave request.</p>
+            </div>
+            <div className="form-grid company-form-grid">
+              <label className="form-input-wrap" style={{ gridColumn: '1 / -1' }}>
+                <span>Rejection Reason</span>
+                <textarea className="form-input" rows={4} value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} />
+              </label>
+            </div>
+          </div>
+          <div className="modal-actions">
             <Button variant="ghost" onClick={() => setRejectOpen(false)} disabled={submitting}>Cancel</Button>
             <Button variant="danger" onClick={onReject} disabled={submitting}>{submitting ? 'Rejecting...' : 'Reject'}</Button>
           </div>
@@ -543,26 +560,42 @@ function ManagerLeaveManagementPage() {
       </Modal>
 
       <Modal open={applyOpen} title="Apply Leave" onClose={() => setApplyOpen(false)}>
-        <div className="modal-form">
-          <FilterDropdown
-            label="Leave Type"
-            value={applyForm.leaveType}
-            onChange={(value) => setApplyForm((prev) => ({ ...prev, leaveType: value }))}
-            options={[{ value: 'casual', label: 'Casual' }, { value: 'sick', label: 'Sick' }, { value: 'earned', label: 'Earned' }, { value: 'work-from-home', label: 'Work From Home' }]}
-          />
-          <label className="form-input-wrap">
-            <span>Start Date</span>
-            <input className="form-input" type="date" value={applyForm.startDate} onChange={(e) => setApplyForm((prev) => ({ ...prev, startDate: e.target.value }))} />
-          </label>
-          <label className="form-input-wrap">
-            <span>End Date</span>
-            <input className="form-input" type="date" value={applyForm.endDate} onChange={(e) => setApplyForm((prev) => ({ ...prev, endDate: e.target.value }))} />
-          </label>
-          <label className="form-input-wrap">
-            <span>Reason</span>
-            <textarea className="form-input" rows={4} value={applyForm.reason} onChange={(e) => setApplyForm((prev) => ({ ...prev, reason: e.target.value }))} />
-          </label>
-          <div className="actions-row">
+        <div className="modal-form company-form-modal">
+          <div className="company-form-section">
+            <div className="company-form-section-head">
+              <h4>Leave Plan</h4>
+              <p>Select leave type and schedule dates.</p>
+            </div>
+            <div className="form-grid company-form-grid">
+              <FilterDropdown
+                label="Leave Type"
+                value={applyForm.leaveType}
+                onChange={(value) => setApplyForm((prev) => ({ ...prev, leaveType: value }))}
+                options={[{ value: 'casual', label: 'Casual' }, { value: 'sick', label: 'Sick' }, { value: 'earned', label: 'Earned' }, { value: 'work-from-home', label: 'Work From Home' }]}
+              />
+              <label className="form-input-wrap">
+                <span>Start Date</span>
+                <input className="form-input" type="date" value={applyForm.startDate} onChange={(e) => setApplyForm((prev) => ({ ...prev, startDate: e.target.value }))} />
+              </label>
+              <label className="form-input-wrap">
+                <span>End Date</span>
+                <input className="form-input" type="date" value={applyForm.endDate} onChange={(e) => setApplyForm((prev) => ({ ...prev, endDate: e.target.value }))} />
+              </label>
+            </div>
+          </div>
+          <div className="company-form-section">
+            <div className="company-form-section-head">
+              <h4>Leave Justification</h4>
+              <p>Add reason for leave request approval workflow.</p>
+            </div>
+            <div className="form-grid company-form-grid">
+              <label className="form-input-wrap" style={{ gridColumn: '1 / -1' }}>
+                <span>Reason</span>
+                <textarea className="form-input" rows={4} value={applyForm.reason} onChange={(e) => setApplyForm((prev) => ({ ...prev, reason: e.target.value }))} />
+              </label>
+            </div>
+          </div>
+          <div className="modal-actions">
             <Button variant="ghost" onClick={() => setApplyOpen(false)} disabled={submitting}>Cancel</Button>
             <Button onClick={onApplyLeave} disabled={submitting}>{submitting ? 'Submitting...' : 'Submit Leave'}</Button>
           </div>

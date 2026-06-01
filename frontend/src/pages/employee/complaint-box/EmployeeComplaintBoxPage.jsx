@@ -12,33 +12,11 @@ import ComplaintTable from './ComplaintTable'
 
 const STORAGE_KEY = 'employee_complaint_box_v1'
 
-const categoryOptions = [
-  { value: 'all', label: 'All Categories' },
-  { value: 'Harassment', label: 'Harassment' },
-  { value: 'Misconduct', label: 'Misconduct' },
-  { value: 'Attendance', label: 'Attendance' },
-  { value: 'Policy Violation', label: 'Policy Violation' },
-  { value: 'Other', label: 'Other' }
-]
-
-const severityOptions = [
-  { value: 'all', label: 'All Severity' },
-  { value: 'Low', label: 'Low' },
-  { value: 'Medium', label: 'Medium' },
-  { value: 'High', label: 'High' }
-]
-
 const statusOptions = [
   { value: 'all', label: 'All Status' },
   { value: 'Open', label: 'Open' },
   { value: 'Under Review', label: 'Under Review' },
   { value: 'Closed', label: 'Closed' }
-]
-
-const confidentialOptions = [
-  { value: 'all', label: 'All' },
-  { value: 'Yes', label: 'Yes' },
-  { value: 'No', label: 'No' }
 ]
 
 const today = () => new Date().toISOString().slice(0, 10)
@@ -84,10 +62,7 @@ function EmployeeComplaintBoxPage() {
   const [rows, setRows] = useState([])
 
   const [search, setSearch] = useState('')
-  const [categoryFilter, setCategoryFilter] = useState('all')
-  const [severityFilter, setSeverityFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
-  const [confidentialFilter, setConfidentialFilter] = useState('all')
 
   const [formOpen, setFormOpen] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
@@ -217,10 +192,7 @@ function EmployeeComplaintBoxPage() {
   const filteredRows = useMemo(() => {
     const q = search.trim().toLowerCase()
     return rows.filter((item) => {
-      if (categoryFilter !== 'all' && item.complaintCategory !== categoryFilter) return false
-      if (severityFilter !== 'all' && item.severityLevel !== severityFilter) return false
       if (statusFilter !== 'all' && item.status !== statusFilter) return false
-      if (confidentialFilter !== 'all' && item.confidential !== confidentialFilter) return false
       if (!q) return true
       const bag = [
         item.complaintNo,
@@ -233,7 +205,7 @@ function EmployeeComplaintBoxPage() {
       ].join(' ').toLowerCase()
       return bag.includes(q)
     })
-  }, [rows, search, categoryFilter, severityFilter, statusFilter, confidentialFilter])
+  }, [rows, search, statusFilter])
 
   return (
     <section className="section-layout">
@@ -256,10 +228,7 @@ function EmployeeComplaintBoxPage() {
             <span>Search</span>
             <input className="form-input" placeholder="Search by no, category, status, severity, names, details" value={search} onChange={(event) => setSearch(event.target.value)} />
           </label>
-          <FilterDropdown label="Category" value={categoryFilter} onChange={setCategoryFilter} options={categoryOptions} />
-          <FilterDropdown label="Severity" value={severityFilter} onChange={setSeverityFilter} options={severityOptions} />
           <FilterDropdown label="Status" value={statusFilter} onChange={setStatusFilter} options={statusOptions} />
-          <FilterDropdown label="Confidential" value={confidentialFilter} onChange={setConfidentialFilter} options={confidentialOptions} />
           <div className="actions-row" style={{ alignSelf: 'end' }}>
             <Button variant="ghost" onClick={loadRows}>Refresh</Button>
           </div>

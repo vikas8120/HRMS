@@ -12,23 +12,6 @@ import GrievanceDetailsModal from './GrievanceDetailsModal'
 
 const STORAGE_KEY = 'employee_grievances_v1'
 
-const grievanceTypeOptions = [
-  { value: 'all', label: 'All Types' },
-  { value: 'Salary', label: 'Salary' },
-  { value: 'Manager', label: 'Manager' },
-  { value: 'Leave', label: 'Leave' },
-  { value: 'Behavior', label: 'Behavior' },
-  { value: 'Workload', label: 'Workload' },
-  { value: 'Other', label: 'Other' }
-]
-
-const priorityOptions = [
-  { value: 'all', label: 'All Priorities' },
-  { value: 'Low', label: 'Low' },
-  { value: 'Medium', label: 'Medium' },
-  { value: 'High', label: 'High' }
-]
-
 const statusOptions = [
   { value: 'all', label: 'All Status' },
   { value: 'Open', label: 'Open' },
@@ -95,8 +78,6 @@ function EmployeeGrievancePage() {
 
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
-  const [priorityFilter, setPriorityFilter] = useState('all')
-  const [typeFilter, setTypeFilter] = useState('all')
 
   const [formOpen, setFormOpen] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
@@ -247,8 +228,6 @@ function EmployeeGrievancePage() {
     const q = search.trim().toLowerCase()
     return rows.filter((item) => {
       if (statusFilter !== 'all' && item.status !== statusFilter) return false
-      if (priorityFilter !== 'all' && item.priority !== priorityFilter) return false
-      if (typeFilter !== 'all' && item.grievanceType !== typeFilter) return false
       if (!q) return true
       const bag = [
         item.grievanceNo,
@@ -259,7 +238,7 @@ function EmployeeGrievancePage() {
       ].join(' ').toLowerCase()
       return bag.includes(q)
     })
-  }, [rows, search, statusFilter, priorityFilter, typeFilter])
+  }, [rows, search, statusFilter])
 
   return (
     <section className="section-layout">
@@ -288,8 +267,6 @@ function EmployeeGrievancePage() {
             />
           </label>
           <FilterDropdown label="Status" value={statusFilter} onChange={setStatusFilter} options={statusOptions} />
-          <FilterDropdown label="Priority" value={priorityFilter} onChange={setPriorityFilter} options={priorityOptions} />
-          <FilterDropdown label="Grievance Type" value={typeFilter} onChange={setTypeFilter} options={grievanceTypeOptions} />
           <div className="actions-row" style={{ alignSelf: 'end' }}>
             <Button variant="ghost" onClick={loadRows}>Refresh</Button>
           </div>

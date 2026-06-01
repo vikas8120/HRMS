@@ -4,13 +4,52 @@ import Button from '../../components/ui/Button'
 import LoadingSkeleton from '../../components/ui/LoadingSkeleton'
 import EmptyState from '../../components/ui/EmptyState'
 import { getManagerProfile } from '../../api/managerProfileApi'
+import { getManagerTeam } from '../../api/managerTeamApi'
 
-const tabs = ['My Profile']
+const tabs = ['My Profile', 'Team Profile']
+const TEAM_PROFILE_DEMO_ROWS = [
+  {
+    id: 'tm-001',
+    employeeId: 'EMP-2101',
+    name: 'Arjun Mehta',
+    email: 'arjun.mehta@acme.com',
+    phone: '+91-9876543210',
+    department: 'Engineering',
+    designation: 'Software Engineer',
+    status: 'active',
+    joiningDate: '2025-07-10'
+  },
+  {
+    id: 'tm-002',
+    employeeId: 'EMP-2102',
+    name: 'Neha Verma',
+    email: 'neha.verma@acme.com',
+    phone: '+91-9876543211',
+    department: 'Operations',
+    designation: 'Operations Analyst',
+    status: 'active',
+    joiningDate: '2025-11-02'
+  },
+  {
+    id: 'tm-003',
+    employeeId: 'EMP-2103',
+    name: 'Rohit Sharma',
+    email: 'rohit.sharma@acme.com',
+    phone: '+91-9876543212',
+    department: 'Sales',
+    designation: 'Sales Executive',
+    status: 'inactive',
+    joiningDate: '2024-09-18'
+  }
+]
 
 function ManagerProfileSettingsPage() {
   const [activeTab, setActiveTab] = useState('My Profile')
   const [loading, setLoading] = useState(true)
+  const [teamLoading, setTeamLoading] = useState(false)
   const [profile, setProfile] = useState(null)
+  const [teamRows, setTeamRows] = useState([])
+  const [selectedTeamMember, setSelectedTeamMember] = useState(null)
   const [toast, setToast] = useState(null)
 
   const profileDetails = useMemo(() => {
@@ -49,9 +88,39 @@ function ManagerProfileSettingsPage() {
     setProfile(data)
   }
 
+  const loadTeamProfiles = async () => {
+    setTeamLoading(true)
+    try {
+      const response = await getManagerTeam({
+        search: '',
+        department: 'all',
+        designation: 'all',
+        status: 'all',
+        attendanceStatus: 'all'
+      })
+      const apiList = Array.isArray(response?.data) ? response.data : []
+      const list = apiList.length ? apiList : TEAM_PROFILE_DEMO_ROWS
+      setTeamRows(list)
+      if (!list.length) {
+        setSelectedTeamMember(null)
+      } else if (!selectedTeamMember) {
+        setSelectedTeamMember(list[0])
+      } else {
+        const stillExists = list.find((item) => String(item.employeeId || item.id) === String(selectedTeamMember.employeeId || selectedTeamMember.id))
+        if (!stillExists) setSelectedTeamMember(list[0])
+      }
+    } catch (err) {
+      setToast({ type: 'success', message: 'Loaded demo team profiles (frontend mode)' })
+      setTeamRows(TEAM_PROFILE_DEMO_ROWS)
+      setSelectedTeamMember(TEAM_PROFILE_DEMO_ROWS[0])
+    } finally {
+      setTeamLoading(false)
+    }
+  }
+
   const loadAll = async () => {
     setLoading(true)
-    const results = await Promise.allSettled([loadProfile()])
+    const results = await Promise.allSettled([loadProfile(), loadTeamProfiles()])
     const failed = results.find((x) => x.status === 'rejected')
     if (failed) {
       setToast({ type: 'error', message: failed.reason?.response?.data?.message || 'Failed to load profile data' })
@@ -119,6 +188,76 @@ function ManagerProfileSettingsPage() {
             <div className="inline-action-card"><strong>Emergency Relation</strong><span>{profileDetails?.emergencyRelation || '-'}</span></div>
             <div className="inline-action-card"><strong>Emergency Phone</strong><span>{profileDetails?.emergencyPhone || '-'}</span></div>
           </div>
+        </div>
+      ) : null}
+
+      {activeTab === 'Team Profile' ? (
+        <div className="panel manager-profile-panel">
+          <div className="panel-head">
+            <h3>Team Profiles</h3>
+            <div className="actions-row">
+              <Button variant="ghost" onClick={loadTeamProfiles}>Refresh Team Data</Button>
+            </div>
+          </div>
+
+          {teamLoading ? <LoadingSkeleton rows={5} /> : teamRows.length === 0 ? (
+            <EmptyState title="No team members found" description="No team members are currently assigned." />
+          ) : (
+            <>
+              <div className="table-wrap">
+                <div className="table-meta"><p>{teamRows.length} records</p></div>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Email</th>
+                      <th>Phone</th>
+                      <th>Department</th>
+                      <th>Designation</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {teamRows.map((item) => (
+                      <tr key={item.id || item.employeeId}>
+                        <td>{item.name || '-'}</td>
+                        <td>{item.email || '-'}</td>
+                        <td>{item.phone || '-'}</td>
+                        <td>{item.department || '-'}</td>
+                        <td>{item.designation || '-'}</td>
+                        <td><span className={`badge badge-${String(item.status || 'inactive').toLowerCase()}`}>{item.status || '-'}</span></td>
+                        <td>
+                          <div className="table-actions">
+                            <button className="text-btn" onClick={() => setSelectedTeamMember(item)}>View Details</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {selectedTeamMember ? (
+                <div className="company-form-section" style={{ marginTop: 14 }}>
+                  <div className="company-form-section-head">
+                    <h4>Team Member Details</h4>
+                    <p>Profile details for {selectedTeamMember.name || 'selected member'}.</p>
+                  </div>
+                  <div className="manager-profile-grid">
+                    <div className="inline-action-card"><strong>Name</strong><span>{selectedTeamMember.name || '-'}</span></div>
+                    <div className="inline-action-card"><strong>Email</strong><span>{selectedTeamMember.email || '-'}</span></div>
+                    <div className="inline-action-card"><strong>Phone</strong><span>{selectedTeamMember.phone || '-'}</span></div>
+                    <div className="inline-action-card"><strong>Employee ID</strong><span>{selectedTeamMember.employeeId || selectedTeamMember.id || '-'}</span></div>
+                    <div className="inline-action-card"><strong>Department</strong><span>{selectedTeamMember.department || '-'}</span></div>
+                    <div className="inline-action-card"><strong>Designation</strong><span>{selectedTeamMember.designation || '-'}</span></div>
+                    <div className="inline-action-card"><strong>Status</strong><span>{selectedTeamMember.status || '-'}</span></div>
+                    <div className="inline-action-card"><strong>Joining Date</strong><span>{selectedTeamMember.joiningDate ? String(selectedTeamMember.joiningDate).slice(0, 10) : '-'}</span></div>
+                  </div>
+                </div>
+              ) : null}
+            </>
+          )}
         </div>
       ) : null}
 

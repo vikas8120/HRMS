@@ -8,6 +8,7 @@ import FormInput from '../components/ui/FormInput'
 import LoadingSkeleton from '../components/ui/LoadingSkeleton'
 import EmptyState from '../components/ui/EmptyState'
 import StatCard from '../components/ui/StatCard'
+import { useLocation } from 'react-router-dom'
 import {
   getAttendance,
   getTodayAttendance,
@@ -42,6 +43,9 @@ const statusOptions = [
 
 function CompanyAdminAttendancePage() {
   const { user } = useAuth()
+  const { pathname } = useLocation()
+  const isHrRoute = pathname === '/hr/attendance'
+  const [attendanceView, setAttendanceView] = useState('my')
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [rows, setRows] = useState([])
@@ -323,46 +327,46 @@ function CompanyAdminAttendancePage() {
   const selfStatusClass = selfStatus === 'present' ? 'badge-active'
     : selfStatus === 'late' ? 'badge-warning'
       : selfStatus === 'absent' ? 'badge-inactive'
-        : selfStatus === 'leave' ? 'badge-info'
+          : selfStatus === 'leave' ? 'badge-info'
           : 'badge-neutral'
+
+  const formatDateOnly = (value) => {
+    if (!value) return '-'
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return String(value).slice(0, 10)
+    return date.toLocaleDateString('en-CA')
+  }
+
+  const formatTime = (value) => {
+    if (!value) return '-'
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return value
+    return date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false })
+  }
 
   return (
     <section className="section-layout">
       <PageHeader
-        title="Attendance"
-        description="Track daily and monthly attendance with manual marking and updates."
-        breadcrumb={['Company Admin', 'Attendance']}
-        primaryActionLabel="Mark Attendance"
-        onPrimaryAction={openManual}
+        title={isHrRoute ? 'Attendance' : 'Attendance'}
+        description={isHrRoute ? 'Track your attendance and manage employee attendance records.' : 'Track daily and monthly attendance with manual marking and updates.'}
+        breadcrumb={isHrRoute ? ['HR Portal', 'Attendance'] : ['Company Admin', 'Attendance']}
+        primaryActionLabel={!isHrRoute || attendanceView === 'employee' ? 'Mark Attendance' : ''}
+        onPrimaryAction={!isHrRoute || attendanceView === 'employee' ? openManual : undefined}
       />
 
       {toast ? <div className={`toast ${toast.type === 'success' ? 'toast-success' : 'toast-error'}`}>{toast.message}</div> : null}
 
-      <div className="panel self-attendance-card">
-        <div className="self-attendance-glow" aria-hidden="true" />
-        <div className="panel-head self-attendance-head">
-          <div>
-            <h3>My Attendance (Today)</h3>
-            <p className="self-attendance-subtitle">Track your daily punch-in and punch-out in real time.</p>
-          </div>
-          <div className="actions-row self-attendance-actions">
-            <Button variant="ghost" className="attendance-action-refresh" onClick={loadSelfAttendance} disabled={selfLoading}>{selfLoading ? 'Refreshing...' : 'Refresh'}</Button>
-            <Button className="attendance-action-punch-in" onClick={onPunchIn} disabled={!canPunchIn || faceBusy}><LogIn size={18} /> Punch In</Button>
-            <Button variant="ghost" className="attendance-action-punch-out" onClick={onPunchOut} disabled={!canPunchOut || faceBusy}><LogOut size={18} /> Punch Out</Button>
+      {isHrRoute ? (
+        <div className="panel">
+          <div className="workspace-nav">
+            <button type="button" className={`chip-btn ${attendanceView === 'my' ? 'active' : ''}`} onClick={() => setAttendanceView('my')}>My Attendance</button>
+            <button type="button" className={`chip-btn ${attendanceView === 'employee' ? 'active' : ''}`} onClick={() => setAttendanceView('employee')}>Employee Attendance</button>
           </div>
         </div>
-        <div className="self-attendance-grid">
-          <div className="self-attendance-item"><span>User</span><strong>{user?.name || '-'}</strong></div>
-          <div className="self-attendance-item"><span>Role</span><strong>{user?.role || '-'}</strong></div>
-          <div className="self-attendance-item"><span>Date</span><strong>{selfAttendance?.date || new Date().toISOString().slice(0, 10)}</strong></div>
-          <div className="self-attendance-item"><span>Status</span><strong><span className={`badge ${selfStatusClass}`}>{selfAttendance?.status || 'not-marked'}</span></strong></div>
-          <div className="self-attendance-item"><span>Face Verification</span><strong>{faceEnrolled ? 'Enrolled' : 'Not Enrolled'}</strong></div>
-          <div className="self-attendance-item"><span>Check In</span><strong>{selfAttendance?.checkIn ? new Date(selfAttendance.checkIn).toLocaleTimeString() : '--:--'}</strong></div>
-          <div className="self-attendance-item"><span>Check Out</span><strong>{selfAttendance?.checkOut ? new Date(selfAttendance.checkOut).toLocaleTimeString() : '--:--'}</strong></div>
-          <div className="self-attendance-item"><span>Working Hours</span><strong>{selfAttendance?.workingHours ?? 0}</strong></div>
-        </div>
-      </div>
+      ) : null}
 
+      {!isHrRoute || attendanceView === 'employee' ? (
+        <>
       <div className="stats-grid">
         {cards.map((card) => <StatCard key={card.title} title={card.title} value={card.value} trend={card.trend} />)}
       </div>
@@ -448,36 +452,107 @@ function CompanyAdminAttendancePage() {
           </div>
         )}
       </div>
+      </>
+      ) : null}
+
+      {isHrRoute && attendanceView === 'my' ? (
+        <>
+          <div className="panel">
+            <div className="panel-head">
+              <h3>Today Attendance Status</h3>
+              <div className="actions-row">
+                <Button variant="ghost" onClick={loadSelfAttendance} disabled={selfLoading}><RefreshCw size={14} /> Refresh</Button>
+                <Button onClick={onPunchIn} disabled={faceBusy || !canPunchIn}><LogIn size={14} /> Check In</Button>
+                <Button onClick={onPunchOut} disabled={faceBusy || !canPunchOut}><LogOut size={14} /> Check Out</Button>
+              </div>
+            </div>
+            <div className="self-attendance-grid">
+              <div className="self-attendance-item"><span>Date</span><strong>{formatDateOnly(selfAttendance?.date || new Date().toISOString())}</strong></div>
+              <div className="self-attendance-item"><span>Status</span><strong><span className={`badge ${selfStatusClass}`}>{selfAttendance?.status || 'absent'}</span></strong></div>
+              <div className="self-attendance-item"><span>Check-In</span><strong>{formatTime(selfAttendance?.checkIn)}</strong></div>
+              <div className="self-attendance-item"><span>Check-Out</span><strong>{formatTime(selfAttendance?.checkOut)}</strong></div>
+              <div className="self-attendance-item"><span>Working Hours</span><strong>{Number(selfAttendance?.workingHours || 0).toFixed(2)}</strong></div>
+              <div className="self-attendance-item"><span>Face Verification</span><strong>{faceEnrolled ? 'Enrolled' : 'Not Enrolled'}</strong></div>
+            </div>
+          </div>
+
+          <div className="stats-grid">
+            <StatCard title="Present" value={String(summaryMonthly?.present || 0)} trend={`Month ${yearFilter}-${monthFilter}`} />
+            <StatCard title="Late" value={String(summaryMonthly?.late || 0)} trend="Late check-ins" />
+            <StatCard title="Half Day" value={String(summaryMonthly?.halfDay || 0)} trend="Short hours" />
+            <StatCard title="Hours Total" value={Number(summaryMonthly?.workingHours || 0).toFixed(2)} trend="Worked this month" />
+          </div>
+        </>
+      ) : null}
 
       <Modal open={manualOpen} title="Manual Attendance" onClose={() => { if (!submitting) setManualOpen(false) }}>
-        <form className="modal-form" onSubmit={submitManual}>
-          <FilterDropdown
-            label="Employee"
-            value={form.employeeId}
-            onChange={(value) => setForm((prev) => ({ ...prev, employeeId: value }))}
-            options={[{ value: '', label: 'Select employee' }, ...employees.map((e) => ({ value: String(e.employeeId || e.id || e._id), label: `${e.name} (${e.employeeId || e.id || e._id})` }))]}
-          />
-          {formErrors.employeeId ? <p className="error">{formErrors.employeeId}</p> : null}
+        <form className="modal-form company-form-modal" onSubmit={submitManual}>
+          <div className="company-form-section">
+            <div className="company-form-section-head">
+              <h4>Employee Selection</h4>
+              <p>Pick employee and mark attendance date.</p>
+            </div>
+            <div className="form-grid company-form-grid">
+              <FilterDropdown
+                label="Employee"
+                value={form.employeeId}
+                onChange={(value) => setForm((prev) => ({ ...prev, employeeId: value }))}
+                options={[{ value: '', label: 'Select employee' }, ...employees.map((e) => ({ value: String(e.employeeId || e.id || e._id), label: `${e.name} (${e.employeeId || e.id || e._id})` }))]}
+              />
+              <FormInput label="Date" type="date" value={form.date} onChange={(e) => setForm((prev) => ({ ...prev, date: e.target.value }))} />
+              {formErrors.employeeId ? <p className="error">{formErrors.employeeId}</p> : null}
+              {formErrors.date ? <p className="error">{formErrors.date}</p> : null}
+            </div>
+          </div>
 
-          <FormInput label="Date" type="date" value={form.date} onChange={(e) => setForm((prev) => ({ ...prev, date: e.target.value }))} />
-          {formErrors.date ? <p className="error">{formErrors.date}</p> : null}
+          <div className="company-form-section">
+            <div className="company-form-section-head">
+              <h4>Time Details</h4>
+              <p>Provide check-in and check-out timestamps.</p>
+            </div>
+            <div className="form-grid company-form-grid">
+              <FormInput label="Check In" type="datetime-local" value={form.checkIn} onChange={(e) => setForm((prev) => ({ ...prev, checkIn: e.target.value }))} />
+              <FormInput label="Check Out" type="datetime-local" value={form.checkOut} onChange={(e) => setForm((prev) => ({ ...prev, checkOut: e.target.value }))} />
+            </div>
+          </div>
 
-          <FormInput label="Check In" type="datetime-local" value={form.checkIn} onChange={(e) => setForm((prev) => ({ ...prev, checkIn: e.target.value }))} />
-          <FormInput label="Check Out" type="datetime-local" value={form.checkOut} onChange={(e) => setForm((prev) => ({ ...prev, checkOut: e.target.value }))} />
-
-          <FilterDropdown label="Status" value={form.status} onChange={(value) => setForm((prev) => ({ ...prev, status: value }))} options={statusOptions.filter((s) => s.value !== 'all')} />
+          <div className="company-form-section">
+            <div className="company-form-section-head">
+              <h4>Attendance Status</h4>
+              <p>Set final attendance state for this entry.</p>
+            </div>
+            <div className="form-grid company-form-grid">
+              <FilterDropdown label="Status" value={form.status} onChange={(value) => setForm((prev) => ({ ...prev, status: value }))} options={statusOptions.filter((s) => s.value !== 'all')} />
+            </div>
+          </div>
 
           <Button type="submit" disabled={submitting}>{submitting ? 'Saving...' : 'Mark Attendance'}</Button>
         </form>
       </Modal>
 
       <Modal open={editOpen} title={`Edit Attendance - ${selected?.employeeNameSafe || ''}`} onClose={() => { if (!submitting) setEditOpen(false) }}>
-        <form className="modal-form" onSubmit={submitEdit}>
-          <FormInput label="Date" type="date" value={form.date} onChange={(e) => setForm((prev) => ({ ...prev, date: e.target.value }))} />
-          <FormInput label="Check In" type="datetime-local" value={form.checkIn} onChange={(e) => setForm((prev) => ({ ...prev, checkIn: e.target.value }))} />
-          <FormInput label="Check Out" type="datetime-local" value={form.checkOut} onChange={(e) => setForm((prev) => ({ ...prev, checkOut: e.target.value }))} />
+        <form className="modal-form company-form-modal" onSubmit={submitEdit}>
+          <div className="company-form-section">
+            <div className="company-form-section-head">
+              <h4>Attendance Date</h4>
+              <p>Update recorded day and working timestamps.</p>
+            </div>
+            <div className="form-grid company-form-grid">
+              <FormInput label="Date" type="date" value={form.date} onChange={(e) => setForm((prev) => ({ ...prev, date: e.target.value }))} />
+              <FormInput label="Check In" type="datetime-local" value={form.checkIn} onChange={(e) => setForm((prev) => ({ ...prev, checkIn: e.target.value }))} />
+              <FormInput label="Check Out" type="datetime-local" value={form.checkOut} onChange={(e) => setForm((prev) => ({ ...prev, checkOut: e.target.value }))} />
+            </div>
+          </div>
 
-          <FilterDropdown label="Status" value={form.status} onChange={(value) => setForm((prev) => ({ ...prev, status: value }))} options={statusOptions.filter((s) => s.value !== 'all')} />
+          <div className="company-form-section">
+            <div className="company-form-section-head">
+              <h4>Status</h4>
+              <p>Save the corrected attendance status.</p>
+            </div>
+            <div className="form-grid company-form-grid">
+              <FilterDropdown label="Status" value={form.status} onChange={(value) => setForm((prev) => ({ ...prev, status: value }))} options={statusOptions.filter((s) => s.value !== 'all')} />
+            </div>
+          </div>
 
           <Button type="submit" disabled={submitting}>{submitting ? 'Updating...' : 'Update Attendance'}</Button>
         </form>

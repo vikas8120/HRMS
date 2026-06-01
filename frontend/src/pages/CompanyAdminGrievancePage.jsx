@@ -8,6 +8,7 @@ function CompanyAdminGrievancePage() {
       description="Review and manage grievance records with filters and actions."
       primaryActionLabel="Raise Grievance"
       listTitle="Company Grievance Records"
+      scope="admin"
     />
   )
 }

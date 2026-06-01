@@ -7,7 +7,6 @@ import {
   Home,
   LogOut,
   Menu,
-  Megaphone,
   BookOpen,
   Settings,
   Bell,
@@ -29,7 +28,6 @@ const employeeItems = [
   { label: 'Leaves', path: '/employee/leaves', icon: FileSpreadsheet },
   { label: 'Salary Slip', path: '/employee/payroll', icon: FileSpreadsheet },
   { label: 'Policy', path: '/employee/policy', icon: BookOpen },
-  { label: 'Announcements', path: '/employee/announcements', icon: Megaphone },
   { label: 'Notifications', path: '/employee/notifications', icon: Bell },
   { label: 'Settings', path: '/employee/settings', icon: Settings }
 ]

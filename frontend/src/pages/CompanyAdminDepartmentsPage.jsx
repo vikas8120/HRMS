@@ -309,7 +309,6 @@ function CompanyAdminDepartmentsPage() {
       <div className="panel">
         <div className="panel-head">
           <h3>Department Records</h3>
-          <div className="actions-row"><Button onClick={openAdd}>Add Department</Button></div>
         </div>
 
         {loading ? <LoadingSkeleton rows={7} /> : error ? (
@@ -357,25 +356,40 @@ function CompanyAdminDepartmentsPage() {
       </div>
 
       <Modal open={formOpen} title={`${selected ? 'Edit' : 'Add'} Department`} onClose={() => { if (!submitting) setFormOpen(false) }}>
-        <form className="modal-form" onSubmit={onSubmit}>
-          <FormInput label="Name" value={form.name} onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))} placeholder="Enter department name" />
-          {formErrors.name ? <p className="error">{formErrors.name}</p> : null}
+        <form className="modal-form company-form-modal" onSubmit={onSubmit}>
+          <div className="company-form-section">
+            <div className="company-form-section-head">
+              <h4>Department Info</h4>
+              <p>Define department identity and purpose.</p>
+            </div>
+            <div className="form-grid company-form-grid">
+              <FormInput label="Name" value={form.name} onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))} placeholder="Enter department name" />
+              <FormInput label="Description" value={form.description} onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))} placeholder="Enter description" />
+              {formErrors.name ? <p className="error">{formErrors.name}</p> : null}
+            </div>
+          </div>
 
-          <FormInput label="Description" value={form.description} onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))} placeholder="Enter description" />
+          <div className="company-form-section">
+            <div className="company-form-section-head">
+              <h4>Ownership & Status</h4>
+              <p>Assign department head and access status.</p>
+            </div>
+            <div className="form-grid company-form-grid">
+              <FilterDropdown
+                label="Department Head"
+                value={form.departmentHead}
+                onChange={(value) => setForm((prev) => ({ ...prev, departmentHead: value }))}
+                options={[{ value: '', label: 'Unassigned' }, ...managers.map((manager) => ({ value: String(manager.id || manager._id), label: manager.name || 'Manager' }))]}
+              />
 
-          <FilterDropdown
-            label="Department Head"
-            value={form.departmentHead}
-            onChange={(value) => setForm((prev) => ({ ...prev, departmentHead: value }))}
-            options={[{ value: '', label: 'Unassigned' }, ...managers.map((manager) => ({ value: String(manager.id || manager._id), label: manager.name || 'Manager' }))]}
-          />
-
-          <FilterDropdown
-            label="Status"
-            value={form.status}
-            onChange={(value) => setForm((prev) => ({ ...prev, status: value }))}
-            options={[{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }]}
-          />
+              <FilterDropdown
+                label="Status"
+                value={form.status}
+                onChange={(value) => setForm((prev) => ({ ...prev, status: value }))}
+                options={[{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }]}
+              />
+            </div>
+          </div>
 
           <Button type="submit" disabled={submitting}>{submitting ? 'Saving...' : 'Save'}</Button>
         </form>

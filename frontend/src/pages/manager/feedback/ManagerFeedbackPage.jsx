@@ -12,22 +12,6 @@ import FeedbackTable from './FeedbackTable'
 
 const STORAGE_KEY = 'manager_feedback_v1'
 
-const categoryOptions = [
-  { value: 'all', label: 'All Categories' },
-  { value: 'Work Culture', label: 'Work Culture' },
-  { value: 'Management', label: 'Management' },
-  { value: 'Training', label: 'Training' },
-  { value: 'Facilities', label: 'Facilities' },
-  { value: 'Other', label: 'Other' }
-]
-
-const typeOptions = [
-  { value: 'all', label: 'All Types' },
-  { value: 'Suggestion', label: 'Suggestion' },
-  { value: 'Appreciation', label: 'Appreciation' },
-  { value: 'Improvement', label: 'Improvement' }
-]
-
 const statusOptions = [
   { value: 'all', label: 'All Status' },
   { value: 'Pending', label: 'Pending' },
@@ -63,7 +47,7 @@ const createForm = (ctx, feedbackNo = '') => ({
   status: 'Pending'
 })
 
-function ManagerFeedbackPage({ portalLabel = 'Manager Portal', title = 'Feedback Module', description = 'Submit and track your feedback across categories.', primaryActionLabel = 'Submit Feedback', listTitle = 'My Feedback' }) {
+function ManagerFeedbackPage({ portalLabel = 'Manager Portal', title = 'Feedback Module', description = 'Submit and track your feedback across categories.', primaryActionLabel = 'Submit Feedback', listTitle = 'My Feedback', enableDateFilters = false, scope = 'manager' }) {
   const auth = useAuth()
   const user = auth?.user || null
   const managerCtx = useMemo(() => resolveManagerContext(user), [user])
@@ -74,9 +58,13 @@ function ManagerFeedbackPage({ portalLabel = 'Manager Portal', title = 'Feedback
   const [rows, setRows] = useState([])
 
   const [search, setSearch] = useState('')
-  const [categoryFilter, setCategoryFilter] = useState('all')
-  const [typeFilter, setTypeFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [dateFilterMode, setDateFilterMode] = useState('all')
+  const [exactDate, setExactDate] = useState('')
+  const [monthFilter, setMonthFilter] = useState('')
+  const [yearFilter, setYearFilter] = useState('')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
 
   const [formOpen, setFormOpen] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
@@ -116,7 +104,7 @@ function ManagerFeedbackPage({ portalLabel = 'Manager Portal', title = 'Feedback
     try {
       const all = readAll()
       const mine = all
-        .filter((item) => String(item?.managerId) === managerCtx.managerId)
+        .filter((item) => (scope === 'admin' ? true : String(item?.managerId) === managerCtx.managerId))
         .map((item) => ({
           ...item,
           employeeName: item?.employeeName || item?.managerName || managerCtx.managerName
@@ -210,14 +198,30 @@ function ManagerFeedbackPage({ portalLabel = 'Manager Portal', title = 'Feedback
   const filteredRows = useMemo(() => {
     const q = search.trim().toLowerCase()
     return rows.filter((item) => {
-      if (categoryFilter !== 'all' && item.feedbackCategory !== categoryFilter) return false
-      if (typeFilter !== 'all' && item.feedbackType !== typeFilter) return false
       if (statusFilter !== 'all' && item.status !== statusFilter) return false
+      if (enableDateFilters) {
+        const rowDate = String(item.dateSubmitted || '').slice(0, 10)
+        if (dateFilterMode === 'date' && exactDate && rowDate !== exactDate) return false
+        if (dateFilterMode === 'month-year') {
+          const [yr, mo] = rowDate.split('-')
+          if (monthFilter && mo !== monthFilter) return false
+          if (yearFilter && yr !== yearFilter) return false
+        }
+        if (dateFilterMode === 'range') {
+          if (fromDate && rowDate < fromDate) return false
+          if (toDate && rowDate > toDate) return false
+        }
+      }
       if (!q) return true
       const bag = [item.feedbackNo, item.feedbackCategory, item.feedbackType, item.status, item.feedbackDetails].join(' ').toLowerCase()
       return bag.includes(q)
     })
-  }, [rows, search, categoryFilter, typeFilter, statusFilter])
+  }, [rows, search, statusFilter, enableDateFilters, dateFilterMode, exactDate, monthFilter, yearFilter, fromDate, toDate])
+
+  const yearOptions = useMemo(() => {
+    const years = Array.from(new Set(rows.map((item) => String(item.dateSubmitted || '').slice(0, 4)).filter(Boolean))).sort((a, b) => b.localeCompare(a))
+    return [{ value: '', label: 'All Years' }, ...years.map((y) => ({ value: y, label: y }))]
+  }, [rows])
 
   return (
     <section className="section-layout">
@@ -235,15 +239,70 @@ function ManagerFeedbackPage({ portalLabel = 'Manager Portal', title = 'Feedback
       <FeedbackStatsCards rows={rows} loading={loading} />
 
       <div className="panel">
-        <div className="filters-row grievance-filters-grid">
+        <div className={`filters-row grievance-filters-grid ${enableDateFilters && dateFilterMode === 'range' ? 'range-inline-layout' : ''}`}>
           <label className="form-input-wrap grievance-search-wrap">
             <span>Search</span>
             <input className="form-input" placeholder="Search by no, category, type, status, details" value={search} onChange={(event) => setSearch(event.target.value)} />
           </label>
-          <FilterDropdown label="Category" value={categoryFilter} onChange={setCategoryFilter} options={categoryOptions} />
-          <FilterDropdown label="Type" value={typeFilter} onChange={setTypeFilter} options={typeOptions} />
           <FilterDropdown label="Status" value={statusFilter} onChange={setStatusFilter} options={statusOptions} />
-          <div className="actions-row" style={{ alignSelf: 'end' }}>
+          {enableDateFilters ? (
+            <div className="date-mode-filter">
+              <FilterDropdown
+                label="Date Mode"
+                value={dateFilterMode}
+                onChange={(value) => {
+                  setDateFilterMode(value)
+                  setExactDate('')
+                  setMonthFilter('')
+                  setYearFilter('')
+                  setFromDate('')
+                  setToDate('')
+                }}
+                options={[
+                  { value: 'all', label: 'All Dates' },
+                  { value: 'date', label: 'Exact Date' },
+                  { value: 'month-year', label: 'Month + Year' },
+                  { value: 'range', label: 'Date Range' }
+                ]}
+              />
+            </div>
+          ) : null}
+          {enableDateFilters && dateFilterMode === 'date' ? (
+            <label className="form-input-wrap">
+              <span>Date</span>
+              <input className="form-input" type="date" value={exactDate} onChange={(event) => setExactDate(event.target.value)} />
+            </label>
+          ) : null}
+          {enableDateFilters && dateFilterMode === 'month-year' ? (
+            <>
+              <FilterDropdown
+                label="Month"
+                value={monthFilter}
+                onChange={setMonthFilter}
+                options={[
+                  { value: '', label: 'All Months' },
+                  { value: '01', label: 'January' }, { value: '02', label: 'February' }, { value: '03', label: 'March' },
+                  { value: '04', label: 'April' }, { value: '05', label: 'May' }, { value: '06', label: 'June' },
+                  { value: '07', label: 'July' }, { value: '08', label: 'August' }, { value: '09', label: 'September' },
+                  { value: '10', label: 'October' }, { value: '11', label: 'November' }, { value: '12', label: 'December' }
+                ]}
+              />
+              <FilterDropdown label="Year" value={yearFilter} onChange={setYearFilter} options={yearOptions} />
+            </>
+          ) : null}
+          {enableDateFilters && dateFilterMode === 'range' ? (
+            <>
+              <label className="form-input-wrap range-from-field">
+                <span>From</span>
+                <input className="form-input" type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
+              </label>
+              <label className="form-input-wrap range-to-field">
+                <span>To</span>
+                <input className="form-input" type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} />
+              </label>
+            </>
+          ) : null}
+          <div className="actions-row range-refresh-action" style={{ alignSelf: 'end' }}>
             <Button variant="ghost" onClick={loadRows}>Refresh</Button>
           </div>
         </div>

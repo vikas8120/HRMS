@@ -78,11 +78,20 @@ const initialForm = {
   name: '',
   email: '',
   phone: '',
+  address: '',
+  gender: '',
   departmentId: '',
   managerId: '',
   designation: '',
   joiningDate: '',
-  status: 'active'
+  status: 'active',
+  bankName: '',
+  accountHolder: '',
+  accountNumber: '',
+  ifsc: '',
+  emergencyName: '',
+  emergencyRelation: '',
+  emergencyPhone: ''
 }
 
 const formatDate = (value) => {
@@ -106,8 +115,10 @@ function CompanyAdminEmployeesPage({ embedded = false, title = 'Employees', brea
   const [formOpen, setFormOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [editConfirmOpen, setEditConfirmOpen] = useState(false)
 
   const [selected, setSelected] = useState(null)
+  const [pendingEditRow, setPendingEditRow] = useState(null)
   const [form, setForm] = useState(initialForm)
   const [formErrors, setFormErrors] = useState({})
 
@@ -182,11 +193,20 @@ function CompanyAdminEmployeesPage({ embedded = false, title = 'Employees', brea
       name: row.name,
       email: row.email,
       phone: row.phone,
+      address: row.address || '',
+      gender: row.gender || '',
       departmentId: row.departmentId,
       managerId: row.managerId,
       designation: row.designation,
       joiningDate: row.joiningDate,
-      status: row.status
+      status: row.status,
+      bankName: row.bankName || '',
+      accountHolder: row.accountHolder || '',
+      accountNumber: row.accountNumber || '',
+      ifsc: row.ifsc || '',
+      emergencyName: row.emergencyName || '',
+      emergencyRelation: row.emergencyRelation || '',
+      emergencyPhone: row.emergencyPhone || ''
     })
     setFormErrors({})
     setFormOpen(true)
@@ -227,11 +247,20 @@ function CompanyAdminEmployeesPage({ embedded = false, title = 'Employees', brea
       name: form.name.trim(),
       email: form.email.trim().toLowerCase(),
       phone: form.phone.trim(),
+      address: form.address.trim(),
+      gender: form.gender,
       departmentId: form.departmentId,
       managerId: form.managerId,
       designation: form.designation.trim(),
       joiningDate: form.joiningDate,
       status: form.status,
+      bankName: form.bankName.trim(),
+      accountHolder: form.accountHolder.trim(),
+      accountNumber: form.accountNumber.trim(),
+      ifsc: form.ifsc.trim().toUpperCase(),
+      emergencyName: form.emergencyName.trim(),
+      emergencyRelation: form.emergencyRelation.trim(),
+      emergencyPhone: form.emergencyPhone.trim(),
       updatedAt: now
     }
 
@@ -357,16 +386,15 @@ function CompanyAdminEmployeesPage({ embedded = false, title = 'Employees', brea
         </div>
       </div>
 
-      <div className="panel">
+      <div className="panel employee-records-panel">
         <div className="panel-head">
           <h3>Employee Records</h3>
-          <div className="actions-row"><Button onClick={openAdd}>Add Employee</Button></div>
         </div>
 
         {loading ? null : filteredRows.length === 0 ? (
           <EmptyState title="No employees found" description="Adjust filters or add a new employee." />
         ) : (
-          <div className="table-wrap">
+          <div className="table-wrap employee-records-table">
             <div className="table-meta"><p>{filteredRows.length} records</p></div>
             <table>
               <thead>
@@ -393,10 +421,10 @@ function CompanyAdminEmployeesPage({ embedded = false, title = 'Employees', brea
                     <td>{formatDate(row.joiningDate)}</td>
                     <td>
                       <div className="table-actions">
-                        <button className="text-btn" onClick={() => { setSelected(row); setProfileOpen(true) }}>View</button>
-                        <button className="text-btn" onClick={() => openEdit(row)}>Edit</button>
-                        <button className="text-btn" onClick={() => onToggleStatus(row)}>{row.status === 'active' ? 'Deactivate' : 'Activate'}</button>
-                        <button className="text-btn danger" onClick={() => { setSelected(row); setConfirmOpen(true) }}>Delete</button>
+                        <button className="text-btn action-view" onClick={() => { setSelected(row); setProfileOpen(true) }}>View</button>
+                        <button className="text-btn action-edit" onClick={() => { setPendingEditRow(row); setEditConfirmOpen(true) }}>Edit</button>
+                        <button className="text-btn action-toggle" onClick={() => onToggleStatus(row)}>{row.status === 'active' ? 'Deactivate' : 'Activate'}</button>
+                        <button className="text-btn danger action-delete" onClick={() => { setSelected(row); setConfirmOpen(true) }}>Delete</button>
                       </div>
                     </td>
                   </tr>
@@ -408,50 +436,108 @@ function CompanyAdminEmployeesPage({ embedded = false, title = 'Employees', brea
       </div>
 
       <Modal open={formOpen} title={selected ? 'Edit Employee' : 'Add Employee'} onClose={() => setFormOpen(false)}>
-        <form className="modal-form" onSubmit={onSubmit}>
-          <FormInput label="Employee ID" value={form.employeeId} onChange={(e) => setForm((prev) => ({ ...prev, employeeId: e.target.value }))} />
-          {formErrors.employeeId ? <p className="error">{formErrors.employeeId}</p> : null}
+        <form className="modal-form company-form-modal" onSubmit={onSubmit}>
+          <div className="company-form-section">
+            <div className="company-form-section-head">
+              <h4>Employee Info</h4>
+              <p>Basic identity and contact details for employee record.</p>
+            </div>
+            <div className="form-grid company-form-grid">
+              <FormInput label="Employee ID" value={form.employeeId} onChange={(e) => setForm((prev) => ({ ...prev, employeeId: e.target.value }))} />
+              <FormInput label="Full Name" value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} />
+              {formErrors.employeeId ? <p className="error">{formErrors.employeeId}</p> : null}
+              {formErrors.name ? <p className="error">{formErrors.name}</p> : null}
 
-          <FormInput label="Full Name" value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} />
-          {formErrors.name ? <p className="error">{formErrors.name}</p> : null}
+              <FormInput label="Work Email" value={form.email} onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))} />
+              <FormInput label="Phone Number" value={form.phone} onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))} />
+              {formErrors.email ? <p className="error">{formErrors.email}</p> : null}
+              {formErrors.phone ? <p className="error">{formErrors.phone}</p> : null}
 
-          <FormInput label="Work Email" value={form.email} onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))} />
-          {formErrors.email ? <p className="error">{formErrors.email}</p> : null}
+              <FilterDropdown
+                label="Gender"
+                value={form.gender}
+                onChange={(value) => setForm((prev) => ({ ...prev, gender: value }))}
+                options={[
+                  { value: '', label: 'Select Gender' },
+                  { value: 'male', label: 'Male' },
+                  { value: 'female', label: 'Female' },
+                  { value: 'other', label: 'Other' }
+                ]}
+              />
+              <FormInput label="Address" value={form.address} onChange={(e) => setForm((prev) => ({ ...prev, address: e.target.value }))} />
+            </div>
+          </div>
 
-          <FormInput label="Phone Number" value={form.phone} onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))} />
-          {formErrors.phone ? <p className="error">{formErrors.phone}</p> : null}
+          <div className="company-form-section">
+            <div className="company-form-section-head">
+              <h4>Work Assignment</h4>
+              <p>Department, manager, designation and joining details.</p>
+            </div>
+            <div className="form-grid company-form-grid">
+              <FilterDropdown
+                label="Department"
+                value={form.departmentId}
+                onChange={(value) => setForm((prev) => ({ ...prev, departmentId: value, managerId: '' }))}
+                options={[{ value: '', label: 'Select Department' }, ...DEPARTMENTS.map((item) => ({ value: item.id, label: item.name }))]}
+              />
+              <FilterDropdown
+                label="Manager"
+                value={form.managerId}
+                onChange={(value) => setForm((prev) => ({ ...prev, managerId: value }))}
+                options={[
+                  { value: '', label: 'Select Manager' },
+                  ...MANAGERS.filter((item) => !form.departmentId || item.departmentId === form.departmentId).map((item) => ({ value: item.id, label: item.name }))
+                ]}
+              />
+              {formErrors.departmentId ? <p className="error">{formErrors.departmentId}</p> : null}
+              {formErrors.managerId ? <p className="error">{formErrors.managerId}</p> : null}
 
-          <FilterDropdown
-            label="Department"
-            value={form.departmentId}
-            onChange={(value) => setForm((prev) => ({ ...prev, departmentId: value, managerId: '' }))}
-            options={[{ value: '', label: 'Select Department' }, ...DEPARTMENTS.map((item) => ({ value: item.id, label: item.name }))]}
-          />
-          {formErrors.departmentId ? <p className="error">{formErrors.departmentId}</p> : null}
+              <FormInput label="Designation" value={form.designation} onChange={(e) => setForm((prev) => ({ ...prev, designation: e.target.value }))} />
+              <FormInput label="Joining Date" type="date" value={form.joiningDate} onChange={(e) => setForm((prev) => ({ ...prev, joiningDate: e.target.value }))} />
+              {formErrors.designation ? <p className="error">{formErrors.designation}</p> : null}
+              {formErrors.joiningDate ? <p className="error">{formErrors.joiningDate}</p> : null}
+            </div>
+          </div>
 
-          <FilterDropdown
-            label="Manager"
-            value={form.managerId}
-            onChange={(value) => setForm((prev) => ({ ...prev, managerId: value }))}
-            options={[
-              { value: '', label: 'Select Manager' },
-              ...MANAGERS.filter((item) => !form.departmentId || item.departmentId === form.departmentId).map((item) => ({ value: item.id, label: item.name }))
-            ]}
-          />
-          {formErrors.managerId ? <p className="error">{formErrors.managerId}</p> : null}
+          <div className="company-form-section">
+            <div className="company-form-section-head">
+              <h4>Account Controls</h4>
+              <p>Set current employment status for access and workflows.</p>
+            </div>
+            <div className="form-grid company-form-grid">
+              <FilterDropdown
+                label="Status"
+                value={form.status}
+                onChange={(value) => setForm((prev) => ({ ...prev, status: value }))}
+                options={[{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }]}
+              />
+            </div>
+          </div>
 
-          <FormInput label="Designation" value={form.designation} onChange={(e) => setForm((prev) => ({ ...prev, designation: e.target.value }))} />
-          {formErrors.designation ? <p className="error">{formErrors.designation}</p> : null}
+          <div className="company-form-section">
+            <div className="company-form-section-head">
+              <h4>Bank Details</h4>
+              <p>Add account and bank information for payroll records.</p>
+            </div>
+            <div className="form-grid company-form-grid">
+              <FormInput label="Bank Name" value={form.bankName} onChange={(e) => setForm((prev) => ({ ...prev, bankName: e.target.value }))} />
+              <FormInput label="Account Holder" value={form.accountHolder} onChange={(e) => setForm((prev) => ({ ...prev, accountHolder: e.target.value }))} />
+              <FormInput label="Account Number" value={form.accountNumber} onChange={(e) => setForm((prev) => ({ ...prev, accountNumber: e.target.value }))} />
+              <FormInput label="IFSC" value={form.ifsc} onChange={(e) => setForm((prev) => ({ ...prev, ifsc: e.target.value }))} />
+            </div>
+          </div>
 
-          <FormInput label="Joining Date" type="date" value={form.joiningDate} onChange={(e) => setForm((prev) => ({ ...prev, joiningDate: e.target.value }))} />
-          {formErrors.joiningDate ? <p className="error">{formErrors.joiningDate}</p> : null}
-
-          <FilterDropdown
-            label="Status"
-            value={form.status}
-            onChange={(value) => setForm((prev) => ({ ...prev, status: value }))}
-            options={[{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }]}
-          />
+          <div className="company-form-section">
+            <div className="company-form-section-head">
+              <h4>Emergency Contact</h4>
+              <p>Keep emergency contact details for immediate communication.</p>
+            </div>
+            <div className="form-grid company-form-grid">
+              <FormInput label="Emergency Name" value={form.emergencyName} onChange={(e) => setForm((prev) => ({ ...prev, emergencyName: e.target.value }))} />
+              <FormInput label="Emergency Relation" value={form.emergencyRelation} onChange={(e) => setForm((prev) => ({ ...prev, emergencyRelation: e.target.value }))} />
+              <FormInput label="Emergency Phone" value={form.emergencyPhone} onChange={(e) => setForm((prev) => ({ ...prev, emergencyPhone: e.target.value }))} />
+            </div>
+          </div>
 
           <div className="modal-actions">
             <Button type="button" variant="ghost" onClick={() => setFormOpen(false)}>Cancel</Button>
@@ -467,15 +553,38 @@ function CompanyAdminEmployeesPage({ embedded = false, title = 'Employees', brea
             <div className="inline-action-card"><strong>Name:</strong> <span>{selected.name}</span></div>
             <div className="inline-action-card"><strong>Email:</strong> <span>{selected.email}</span></div>
             <div className="inline-action-card"><strong>Phone:</strong> <span>{selected.phone}</span></div>
+            <div className="inline-action-card"><strong>Address:</strong> <span>{selected.address || '-'}</span></div>
+            <div className="inline-action-card"><strong>Gender:</strong> <span>{selected.gender || '-'}</span></div>
             <div className="inline-action-card"><strong>Department:</strong> <span>{departmentMap[selected.departmentId] || '-'}</span></div>
+            <div className="inline-action-card"><strong>Department ID:</strong> <span>{selected.departmentId || '-'}</span></div>
             <div className="inline-action-card"><strong>Manager:</strong> <span>{managerMap[selected.managerId] || '-'}</span></div>
+            <div className="inline-action-card"><strong>Manager ID:</strong> <span>{selected.managerId || '-'}</span></div>
             <div className="inline-action-card"><strong>Designation:</strong> <span>{selected.designation}</span></div>
             <div className="inline-action-card"><strong>Joining Date:</strong> <span>{formatDate(selected.joiningDate)}</span></div>
+            <div className="inline-action-card"><strong>Bank Name:</strong> <span>{selected.bankName || '-'}</span></div>
+            <div className="inline-action-card"><strong>Account Holder:</strong> <span>{selected.accountHolder || '-'}</span></div>
+            <div className="inline-action-card"><strong>Account Number:</strong> <span>{selected.accountNumber || '-'}</span></div>
+            <div className="inline-action-card"><strong>IFSC:</strong> <span>{selected.ifsc || '-'}</span></div>
+            <div className="inline-action-card"><strong>Emergency Name:</strong> <span>{selected.emergencyName || '-'}</span></div>
+            <div className="inline-action-card"><strong>Emergency Relation:</strong> <span>{selected.emergencyRelation || '-'}</span></div>
+            <div className="inline-action-card"><strong>Emergency Phone:</strong> <span>{selected.emergencyPhone || '-'}</span></div>
             <div className="inline-action-card"><strong>Status:</strong> <span>{selected.status}</span></div>
             <div className="inline-action-card"><strong>Last Updated:</strong> <span>{formatDate(selected.updatedAt)}</span></div>
           </div>
         )}
       </Modal>
+
+      <ConfirmDialog
+        open={editConfirmOpen}
+        title="Edit Employee"
+        message={`Edit details for ${pendingEditRow?.name || 'this employee'}?`}
+        onCancel={() => setEditConfirmOpen(false)}
+        onConfirm={() => {
+          if (pendingEditRow) openEdit(pendingEditRow)
+          setEditConfirmOpen(false)
+          setPendingEditRow(null)
+        }}
+      />
 
       <ConfirmDialog
         open={confirmOpen}

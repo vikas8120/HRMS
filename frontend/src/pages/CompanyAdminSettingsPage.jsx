@@ -9,6 +9,7 @@ import EmptyState from '../components/ui/EmptyState'
 import StatCard from '../components/ui/StatCard'
 import FilterDropdown from '../components/ui/FilterDropdown'
 import CompanyAdminEmployeesPage from './CompanyAdminEmployeesPage'
+import { fetchCompanies, getCompanyById } from '../api/companyManagementApi'
 import {
   addHoliday,
   deleteHoliday,
@@ -20,7 +21,6 @@ import {
   updatePayrollSettings,
   updateWorkingDays
 } from '../api/adminSettingsApi'
-import { generateMoreDemoData, isDemoMode, resetDemoData } from '../mocks/demoApi'
 
 const daysOptions = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
@@ -37,6 +37,7 @@ const defaultState = {
 function CompanyAdminSettingsPage() {
   const { pathname } = useLocation()
   const isHrProfileRoute = pathname === '/hr/profile'
+  const isHrSettingsRoute = pathname === '/hr/settings'
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState({})
@@ -45,7 +46,10 @@ function CompanyAdminSettingsPage() {
   const [holidayForm, setHolidayForm] = useState({ name: '', date: '', type: '', description: '' })
   const [validation, setValidation] = useState({})
   const [profileTab, setProfileTab] = useState('My Profile')
-  const demoMode = isDemoMode()
+  const [companyOptions, setCompanyOptions] = useState([])
+  const [selectedCompanyId, setSelectedCompanyId] = useState('')
+  const [branchOptions, setBranchOptions] = useState([{ value: '', label: 'Select Branch' }])
+  const [selectedBranchId, setSelectedBranchId] = useState('')
   const currentUser = useMemo(() => {
     try {
       const raw = localStorage.getItem('currentUser')
@@ -54,6 +58,28 @@ function CompanyAdminSettingsPage() {
       return {}
     }
   }, [])
+
+  const hrProfileDetails = useMemo(() => ([
+    { label: 'Name', value: currentUser?.name || currentUser?.fullName || 'HR Manager' },
+    { label: 'Email', value: currentUser?.email || 'hr@demo.com' },
+    { label: 'Role', value: currentUser?.role || 'hr' },
+    { label: 'Phone', value: currentUser?.phone || '+91-9876543201' },
+    { label: 'Employee ID', value: currentUser?.employeeId || currentUser?.empId || 'HR001' },
+    { label: 'Designation', value: currentUser?.designation || 'HR Manager' },
+    { label: 'Department', value: currentUser?.department || currentUser?.departmentName || 'HR Operations' },
+    { label: 'Department ID', value: currentUser?.departmentId || 'HR-OPS-01' },
+    { label: 'Manager ID', value: currentUser?.managerId || 'ADMIN-001' },
+    { label: 'Joining Date', value: currentUser?.joiningDate || '15-04-2026' },
+    { label: 'Address', value: currentUser?.address || 'Bengaluru, Karnataka' },
+    { label: 'Gender', value: currentUser?.gender || 'Not specified' },
+    { label: 'Bank Name', value: currentUser?.bankName || 'HDFC Bank' },
+    { label: 'Account Holder', value: currentUser?.accountHolder || (currentUser?.name || currentUser?.fullName || 'HR Manager') },
+    { label: 'Account Number', value: currentUser?.accountNumber || 'XXXXXX4321' },
+    { label: 'IFSC', value: currentUser?.ifsc || 'HDFC0001234' },
+    { label: 'Emergency Name', value: currentUser?.emergencyName || 'Priya Sharma' },
+    { label: 'Emergency Relation', value: currentUser?.emergencyRelation || 'Spouse' },
+    { label: 'Emergency Phone', value: currentUser?.emergencyPhone || '+91-9876543299' }
+  ]), [currentUser])
 
   useEffect(() => {
     if (!toast) return undefined
@@ -89,6 +115,22 @@ function CompanyAdminSettingsPage() {
     loadSettings()
   }, [])
 
+  useEffect(() => {
+    const loadCompanyDirectory = async () => {
+      try {
+        const res = await fetchCompanies({ page: 1, limit: 200, search: '', status: 'all', plan: 'all' })
+        const options = (res?.items || []).map((company) => ({
+          value: String(company.id || company._id || ''),
+          label: `${company.companyName || 'Company'}${company.companyCode ? ` (${company.companyCode})` : ''}`
+        })).filter((item) => item.value)
+        setCompanyOptions(options)
+      } catch (_err) {
+        setCompanyOptions([])
+      }
+    }
+    loadCompanyDirectory()
+  }, [])
+
   const stats = useMemo(() => ([
     { title: 'Working Days', value: String(data.workingDays.length || 0), trend: 'Configured weekly schedule' },
     { title: 'Total Holidays', value: String(data.holidays.length || 0), trend: 'Holiday calendar entries' },
@@ -115,6 +157,41 @@ function CompanyAdminSettingsPage() {
       setToast({ type: 'error', message: err?.response?.data?.message || 'Failed to save company profile' })
     } finally {
       setSectionSaving('companyProfile', false)
+    }
+  }
+
+  const onSelectCompany = async (value) => {
+    setSelectedCompanyId(value)
+    setSelectedBranchId('')
+    setBranchOptions([{ value: '', label: 'Select Branch' }])
+    if (!value) return
+
+    try {
+      const res = await getCompanyById(value)
+      const company = res?.item || {}
+      const branches = Array.isArray(company.branches) ? company.branches : []
+
+      setData((prev) => ({
+        ...prev,
+        companyProfile: {
+          ...prev.companyProfile,
+          name: company.companyName || prev.companyProfile.name,
+          email: company.email || prev.companyProfile.email,
+          phone: company.phone || prev.companyProfile.phone,
+          address: company.address || prev.companyProfile.address,
+          website: company.website || prev.companyProfile.website
+        }
+      }))
+
+      setBranchOptions([
+        { value: '', label: 'Select Branch' },
+        ...branches.map((branch) => ({
+          value: String(branch.id || branch._id || ''),
+          label: `${branch.name || 'Branch'}${branch.code ? ` (${branch.code})` : ''}`
+        })).filter((item) => item.value)
+      ])
+    } catch (_err) {
+      setBranchOptions([{ value: '', label: 'Select Branch' }])
     }
   }
 
@@ -246,21 +323,6 @@ function CompanyAdminSettingsPage() {
     }
   }
 
-  const onResetDemoData = () => {
-    resetDemoData()
-    localStorage.removeItem('token')
-    localStorage.removeItem('currentUser')
-    setToast({ type: 'success', message: 'Demo data reset successfully. Reloading...' })
-    setTimeout(() => {
-      if (typeof window !== 'undefined') window.location.href = '/login'
-    }, 700)
-  }
-
-  const onGenerateMoreDemoData = () => {
-    const result = generateMoreDemoData(30)
-    setToast({ type: 'success', message: `Generated ${result.generated} demo records across modules.` })
-    loadSettings()
-  }
 
   if (loading) {
     return (
@@ -289,8 +351,14 @@ function CompanyAdminSettingsPage() {
     <section className={`section-layout ${isHrProfileRoute ? 'hr-profile-page' : ''}`}>
       <PageHeader
         title={isHrProfileRoute ? 'Profile' : 'Settings'}
-        description={isHrProfileRoute ? 'Manage your details and employee profile records.' : 'Manage company profile, attendance, leave, payroll, and holiday calendar.'}
-        breadcrumb={isHrProfileRoute ? ['HR Portal', 'Profile'] : ['Company Admin', 'Settings']}
+        description={
+          isHrProfileRoute
+            ? 'Manage your details and employee profile records.'
+            : isHrSettingsRoute
+              ? 'Manage HR settings, attendance, leave, payroll, and holiday calendar.'
+              : 'Manage company profile, attendance, leave, payroll, and holiday calendar.'
+        }
+        breadcrumb={isHrProfileRoute ? ['HR Portal', 'Profile'] : isHrSettingsRoute ? ['HR Portal', 'Settings'] : ['Company Admin', 'Settings']}
         primaryActionLabel=""
       />
 
@@ -312,10 +380,11 @@ function CompanyAdminSettingsPage() {
         <article className="panel">
           <div className="panel-head"><h3>My Profile</h3></div>
           <div className="dashboard-mini-grid">
-            <div className="inline-action-card"><strong>Name:</strong> <span>{currentUser?.name || currentUser?.fullName || 'HR User'}</span></div>
-            <div className="inline-action-card"><strong>Email:</strong> <span>{currentUser?.email || '-'}</span></div>
-            <div className="inline-action-card"><strong>Role:</strong> <span>{currentUser?.role || 'HR'}</span></div>
-            <div className="inline-action-card"><strong>Phone:</strong> <span>{currentUser?.phone || '-'}</span></div>
+            {hrProfileDetails.map((item) => (
+              <div key={item.label} className="inline-action-card">
+                <strong>{item.label}:</strong> <span>{item.value || '-'}</span>
+              </div>
+            ))}
           </div>
         </article>
       ) : null}
@@ -337,11 +406,24 @@ function CompanyAdminSettingsPage() {
       <article className="panel">
         <div className="panel-head"><h3>Company Profile</h3></div>
         <div className="filters-row admin-filters-grid">
+          <FilterDropdown
+            label="Company"
+            value={selectedCompanyId}
+            onChange={onSelectCompany}
+            options={[{ value: '', label: 'Select Company' }, ...companyOptions]}
+          />
+          <FilterDropdown
+            label="Branch"
+            value={selectedBranchId}
+            onChange={setSelectedBranchId}
+            options={branchOptions}
+          />
           <FormInput
             label="Company Name"
             value={data.companyProfile.name || ''}
-            onChange={(e) => setData((p) => ({ ...p, companyProfile: { ...p.companyProfile, name: e.target.value } }))}
+            onChange={() => {}}
             error={validation.companyName || ''}
+            disabled
           />
           <FormInput
             label="Company Email"
@@ -509,20 +591,6 @@ function CompanyAdminSettingsPage() {
         </div>
       </article>
 
-      {demoMode ? (
-        <article className="panel">
-          <div className="panel-head"><h3>Demo Data</h3></div>
-          <p>Reset all seeded demo records and user session to start from a clean state.</p>
-          <div className="actions-row" style={{ marginTop: 10 }}>
-            <Button variant="ghost" onClick={onGenerateMoreDemoData}>
-              <RefreshCw size={14} /> Generate More Demo Data
-            </Button>
-            <Button variant="ghost" onClick={onResetDemoData}>
-              <Trash2 size={14} /> Reset Demo Data
-            </Button>
-          </div>
-        </article>
-      ) : null}
         </>
       ) : null}
     </section>

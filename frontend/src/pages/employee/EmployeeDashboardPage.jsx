@@ -174,7 +174,6 @@ function EmployeeDashboardPage() {
           <article className="panel">
             <div className="panel-head">
               <h3>Recent Announcements</h3>
-              <Button variant="ghost" onClick={() => navigate('/employee/announcements')}>View All</Button>
             </div>
             {notifications.length ? (
               <ul className="list">

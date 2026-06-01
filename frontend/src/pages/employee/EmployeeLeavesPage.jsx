@@ -252,21 +252,37 @@ function EmployeeLeavesPage() {
       </div>
 
       <Modal open={formOpen} title={editingId ? 'Edit Pending Leave Request' : 'Apply Leave'} onClose={() => setFormOpen(false)}>
-        <div className="modal-form">
-          <FilterDropdown label="Leave Type" value={form.leaveType} onChange={(value) => setForm((prev) => ({ ...prev, leaveType: value }))} options={typeOptions.filter((x) => x.value !== 'all')} />
-          <label className="form-input-wrap">
-            <span>Start Date</span>
-            <input className="form-input" type="date" value={form.startDate} onChange={(e) => setForm((prev) => ({ ...prev, startDate: e.target.value }))} />
-          </label>
-          <label className="form-input-wrap">
-            <span>End Date</span>
-            <input className="form-input" type="date" value={form.endDate} onChange={(e) => setForm((prev) => ({ ...prev, endDate: e.target.value }))} />
-          </label>
-          <label className="form-input-wrap">
-            <span>Reason</span>
-            <textarea className="form-input" rows={4} value={form.reason} onChange={(e) => setForm((prev) => ({ ...prev, reason: e.target.value }))} />
-          </label>
-          <div className="actions-row">
+        <div className="modal-form company-form-modal">
+          <div className="company-form-section">
+            <div className="company-form-section-head">
+              <h4>Leave Plan</h4>
+              <p>Select leave type and choose start/end dates.</p>
+            </div>
+            <div className="form-grid company-form-grid">
+              <FilterDropdown label="Leave Type" value={form.leaveType} onChange={(value) => setForm((prev) => ({ ...prev, leaveType: value }))} options={typeOptions.filter((x) => x.value !== 'all')} />
+              <label className="form-input-wrap">
+                <span>Start Date</span>
+                <input className="form-input" type="date" value={form.startDate} onChange={(e) => setForm((prev) => ({ ...prev, startDate: e.target.value }))} />
+              </label>
+              <label className="form-input-wrap">
+                <span>End Date</span>
+                <input className="form-input" type="date" value={form.endDate} onChange={(e) => setForm((prev) => ({ ...prev, endDate: e.target.value }))} />
+              </label>
+            </div>
+          </div>
+          <div className="company-form-section">
+            <div className="company-form-section-head">
+              <h4>Leave Justification</h4>
+              <p>Add reason for approval and records.</p>
+            </div>
+            <div className="form-grid company-form-grid">
+              <label className="form-input-wrap" style={{ gridColumn: '1 / -1' }}>
+                <span>Reason</span>
+                <textarea className="form-input" rows={4} value={form.reason} onChange={(e) => setForm((prev) => ({ ...prev, reason: e.target.value }))} />
+              </label>
+            </div>
+          </div>
+          <div className="modal-actions">
             <Button variant="ghost" onClick={() => setFormOpen(false)} disabled={submitting}>Cancel</Button>
             <Button onClick={onSubmit} disabled={submitting}>{submitting ? 'Submitting...' : (editingId ? 'Update Leave' : 'Submit Leave')}</Button>
           </div>
