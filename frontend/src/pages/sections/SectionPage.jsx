@@ -14,6 +14,7 @@ const BackupRestoreModulePage = lazy(() => import('../backup/BackupRestoreModule
 const ReportsModulePage = lazy(() => import('../reports/ReportsModulePage'))
 const SystemSettingsModulePage = lazy(() => import('../settings/SystemSettingsModulePage'))
 const FeatureManagementModulePage = lazy(() => import('../settings/FeatureManagementModulePage'))
+const SuperAdminNotificationsPage = lazy(() => import('../notifications/SuperAdminNotificationsPage'))
 
 function SectionPage({ module, page }) {
   const moduleFallback = <div className="panel">Loading {module}...</div>
@@ -30,6 +31,7 @@ function SectionPage({ module, page }) {
   if (module === 'Reports') return <Suspense fallback={moduleFallback}><ReportsModulePage page={page} /></Suspense>
   if (module === 'System Settings') return <Suspense fallback={moduleFallback}><SystemSettingsModulePage page={page} /></Suspense>
   if (module === 'Feature Management') return <Suspense fallback={moduleFallback}><FeatureManagementModulePage page={page} /></Suspense>
+  if (module === 'Notifications') return <Suspense fallback={moduleFallback}><SuperAdminNotificationsPage /></Suspense>
 
   return (
     <section className="section-layout">

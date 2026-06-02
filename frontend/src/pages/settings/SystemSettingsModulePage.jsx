@@ -153,15 +153,14 @@ function SystemSettingsModulePage({ page }) {
         title={activeGroup}
         description="Manage platform configuration with frontend-only editable controls."
         breadcrumb={['Super Admin', 'System Settings', activeGroup]}
-        primaryActionLabel="Refresh"
-        onPrimaryAction={() => showSaved('Refreshed (frontend state)')}
       />
       {toast.message ? <div className={`toast toast-${toast.type}`}>{toast.message}</div> : null}
 
       <div id="system-settings-section" className="panel">
         <div className="panel-head"><h3>{activeGroup}</h3></div>
         {renderFields()}
-        <div className="actions-row" style={{ marginTop: '10px' }}>
+        <div className="actions-row system-settings-actions" style={{ marginTop: '10px' }}>
+          <Button variant="ghost" onClick={() => showSaved('Refreshed (frontend state)')}>Refresh</Button>
           <Button onClick={saveCurrent}>Save Settings</Button>
         </div>
       </div>

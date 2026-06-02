@@ -55,6 +55,20 @@ export function AuthProvider({ children }) {
     })
   }, [])
 
+  useEffect(() => {
+    const syncUser = (event) => {
+      const nextUser = event?.detail?.user || getCurrentUser()
+      if (nextUser) setUser(nextUser)
+    }
+
+    window.addEventListener('hrms:auth-updated', syncUser)
+    window.addEventListener('storage', syncUser)
+    return () => {
+      window.removeEventListener('hrms:auth-updated', syncUser)
+      window.removeEventListener('storage', syncUser)
+    }
+  }, [])
+
   const login = async (identifier, password) => {
     const response = await api.post('/auth/login', { identifier, password })
     const payload = response?.data || {}

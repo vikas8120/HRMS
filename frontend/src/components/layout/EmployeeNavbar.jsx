@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Bell, LogOut, Search, UserCircle2 } from 'lucide-react'
+import { Search } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
-import Button from '../ui/Button'
+import NotificationDropdown from './NotificationDropdown'
+import ProfileDropdown from './ProfileDropdown'
 
 const employeeSearchItems = [
   { type: 'module', title: 'Dashboard', subtitle: 'Employee overview', route: '/employee/dashboard' },
@@ -109,23 +110,13 @@ function EmployeeNavbar() {
       </div>
 
       <div className="navbar-actions">
-        <button
-          className="icon-btn has-badge"
-          aria-label="Notifications"
-          onClick={() => navigate('/employee/notifications')}
-        >
-          <Bell size={16} />
-        </button>
-        <button
-          type="button"
-          className="profile-menu"
-          onClick={() => navigate('/employee/profile')}
-          aria-label="Open profile"
-        >
-          <UserCircle2 size={18} />
-          <span>{user?.name || 'Employee'}</span>
-        </button>
-        <Button variant="danger" onClick={logout}><LogOut size={14} /> Logout</Button>
+        <NotificationDropdown role="employee" viewAllPath="/employee/notifications" viewAllLabel="Open notifications" />
+        <ProfileDropdown
+          user={user}
+          profilePath="/employee/profile"
+          onLogout={logout}
+          fallbackLabel="Employee"
+        />
       </div>
     </header>
   )

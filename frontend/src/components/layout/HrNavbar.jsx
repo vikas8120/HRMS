@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Bell, LogOut, Search, UserCircle2 } from 'lucide-react'
+import { Search } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { hrNavItems } from '../../data/hrPortalData'
 import { useAuth } from '../../hooks/useAuth'
-import Button from '../ui/Button'
+import NotificationDropdown from './NotificationDropdown'
+import ProfileDropdown from './ProfileDropdown'
 
 const hrSearchItems = hrNavItems.map((item) => ({
   type: 'module',
@@ -101,23 +102,13 @@ function HrNavbar() {
       </div>
 
       <div className="navbar-actions">
-        <button
-          className="icon-btn has-badge"
-          aria-label="Announcements"
-          onClick={() => navigate('/hr/announcement')}
-        >
-          <Bell size={16} />
-        </button>
-        <button
-          type="button"
-          className="profile-menu"
-          onClick={() => navigate('/hr/profile')}
-          aria-label="Open profile"
-        >
-          <UserCircle2 size={18} />
-          <span>{user?.name || 'HR User'}</span>
-        </button>
-        <Button variant="danger" onClick={logout}><LogOut size={14} /> Logout</Button>
+        <NotificationDropdown role="hr" viewAllPath="/hr/notifications" viewAllLabel="Open notifications" />
+        <ProfileDropdown
+          user={user}
+          profilePath="/hr/profile"
+          onLogout={logout}
+          fallbackLabel="HR User"
+        />
       </div>
     </header>
   )

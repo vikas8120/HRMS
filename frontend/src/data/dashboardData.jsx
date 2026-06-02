@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Building2, UserCog, CreditCard, BarChart3, Sparkles, LifeBuoy,
-  Shield, Plug, Brain, Database, FileText, Settings, Activity, Receipt, Bot, Users
+  Shield, Plug, Brain, Database, FileText, Settings, Activity, Receipt, Bot, Users, Bell
 } from 'lucide-react'
 
 const slugify = (value) =>
@@ -19,6 +19,7 @@ export const moduleRegistry = [
   { label: 'Revenue & Analytics', icon: BarChart3, items: ['Monthly Revenue', 'Annual Revenue', 'MRR Analytics', 'ARR Analytics', 'Revenue Forecasting', 'Churn Analytics', 'Renewal Rate', 'Revenue by Plan', 'Top Paying Customers'] },
   { label: 'Feature Management', icon: Sparkles, items: ['Module Enable/Disable', 'Tenant-wise Features', 'Plan-wise Features', 'API Feature Access', 'Usage Limits', 'AI Feature Access'] },
   { label: 'Support Center', icon: LifeBuoy, items: ['Ticket Dashboard', 'Open Tickets', 'Closed Tickets', 'Escalated Tickets'] },
+  { label: 'Notifications', icon: Bell, items: [] },
   { label: 'Audit & Security', icon: Shield, items: ['All Logs', 'Login Logs', 'User Activity Logs', 'Company Activity Logs', 'Admin Activity Logs', 'API Logs', 'Security Logs', 'Configuration Changes', 'Permission Changes', 'Billing Logs', 'IP Tracking', 'Device Logs', 'Export Logs', 'Password Policies', 'Two-Factor Authentication', 'SSO Settings', 'OAuth Settings', 'IP Whitelisting', 'Session Timeout', 'Captcha Settings', 'Token Expiry Settings', 'Threat Monitoring'] },
   { label: 'Integrations', icon: Plug, items: ['Biometric Devices', 'Google Workspace', 'Microsoft 365', 'Slack', 'Zoom', 'Teams', 'Payment Gateway', 'Accounting Software', 'Email Integration', 'SMS Gateway', 'WhatsApp API', 'Maps API', 'Webhooks', 'Third-party Marketplace'] },
   { label: 'AI Center', icon: Brain, items: ['AI Dashboard', 'AI Attendance Insights', 'AI Attrition Prediction', 'AI Payroll Analytics', 'AI Chatbot', 'AI Auto Reports', 'AI Fraud Detection', 'AI Usage Analytics', 'AI Automation Rules'] },

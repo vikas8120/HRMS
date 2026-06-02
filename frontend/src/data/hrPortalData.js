@@ -20,19 +20,19 @@ import {
 export const hrNavItems = [
   { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/hr/dashboard' },
   { key: 'profile', label: 'Profile', icon: UserRound, path: '/hr/profile' },
-  { key: 'feedback', label: 'Feedback', icon: MessageSquareText, path: '/hr/feedback' },
-  { key: 'grievance', label: 'Grievance', icon: MessageSquareWarning, path: '/hr/grievance' },
-  { key: 'complaint-box', label: 'Complaint Box', icon: Inbox, path: '/hr/complaint-box' },
   { key: 'attendance', label: 'Attendance', icon: CalendarCheck2, path: '/hr/attendance' },
   { key: 'leave', label: 'Leave', icon: CalendarClock, path: '/hr/leave' },
   { key: 'payroll', label: 'Payroll', icon: Wallet, path: '/hr/payroll' },
   { key: 'policy', label: 'Policy', icon: ShieldCheck, path: '/hr/policy' },
   { key: 'notifications', label: 'Notifications', icon: Bell, path: '/hr/notifications' },
-  { key: 'settings', label: 'HR Settings', icon: Settings, path: '/hr/settings' },
   { key: 'department', label: 'Department', icon: Building2, path: '/hr/department' },
   { key: 'recruitment', label: 'Recruitment', icon: BriefcaseBusiness, path: '/hr/recruitment' },
   { key: 'performance', label: 'Performance', icon: TrendingUp, path: '/hr/performance' },
-  { key: 'report', label: 'Report', icon: BarChart3, path: '/hr/report' }
+  { key: 'report', label: 'Report', icon: BarChart3, path: '/hr/report' },
+  { key: 'feedback', label: 'Feedback', icon: MessageSquareText, path: '/hr/feedback' },
+  { key: 'grievance', label: 'Grievance', icon: MessageSquareWarning, path: '/hr/grievance' },
+  { key: 'complaint-box', label: 'Complaint Box', icon: Inbox, path: '/hr/complaint-box' },
+  { key: 'settings', label: 'HR Settings', icon: Settings, path: '/hr/settings' }
 ]
 
 export const hrModuleConfig = {

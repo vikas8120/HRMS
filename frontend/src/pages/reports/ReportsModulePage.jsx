@@ -133,7 +133,7 @@ function ReportsModulePage({ page }) {
           <FormInput label="To Date" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
           <FilterDropdown label="Format" value={format} onChange={setFormat} options={[{ value: 'csv', label: 'CSV' }, { value: 'pdf', label: 'PDF' }, { value: 'xlsx', label: 'XLSX' }]} />
         </div>
-        <div className="actions-row">
+        <div className="actions-row reports-actions-row">
           <Button disabled={submitting} onClick={() => runGenerate(format)}>{submitting ? 'Generating...' : 'Generate Report'}</Button>
           <Button variant="ghost" disabled={submitting} onClick={() => runGenerate('csv')}>Export CSV</Button>
           <Button variant="ghost" disabled={submitting} onClick={() => runGenerate('pdf')}>Export PDF</Button>

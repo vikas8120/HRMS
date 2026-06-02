@@ -76,6 +76,7 @@ const ManagerHelpSupportPage = safeLazy(() => import('./pages/manager/ManagerHel
 const ManagerReportsPage = safeLazy(() => import('./pages/manager/ManagerReportsPage'))
 const ManagerPayrollViewPage = safeLazy(() => import('./pages/manager/ManagerPayrollViewPage'))
 const PremiumCRMPage = safeLazy(() => import('./pages/PremiumCRMPage'))
+const ProfileWorkspacePage = safeLazy(() => import('./pages/common/ProfileWorkspacePage'))
 
 function App() {
   return (
@@ -95,6 +96,17 @@ function App() {
             <Route path="/dashboard" element={<Navigate to="/super-admin/dashboard" replace />} />
             <Route path="/platform-admin/dashboard" element={<Navigate to="/super-admin/dashboard" replace />} />
             <Route path="/super-admin/dashboard" element={<DashboardPage />} />
+            <Route
+              path="/super-admin/profile"
+              element={
+                <ProfileWorkspacePage
+                  title="My Profile Page"
+                  description="View and update your platform access details and password from one frontend workspace."
+                  breadcrumb={['Super Admin', 'My Profile']}
+                  roleKey="platform_admin"
+                />
+              }
+            />
 
             {navItems.filter((module) => module.path !== '/super-admin/dashboard').map((module) => (
               <Route key={module.path} path={module.path} element={<SectionPage module={module.label} />} />
@@ -114,6 +126,17 @@ function App() {
           <Route element={<AdminLayout />}>
             <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
             <Route path="/admin/dashboard" element={<CompanyAdminDashboardPage />} />
+            <Route
+              path="/admin/profile"
+              element={
+                <ProfileWorkspacePage
+                  title="My Profile Page"
+                  description="View and update your company admin account details and password."
+                  breadcrumb={['Company Admin', 'My Profile']}
+                  roleKey="admin"
+                />
+              }
+            />
             <Route path="/admin/hr" element={<CompanyAdminHRPage />} />
             <Route path="/admin/managers" element={<CompanyAdminManagersPage />} />
             <Route path="/admin/employees" element={<CompanyAdminEmployeesPage />} />
@@ -149,7 +172,17 @@ function App() {
             <Route path="/hr/recruitment" element={<HrRecruitmentPage />} />
             <Route path="/hr/department" element={<CompanyAdminDepartmentsPage />} />
             <Route path="/hr/report" element={<CompanyAdminReportsPage />} />
-            <Route path="/hr/profile" element={<CompanyAdminSettingsPage />} />
+            <Route
+              path="/hr/profile"
+              element={
+                <ProfileWorkspacePage
+                  title="My Profile Page"
+                  description="Update your HR account details and password from the same frontend workspace."
+                  breadcrumb={['HR Portal', 'My Profile']}
+                  roleKey="hr"
+                />
+              }
+            />
             <Route path="/hr/settings" element={<CompanyAdminSettingsPage />} />
           </Route>
         </Route>
@@ -178,7 +211,17 @@ function App() {
             <Route path="/manager/settings" element={<ManagerSettingsPage />} />
             <Route path="/manager/documents" element={<Navigate to="/manager/dashboard" replace />} />
             <Route path="/manager/communication" element={<Navigate to="/manager/dashboard" replace />} />
-            <Route path="/manager/profile" element={<ManagerProfileSettingsPage />} />
+            <Route
+              path="/manager/profile"
+              element={
+                <ProfileWorkspacePage
+                  title="My Profile Page"
+                  description="Manage your manager profile details and password without backend changes."
+                  breadcrumb={['Manager Portal', 'My Profile']}
+                  roleKey="manager"
+                />
+              }
+            />
             <Route path="/manager/support" element={<ManagerHelpSupportPage />} />
           </Route>
         </Route>
@@ -198,7 +241,17 @@ function App() {
             <Route path="/employee/performance" element={<EmployeePerformancePage />} />
             <Route path="/employee/notifications" element={<EmployeeNotificationsPage />} />
             <Route path="/employee/settings" element={<EmployeeSettingsPage />} />
-            <Route path="/employee/profile" element={<EmployeeProfilePage />} />
+            <Route
+              path="/employee/profile"
+              element={
+                <ProfileWorkspacePage
+                  title="My Profile Page"
+                  description="View and update your employee profile details and password."
+                  breadcrumb={['Employee Portal', 'My Profile']}
+                  roleKey="employee"
+                />
+              }
+            />
           </Route>
         </Route>
 

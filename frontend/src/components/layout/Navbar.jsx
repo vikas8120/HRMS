@@ -1,13 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bell, LogOut, Moon, Search, Sun, UserCircle2 } from 'lucide-react'
+import { Bell, Search } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { useTheme } from '../../hooks/useTheme'
 import { useAuth } from '../../hooks/useAuth'
-import Button from '../ui/Button'
 import { globalSearch } from '../../api/dashboardApi'
+import NotificationDropdown from './NotificationDropdown'
+import ProfileDropdown from './ProfileDropdown'
 
 function Navbar() {
-  const { theme, toggleTheme } = useTheme()
   const { user, logout } = useAuth()
   const navigate = useNavigate()
 
@@ -99,10 +98,13 @@ function Navbar() {
         ) : null}
       </div>
       <div className="navbar-actions">
-        <button className="icon-btn" onClick={toggleTheme}>{theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}</button>
-        <button className="icon-btn has-badge"><Bell size={16} /></button>
-        <div className="profile-menu"><UserCircle2 size={18} /><span>{user?.name || 'Guest'}</span></div>
-        <Button variant="danger" onClick={logout}><LogOut size={14} /> Logout</Button>
+        <NotificationDropdown role="super_admin" viewAllPath="/super-admin/notifications" viewAllLabel="Open notifications" />
+        <ProfileDropdown
+          user={user}
+          profilePath="/super-admin/profile"
+          onLogout={logout}
+          fallbackLabel="Guest"
+        />
       </div>
     </header>
   )

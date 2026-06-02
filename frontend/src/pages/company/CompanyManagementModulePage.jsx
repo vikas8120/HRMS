@@ -688,31 +688,33 @@ function CompanyManagementModulePage({ page }) {
           }
         }}>Delete First Branch</Button>
       </div>
-      {profileData?.branches?.length ? <DataTable columns={branchColumns} rows={tableRows('branch-management-table', profileData.branches.map((b) => ({ ...b, id: normalizeId(b._id || b.id) })))} showViewAction={false} onEdit={async (row) => {
-        try {
-          const companyId = getEffectiveCompanyId()
-          if (!companyId) return showError('Select a company first from Company List')
-          const branchId = normalizeId(row.id)
-          if (!branchId) return showError('Unable to resolve branch id for update')
-          await updateBranch(companyId, branchId, { status: row.status === 'active' ? 'inactive' : 'active' })
-          await refreshCompanyProfile(companyId)
-          showSuccess('Branch updated')
-        } catch (error) {
-          showError(error?.response?.data?.message || 'Failed to update branch')
-        }
-      }} onDelete={async (row) => {
-        try {
-          const companyId = getEffectiveCompanyId()
-          if (!companyId) return showError('Select a company first from Company List')
-          const branchId = normalizeId(row.id)
-          if (!branchId) return showError('Unable to resolve branch id for deletion')
-          await deleteBranch(companyId, branchId)
-          await refreshCompanyProfile(companyId)
-          showSuccess(`Branch ${row.name || ''} deleted`.trim())
-        } catch (error) {
-          showError(error?.response?.data?.message || 'Failed to delete branch')
-        }
-      }} /> : <EmptyState title="No branches yet" description="Add branch using form." />}
+      <div className="branch-results-box">
+        {profileData?.branches?.length ? <DataTable columns={branchColumns} rows={tableRows('branch-management-table', profileData.branches.map((b) => ({ ...b, id: normalizeId(b._id || b.id) })))} showViewAction={false} onEdit={async (row) => {
+          try {
+            const companyId = getEffectiveCompanyId()
+            if (!companyId) return showError('Select a company first from Company List')
+            const branchId = normalizeId(row.id)
+            if (!branchId) return showError('Unable to resolve branch id for update')
+            await updateBranch(companyId, branchId, { status: row.status === 'active' ? 'inactive' : 'active' })
+            await refreshCompanyProfile(companyId)
+            showSuccess('Branch updated')
+          } catch (error) {
+            showError(error?.response?.data?.message || 'Failed to update branch')
+          }
+        }} onDelete={async (row) => {
+          try {
+            const companyId = getEffectiveCompanyId()
+            if (!companyId) return showError('Select a company first from Company List')
+            const branchId = normalizeId(row.id)
+            if (!branchId) return showError('Unable to resolve branch id for deletion')
+            await deleteBranch(companyId, branchId)
+            await refreshCompanyProfile(companyId)
+            showSuccess(`Branch ${row.name || ''} deleted`.trim())
+          } catch (error) {
+            showError(error?.response?.data?.message || 'Failed to delete branch')
+          }
+        }} /> : <EmptyState title="No branches yet" description="Add branch using form." />}
+      </div>
       {profileData?.branches?.length > COMPACT_ROW_LIMIT ? (
         <div className="actions-row" style={{ marginTop: 8 }}>
           <Button variant="ghost" onClick={() => toggleTable('branch-management-table')}>
@@ -768,12 +770,15 @@ function CompanyManagementModulePage({ page }) {
     <div className="panel">
       <h3>Company Domain Setup</h3>
       <FormInput label="Company ID" value={getEffectiveCompanyId()} onChange={(e) => setSelectedId(e.target.value)} />
-      <div className="form-grid">
-        <FormInput label="Custom Domain" value={domainForm.customDomain} onChange={(e) => setDomainForm((p) => ({ ...p, customDomain: e.target.value }))} />
+      <div className="form-grid company-domain-grid">
+        <div className="full-width">
+          <FormInput label="Custom Domain" value={domainForm.customDomain} onChange={(e) => setDomainForm((p) => ({ ...p, customDomain: e.target.value }))} />
+        </div>
         <FilterDropdown label="SSL Status" value={domainForm.sslStatus} onChange={(value) => setDomainForm((p) => ({ ...p, sslStatus: value }))} options={[{ value: 'pending', label: 'Pending' }, { value: 'active', label: 'Active' }, { value: 'failed', label: 'Failed' }]} />
         <FilterDropdown label="Verified" value={domainForm.verified ? 'yes' : 'no'} onChange={(value) => setDomainForm((p) => ({ ...p, verified: value === 'yes' }))} options={[{ value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }]} />
       </div>
-      <Button onClick={async () => {
+      <div className="actions-row company-domain-actions">
+        <Button onClick={async () => {
         try {
           const companyId = getEffectiveCompanyId()
           if (!companyId) return showError('Select a company first from Company List')
@@ -784,7 +789,8 @@ function CompanyManagementModulePage({ page }) {
         } catch (error) {
           showError(error?.response?.data?.message || 'Failed to update domain setup')
         }
-      }}>Save Domain Setup</Button>
+        }}>Save Domain Setup</Button>
+      </div>
     </div>
   )
 

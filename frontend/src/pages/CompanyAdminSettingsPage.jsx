@@ -23,6 +23,20 @@ import {
 } from '../api/adminSettingsApi'
 
 const daysOptions = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+const allowedPlanTypes = ['standard', 'growth', 'enterprise', 'custom']
+const planTypeLabel = { standard: 'Standard', growth: 'Growth', enterprise: 'Enterprise', custom: 'Custom' }
+const companyPlanOffers = [
+  { type: 'standard', name: 'Standard', priceMonthly: 799, priceYearly: 7999, userLimit: 1, storageLimit: 10, features: ['Up to 500 leads', 'Basic pipeline', 'Email support'] },
+  { type: 'growth', name: 'Growth', priceMonthly: 1499, priceYearly: 14999, userLimit: 3, storageLimit: 25, features: ['Up to 5,000 leads', 'AI Engine (basic)', 'WhatsApp integration', 'Priority support'] },
+  { type: 'enterprise', name: 'Enterprise', priceMonthly: 2499, priceYearly: 24999, userLimit: 5, storageLimit: 100, features: ['Unlimited leads & deals', 'AI Engine (GPT-4)', 'All integrations', 'Dedicated support', 'Custom reports', 'White-labeling'] },
+  { type: 'custom', name: 'Custom', priceMonthly: 'Contact', priceYearly: 'Contact', userLimit: 'Unlimited', storageLimit: 'Custom', features: ['Unlimited everything', 'Custom SLA', 'On-premise option', 'API access', 'Custom training'] }
+]
+
+const normalizePlanType = (value) => {
+  const normalized = String(value || '').trim().toLowerCase()
+  if (normalized === 'starter') return 'standard'
+  return allowedPlanTypes.includes(normalized) ? normalized : 'custom'
+}
 
 const defaultState = {
   companyProfile: { name: '', email: '', phone: '', address: '', website: '' },
@@ -50,6 +64,16 @@ function CompanyAdminSettingsPage() {
   const [selectedCompanyId, setSelectedCompanyId] = useState('')
   const [branchOptions, setBranchOptions] = useState([{ value: '', label: 'Select Branch' }])
   const [selectedBranchId, setSelectedBranchId] = useState('')
+  const [settingsTab, setSettingsTab] = useState('company-settings')
+  const [upgradePlanType, setUpgradePlanType] = useState('growth')
+  const [planRequestHistory, setPlanRequestHistory] = useState(() => {
+    try {
+      const saved = window.localStorage.getItem('hrms-company-plan-requests')
+      return saved ? JSON.parse(saved) : []
+    } catch (_err) {
+      return []
+    }
+  })
   const currentUser = useMemo(() => {
     try {
       const raw = localStorage.getItem('currentUser')
@@ -58,6 +82,8 @@ function CompanyAdminSettingsPage() {
       return {}
     }
   }, [])
+
+  const currentCompanyPlan = useMemo(() => normalizePlanType(currentUser?.plan || currentUser?.companyPlan || 'standard'), [currentUser])
 
   const hrProfileDetails = useMemo(() => ([
     { label: 'Name', value: currentUser?.name || currentUser?.fullName || 'HR Manager' },
@@ -114,6 +140,18 @@ function CompanyAdminSettingsPage() {
   useEffect(() => {
     loadSettings()
   }, [])
+
+  useEffect(() => {
+    if (upgradePlanType !== currentCompanyPlan) return
+    const fallbackPlan = companyPlanOffers.find((plan) => plan.type !== currentCompanyPlan) || companyPlanOffers[0]
+    if (fallbackPlan?.type) setUpgradePlanType(fallbackPlan.type)
+  }, [companyPlanOffers, currentCompanyPlan, upgradePlanType])
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('hrms-company-plan-requests', JSON.stringify(planRequestHistory))
+    } catch (_err) {}
+  }, [planRequestHistory])
 
   useEffect(() => {
     const loadCompanyDirectory = async () => {
@@ -193,6 +231,28 @@ function CompanyAdminSettingsPage() {
     } catch (_err) {
       setBranchOptions([{ value: '', label: 'Select Branch' }])
     }
+  }
+
+  const submitPlanChangeRequest = () => {
+    const selectedOffer = companyPlanOffers.find((offer) => offer.type === upgradePlanType) || companyPlanOffers[1]
+    const nextRequest = {
+      id: `req-${Date.now()}`,
+      requestedPlan: selectedOffer.type,
+      requestedPlanLabel: selectedOffer.name,
+      status: 'Pending',
+      createdAt: new Date().toISOString()
+    }
+    setPlanRequestHistory((prev) => [nextRequest, ...prev].slice(0, 8))
+    window.dispatchEvent(new CustomEvent('hrms:notification-push', {
+      detail: {
+        role: 'admin',
+        title: 'Plan Change Request Sent',
+        message: 'Team will contact you within 24 hours.',
+        type: 'info',
+        route: '/admin/settings'
+      }
+    }))
+    setToast({ type: 'success', message: 'Plan change request sent. Team will contact you within 24 hours.' })
   }
 
   const saveOfficeTiming = async () => {
@@ -364,6 +424,15 @@ function CompanyAdminSettingsPage() {
 
       {toast ? <div className={`toast ${toast.type === 'success' ? 'toast-success' : 'toast-error'}`}>{toast.message}</div> : null}
 
+      {!isHrProfileRoute ? (
+        <div className="panel">
+          <div className="workspace-nav">
+            <button type="button" className={`chip-btn ${settingsTab === 'company-settings' ? 'active' : ''}`} onClick={() => setSettingsTab('company-settings')}>Company Settings</button>
+            <button type="button" className={`chip-btn ${settingsTab === 'upgrade-plan' ? 'active' : ''}`} onClick={() => setSettingsTab('upgrade-plan')}>Upgrade Plan</button>
+          </div>
+        </div>
+      ) : null}
+
       {isHrProfileRoute ? (
         <div className="panel">
           <div className="workspace-nav">
@@ -397,7 +466,79 @@ function CompanyAdminSettingsPage() {
         />
       ) : null}
 
-      {!isHrProfileRoute ? (
+      {!isHrProfileRoute && settingsTab === 'upgrade-plan' ? (
+        <article className="panel">
+          <div className="panel-head">
+            <div>
+              <h3>Upgrade Plan</h3>
+              <p style={{ margin: '6px 0 0', color: 'var(--muted)' }}>Company admins can request a plan change. Direct upgrade is disabled.</p>
+            </div>
+            <div className="actions-row">
+              <Button variant="ghost" onClick={() => setSettingsTab('company-settings')}>Back to Settings</Button>
+            </div>
+          </div>
+          <div className="upgrade-plan-toolbar">
+              <FilterDropdown
+              label="Desired Plan"
+              value={upgradePlanType}
+              onChange={setUpgradePlanType}
+              options={companyPlanOffers.map((item) => ({ value: item.type, label: planTypeLabel[item.type] }))}
+            />
+            <div className="upgrade-plan-toolbar-note">
+              <strong>Current Plan:</strong> {planTypeLabel[currentCompanyPlan]}
+            </div>
+          </div>
+          <div className="plan-card-grid">
+            {companyPlanOffers.map((plan) => {
+              const isCurrent = plan.type === currentCompanyPlan
+              const isSelected = plan.type === upgradePlanType
+              return (
+                <div key={plan.type} className={`plan-card ${isCurrent ? 'current' : ''} ${isSelected ? 'selected' : ''}`}>
+                  <div className="plan-card-top">
+                    <div>
+                      <strong>{plan.name}</strong>
+                      <div className="plan-card-price">
+                        <span>{plan.priceMonthly}</span>
+                        <small>/month</small>
+                      </div>
+                    </div>
+                    {isCurrent ? <span className="plan-card-badge">Current</span> : isSelected ? <span className="plan-card-badge is-selected">Selected</span> : null}
+                  </div>
+                  <div className="plan-card-meta">
+                    <span>{plan.userLimit} users</span>
+                    <span>{plan.storageLimit} GB storage</span>
+                  </div>
+                  <ul className="plan-card-features">
+                    {plan.features.map((feature) => <li key={feature}>{feature}</li>)}
+                  </ul>
+                  <div className="plan-card-footer">
+                    <Button variant={isSelected ? 'primary' : 'ghost'} disabled={isCurrent} onClick={() => setUpgradePlanType(plan.type)}>
+                      {isCurrent ? 'Current Plan' : isSelected ? 'Selected' : 'Select This Plan'}
+                    </Button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          <div className="upgrade-plan-actions">
+            <Button
+              onClick={submitPlanChangeRequest}
+              disabled={upgradePlanType === currentCompanyPlan}
+            >
+              {upgradePlanType === currentCompanyPlan ? 'Choose Another Plan' : `Request ${planTypeLabel[upgradePlanType] || 'Plan'} Change`}
+            </Button>
+          </div>
+          <div className="plan-request-history">
+            <h4>Request History</h4>
+            {planRequestHistory.length ? planRequestHistory.map((item) => (
+              <div key={item.id} className="plan-request-item">
+                <strong>{item.requestedPlanLabel}</strong>
+                <span>{item.status} · {new Date(item.createdAt).toLocaleString()}</span>
+              </div>
+            )) : <EmptyState title="No plan change requests yet" description="Select a plan and send a request to the support team." />}
+          </div>
+        </article>
+      ) : !isHrProfileRoute ? (
         <>
       <div className="stats-grid">
         {stats.map((item) => <StatCard key={item.title} {...item} />)}
