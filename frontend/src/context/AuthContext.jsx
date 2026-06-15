@@ -1,5 +1,6 @@
 import { createContext, useEffect, useMemo, useState } from 'react'
 import api from '../api/axios'
+import { redirectToLogin } from '../utils/navigation'
 import { getCurrentUser, getToken, logout as clearAuth, saveToken } from '../utils/auth'
 
 export const AuthContext = createContext(null)
@@ -62,10 +63,8 @@ export function AuthProvider({ children }) {
     }
 
     window.addEventListener('hrms:auth-updated', syncUser)
-    window.addEventListener('storage', syncUser)
     return () => {
       window.removeEventListener('hrms:auth-updated', syncUser)
-      window.removeEventListener('storage', syncUser)
     }
   }, [])
 
@@ -83,9 +82,7 @@ export function AuthProvider({ children }) {
   const logout = async () => {
     clearAuth()
     setUser(null)
-    if (typeof window !== 'undefined') {
-      window.location.href = '/login'
-    }
+    redirectToLogin()
   }
 
   const value = useMemo(() => ({ user, login, logout, authLoading }), [user, authLoading])

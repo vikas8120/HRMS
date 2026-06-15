@@ -179,6 +179,19 @@ const safeParse = (value, fallback) => {
   }
 }
 
+const getStoredUser = () => {
+  const sessionUser = safeParse(window.sessionStorage.getItem('currentUser'), null)
+  if (sessionUser) return sessionUser
+
+  const localUser = safeParse(window.localStorage.getItem('currentUser'), null)
+  if (localUser) {
+    window.sessionStorage.setItem('currentUser', JSON.stringify(localUser))
+    window.localStorage.removeItem('currentUser')
+  }
+
+  return localUser
+}
+
 const getDb = () => {
   const raw = localStorage.getItem(DEMO_DB_KEY)
   if (raw) return safeParse(raw, seedDb())
@@ -188,7 +201,6 @@ const getDb = () => {
 }
 
 const saveDb = (db) => localStorage.setItem(DEMO_DB_KEY, JSON.stringify(db))
-const getSessionUser = () => safeParse(localStorage.getItem('currentUser'), null)
 const ensureArray = (v) => (Array.isArray(v) ? v : [])
 
 const ensureModuleSeedData = (db) => {
@@ -508,7 +520,7 @@ export const handleDemoRequest = async (config) => {
   const path = normalizePath(config?.url)
   const db = ensureModuleSeedData(getDb())
   const maps = listMap(db)
-  const currentUser = getSessionUser() || { id: db.users[0].id, name: db.users[0].name, email: db.users[0].email, role: db.users[0].role }
+  const currentUser = getStoredUser() || { id: db.users[0].id, name: db.users[0].name, email: db.users[0].email, role: db.users[0].role }
 
   if ((path.includes('/export') || path.endsWith('/payslip')) && method === 'get') {
     return ok(config, csvBlob('id,name,value\n1,demo,ok'))

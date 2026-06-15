@@ -96,7 +96,7 @@ function EmployeeAnnouncementsPage() {
 </head>
 <body>
   <div class="toolbar">
-    <button onclick="window.print()">Print / Save PDF</button>
+    <button type="button" id="print-announcement-btn">Print / Save PDF</button>
   </div>
   <section class="sheet">
     <h1>${details.title || '-'}</h1>
@@ -110,6 +110,9 @@ function EmployeeAnnouncementsPage() {
     <div class="foot">Generated from Employee Portal Announcements</div>
   </section>
 </body>
+<script>
+  document.getElementById('print-announcement-btn')?.addEventListener('click', () => window.print())
+</script>
 </html>`
 
       const blob = new Blob([html], { type: 'text/html;charset=utf-8' })

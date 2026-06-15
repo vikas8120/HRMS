@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
+import { NavLink, useLocation } from 'react-router-dom'
 import PageHeader from '../../components/ui/PageHeader'
 import DataTable from '../../components/ui/DataTable'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import FormInput from '../../components/ui/FormInput'
 import FilterDropdown from '../../components/ui/FilterDropdown'
+import { navItems } from '../../data/dashboardData'
+import { readJsonStorage, writeJsonStorage } from '../../utils/browserStorage'
 
 const AI_CENTER_STORAGE_KEY = 'hrms_frontend_ai_center_v1'
 
@@ -41,42 +44,23 @@ const initialSettings = {
 }
 
 function AICenterModulePage({ page }) {
+  const { pathname } = useLocation()
   const [toast, setToast] = useState({ type: '', message: '' })
   const [insights, setInsights] = useState(() => {
-    try {
-      const raw = localStorage.getItem(AI_CENTER_STORAGE_KEY)
-      const parsed = raw ? JSON.parse(raw) : null
-      return parsed?.insights?.length ? parsed.insights : initialInsights
-    } catch {
-      return initialInsights
-    }
+    const saved = readJsonStorage(AI_CENTER_STORAGE_KEY, null)
+    return saved?.insights?.length ? saved.insights : initialInsights
   })
   const [logs, setLogs] = useState(() => {
-    try {
-      const raw = localStorage.getItem(AI_CENTER_STORAGE_KEY)
-      const parsed = raw ? JSON.parse(raw) : null
-      return parsed?.logs?.length ? parsed.logs : initialUsageLogs
-    } catch {
-      return initialUsageLogs
-    }
+    const saved = readJsonStorage(AI_CENTER_STORAGE_KEY, null)
+    return saved?.logs?.length ? saved.logs : initialUsageLogs
   })
   const [rules, setRules] = useState(() => {
-    try {
-      const raw = localStorage.getItem(AI_CENTER_STORAGE_KEY)
-      const parsed = raw ? JSON.parse(raw) : null
-      return parsed?.rules?.length ? parsed.rules : initialRules
-    } catch {
-      return initialRules
-    }
+    const saved = readJsonStorage(AI_CENTER_STORAGE_KEY, null)
+    return saved?.rules?.length ? saved.rules : initialRules
   })
   const [settings, setSettings] = useState(() => {
-    try {
-      const raw = localStorage.getItem(AI_CENTER_STORAGE_KEY)
-      const parsed = raw ? JSON.parse(raw) : null
-      return parsed?.settings ? parsed.settings : initialSettings
-    } catch {
-      return initialSettings
-    }
+    const saved = readJsonStorage(AI_CENTER_STORAGE_KEY, null)
+    return saved?.settings ? saved.settings : initialSettings
   })
 
   const [ruleModal, setRuleModal] = useState(false)
@@ -87,7 +71,7 @@ function AICenterModulePage({ page }) {
   const [ruleForm, setRuleForm] = useState({ name: '', trigger: '', action: '', enabled: true })
 
   useEffect(() => {
-    localStorage.setItem(AI_CENTER_STORAGE_KEY, JSON.stringify({ insights, logs, rules, settings }))
+    writeJsonStorage(AI_CENTER_STORAGE_KEY, { insights, logs, rules, settings })
   }, [insights, logs, rules, settings])
 
   useEffect(() => {
@@ -103,6 +87,32 @@ function AICenterModulePage({ page }) {
     if (page && riskTypes.includes(page)) return 'Risk'
     return 'Insights'
   }, [page])
+
+  const aiModule = navItems.find((item) => item.label === 'AI Center')
+  const aiGroupTabs = useMemo(() => ([
+    {
+      label: 'Insights',
+      path: aiModule?.children.find((child) => insightTypes.includes(child.label))?.path || '',
+      active: activeGroup === 'Insights'
+    },
+    {
+      label: 'Automation',
+      path: aiModule?.children.find((child) => automationTypes.includes(child.label))?.path || '',
+      active: activeGroup === 'Automation'
+    },
+    {
+      label: 'Risk',
+      path: aiModule?.children.find((child) => riskTypes.includes(child.label))?.path || '',
+      active: activeGroup === 'Risk'
+    }
+  ]), [activeGroup, aiModule])
+  const activeGroupChildren = useMemo(() => {
+    const groupTypes = activeGroup === 'Insights' ? insightTypes : activeGroup === 'Automation' ? automationTypes : riskTypes
+    return groupTypes.map((type) => ({
+      label: type,
+      path: aiModule?.children.find((child) => child.label === type)?.path || ''
+    }))
+  }, [activeGroup, aiModule])
 
   const showToast = (type, message) => {
     setToast({ type, message })
@@ -160,6 +170,30 @@ function AICenterModulePage({ page }) {
       />
 
       {toast.message ? <div className={`toast toast-${toast.type}`}>{toast.message}</div> : null}
+
+      <div className="workspace-nav ai-center-workspace-nav" aria-label="AI Center category navigation">
+        {aiGroupTabs.map((tab) => (
+          <NavLink
+            key={tab.label}
+            to={tab.path || pathname}
+            className={({ isActive }) => `workspace-nav-chip ${isActive || tab.active ? 'active' : ''}`}
+          >
+            {tab.label.toUpperCase()}
+          </NavLink>
+        ))}
+      </div>
+
+      <div className="workspace-subnav ai-center-workspace-subnav" aria-label="AI Center module navigation">
+        {activeGroupChildren.map((item) => (
+          <NavLink
+            key={item.label}
+            to={item.path || pathname}
+            className={({ isActive }) => `workspace-nav-chip ${isActive ? 'active' : ''}`}
+          >
+            {item.label}
+          </NavLink>
+        ))}
+      </div>
 
       {activeGroup === 'Insights' ? (
         <>

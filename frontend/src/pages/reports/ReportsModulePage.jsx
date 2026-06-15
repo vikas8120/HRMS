@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
+import { NavLink, useLocation } from 'react-router-dom'
 import PageHeader from '../../components/ui/PageHeader'
 import DataTable from '../../components/ui/DataTable'
 import Button from '../../components/ui/Button'
 import FormInput from '../../components/ui/FormInput'
 import FilterDropdown from '../../components/ui/FilterDropdown'
+import { navItems } from '../../data/dashboardData'
+import { readJsonStorage, writeJsonStorage } from '../../utils/browserStorage'
 
 const reportGroups = {
   'Business Reports': ['Tenant Reports', 'Revenue Reports', 'Subscription Reports', 'Billing Reports'],
@@ -25,14 +28,10 @@ const seedRows = [
 ]
 
 function ReportsModulePage({ page }) {
+  const { pathname } = useLocation()
   const [rows, setRows] = useState(() => {
-    try {
-      const raw = localStorage.getItem(REPORTS_STORAGE_KEY)
-      const parsed = raw ? JSON.parse(raw) : null
-      return parsed?.rows?.length ? parsed.rows : seedRows
-    } catch {
-      return seedRows
-    }
+    const saved = readJsonStorage(REPORTS_STORAGE_KEY, null)
+    return saved?.rows?.length ? saved.rows : seedRows
   })
   const [toast, setToast] = useState({ type: '', message: '' })
   const [fromDate, setFromDate] = useState('')
@@ -48,6 +47,19 @@ function ReportsModulePage({ page }) {
   }, [page])
 
   const allowedTypes = reportGroups[activeGroup] || reportGroups['Business Reports']
+  const reportsModule = navItems.find((item) => item.label === 'Reports')
+  const reportGroupTabs = useMemo(() => Object.entries(reportGroups).map(([group, types]) => ({
+    label: group,
+    path: reportsModule?.children.find((child) => types.includes(child.label))?.path || '',
+    active: activeGroup === group
+  })), [activeGroup, reportsModule])
+  const activeGroupChildren = useMemo(
+    () => allowedTypes.map((type) => ({
+      label: type,
+      path: reportsModule?.children.find((child) => child.label === type)?.path || ''
+    })),
+    [allowedTypes, reportsModule]
+  )
 
   useEffect(() => {
     if (page && allTypes.includes(page)) {
@@ -66,7 +78,7 @@ function ReportsModulePage({ page }) {
   }, [])
 
   useEffect(() => {
-    localStorage.setItem(REPORTS_STORAGE_KEY, JSON.stringify({ rows }))
+    writeJsonStorage(REPORTS_STORAGE_KEY, { rows })
   }, [rows])
 
   const cols = [
@@ -124,6 +136,30 @@ function ReportsModulePage({ page }) {
         onPrimaryAction={() => showToast('success', 'Refreshed (frontend state)')}
       />
       {toast.message ? <div className={`toast toast-${toast.type}`}>{toast.message}</div> : null}
+
+      <div className="workspace-nav reports-workspace-nav" aria-label="Reports category navigation">
+        {reportGroupTabs.map((tab) => (
+          <NavLink
+            key={tab.label}
+            to={tab.path || pathname}
+            className={({ isActive }) => `workspace-nav-chip ${isActive || tab.active ? 'active' : ''}`}
+          >
+            {tab.label.toUpperCase()}
+          </NavLink>
+        ))}
+      </div>
+
+      <div className="workspace-subnav reports-workspace-subnav" aria-label="Reports module navigation">
+        {activeGroupChildren.map((item) => (
+          <NavLink
+            key={item.label}
+            to={item.path || pathname}
+            className={({ isActive }) => `workspace-nav-chip ${isActive ? 'active' : ''}`}
+          >
+            {item.label}
+          </NavLink>
+        ))}
+      </div>
 
       <div id="reports-generator-section" className="panel">
         <h3>Generate Report</h3>

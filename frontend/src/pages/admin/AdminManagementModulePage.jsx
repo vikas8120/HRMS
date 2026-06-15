@@ -49,11 +49,33 @@ const sectionByPage = {
 }
 
 const adminModuleRoot = '/super-admin/admin-management'
-const adminWorkspaceItems = [
-  { label: 'Admin Management', path: `${adminModuleRoot}/admin-management` },
-  { label: 'Reset Password', path: `${adminModuleRoot}/reset-password` },
-  { label: 'Account Lock/Unlock', path: `${adminModuleRoot}/account-lock-unlock` },
-  { label: 'Admin Activity Tracking', path: `${adminModuleRoot}/admin-activity-tracking` }
+const adminWorkspaceGroups = [
+  {
+    title: 'Administration',
+    path: `${adminModuleRoot}/admin-management`,
+    items: [
+      { label: 'Admin Management', path: `${adminModuleRoot}/admin-management` },
+      { label: 'Assign Companies', path: `${adminModuleRoot}/assign-companies` },
+      { label: 'Role Assignment', path: `${adminModuleRoot}/role-assignment` },
+      { label: 'Permission Control', path: `${adminModuleRoot}/permission-control` }
+    ]
+  },
+  {
+    title: 'Security',
+    path: `${adminModuleRoot}/reset-password`,
+    items: [
+      { label: 'Reset Password', path: `${adminModuleRoot}/reset-password` },
+      { label: 'Account Lock/Unlock', path: `${adminModuleRoot}/account-lock-unlock` }
+    ]
+  },
+  {
+    title: 'Audit',
+    path: `${adminModuleRoot}/admin-access-logs`,
+    items: [
+      { label: 'Admin Access Logs', path: `${adminModuleRoot}/admin-access-logs` },
+      { label: 'Admin Activity Tracking', path: `${adminModuleRoot}/admin-activity-tracking` }
+    ]
+  }
 ]
 function AdminManagementModulePage({ page }) {
   const { pathname } = useLocation()
@@ -95,6 +117,12 @@ function AdminManagementModulePage({ page }) {
   const setSuccess = (message) => setToast({ type: 'success', message })
   const setError = (message) => setToast({ type: 'error', message })
   const setInfo = (message) => setToast({ type: 'success', message })
+  const activeWorkspaceGroup = useMemo(() => {
+    const normalizedPage = String(page || '').toLowerCase()
+    return adminWorkspaceGroups.find((group) =>
+      group.items.some((item) => item.label.toLowerCase() === normalizedPage)
+    ) || adminWorkspaceGroups[0]
+  }, [page])
 
   const loadBaseData = async () => {
     setLoading(true)
@@ -642,14 +670,28 @@ function AdminManagementModulePage({ page }) {
         primaryActionLabel="Add Admin"
         onPrimaryAction={openAdd}
       />
+      <div className="workspace-nav admin-workspace-nav" aria-label="Admin category navigation">
+        {adminWorkspaceGroups.map((group) => (
+          <NavLink
+            key={group.title}
+            to={group.path}
+            className={({ isActive }) => `workspace-nav-chip ${isActive || activeWorkspaceGroup.title === group.title ? 'active' : ''}`}
+            data-group={group.title.toLowerCase()}
+          >
+            {group.title.toUpperCase()}
+          </NavLink>
+        ))}
+      </div>
+
       <div className="workspace-subnav admin-workspace-subnav" aria-label="Admin module navigation">
-        {adminWorkspaceItems.map((item) => (
+        {activeWorkspaceGroup.items.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
             className={({ isActive }) =>
-              `workspace-nav-chip ${isActive || pathname.startsWith(`${item.path}/`) ? 'active' : ''}`
+              `workspace-nav-chip ${isActive ? 'active' : ''}`
             }
+            data-group={activeWorkspaceGroup.title.toLowerCase()}
           >
             {item.label}
           </NavLink>

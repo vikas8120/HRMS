@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { NavLink, useLocation } from 'react-router-dom'
 import { FolderOpen, CheckCircle2, AlertTriangle } from 'lucide-react'
 import PageHeader from '../../components/ui/PageHeader'
 import StatCard from '../../components/ui/StatCard'
@@ -11,6 +12,7 @@ import FormInput from '../../components/ui/FormInput'
 import EmptyState from '../../components/ui/EmptyState'
 import LoadingSkeleton from '../../components/ui/LoadingSkeleton'
 import { fetchCompanies } from '../../api/companyManagementApi'
+import { navItems } from '../../data/dashboardData'
 import {
   createSupportTicket,
   listSupportAgents,
@@ -21,6 +23,7 @@ import {
   updateTicketSla
 } from '../../api/supportCenterApi'
 function SupportCenterModulePage({ page }) {
+  const { pathname } = useLocation()
   const [tickets, setTickets] = useState([])
   const [companies, setCompanies] = useState([])
   const [categories, setCategories] = useState([])
@@ -81,6 +84,14 @@ function SupportCenterModulePage({ page }) {
       { title: 'Escalated Tickets', value: String(escalatedCount), trend: 'High priority queue', icon: AlertTriangle, onClick: () => setStatusFilter('escalated') }
     ]
   }, [rows])
+  const supportModule = navItems.find((item) => item.label === 'Support Center')
+  const supportTabs = useMemo(() => ([
+    {
+      label: 'Ticket Queue',
+      path: supportModule?.children.find((child) => child.label === 'Ticket Queue')?.path || '',
+      active: true
+    }
+  ]), [supportModule])
 
   const saveTicket = async () => {
     if (!ticketForm.subject) return toastError('Ticket subject is required')
@@ -174,6 +185,19 @@ function SupportCenterModulePage({ page }) {
         onPrimaryAction={loadBase}
       />
       {toast.message ? <div className={`toast toast-${toast.type}`}>{toast.message}</div> : null}
+
+      <div className="workspace-nav support-workspace-nav" aria-label="Support center navigation">
+        {supportTabs.map((tab) => (
+          <NavLink
+            key={tab.label}
+            to={tab.path || pathname}
+            className={({ isActive }) => `workspace-nav-chip ${isActive || tab.active ? 'active' : ''}`}
+          >
+            {tab.label.toUpperCase()}
+          </NavLink>
+        ))}
+      </div>
+
       {renderUnifiedPage()}
 
       <Modal

@@ -3,7 +3,6 @@ import {
   Activity,
   BarChart3,
   Building2,
-  CalendarDays,
   CircleAlert,
   CreditCard,
   Database,
@@ -36,6 +35,7 @@ import EmptyState from '../components/ui/EmptyState'
 import Button from '../components/ui/Button'
 import { getDashboardStats, getOverview, listDashboardSectionWidgets, listPlatformOverviewItems } from '../api/dashboardApi'
 import { logout as clearAuth } from '../utils/auth'
+import { redirectToLogin } from '../utils/navigation'
 
 const formatCurrency = (value) => Number(value || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 const formatCompact = (value) => Number(value || 0).toLocaleString('en-US', { notation: 'compact', maximumFractionDigits: 1 })
@@ -65,7 +65,6 @@ function DashboardPage() {
   const [platformWidgets, setPlatformWidgets] = useState([])
   const [platformDataError, setPlatformDataError] = useState('')
   const [revenueView, setRevenueView] = useState('6m')
-  const [dateFilter, setDateFilter] = useState('this-month')
 
   const loadDashboard = async () => {
     setLoading(true)
@@ -85,7 +84,7 @@ function DashboardPage() {
     } catch (err) {
       if (err?.response?.status === 401) {
         clearAuth()
-        window.location.href = '/login'
+        redirectToLogin()
         return
       }
       setError(err?.response?.data?.message || 'Failed to load dashboard data')
@@ -129,7 +128,7 @@ function DashboardPage() {
       { title: 'Active Subscriptions', value: String(displayOverview?.stats?.activeSubscriptions ?? 0), trend: `${revenueGrowth >= 0 ? '+' : ''}${revenueGrowth.toFixed(1)}% this period`, icon: Receipt, trendTone: revenueGrowth >= 0 ? 'success' : 'danger' },
       { title: 'Monthly Revenue', value: formatCurrency(displayOverview?.stats?.monthlyRevenue ?? 0), trend: `${formatCompact(displayOverview?.stats?.monthlyRevenue ?? 0)} booked`, icon: BarChart3, trendTone: 'success' }
     ]),
-    [displayOverview, support, revenueGrowth, systemHealth, activities.length, platformOverviewRows.length, platformWidgets.length]
+    [displayOverview, revenueGrowth]
   )
 
   const exportCsv = () => {
@@ -198,7 +197,6 @@ function DashboardPage() {
         <div className="dashboard-hero-copy">
           <p className="dashboard-hero-eyebrow">Super Admin / Dashboard</p>
           <h2>Dashboard</h2>
-          <p>Premium platform control center for business, subscriptions, support, and operational health.</p>
         </div>
         <div className="dashboard-hero-visual" aria-hidden="true">
           <span className="hero-orb orb-a" />
@@ -221,18 +219,8 @@ function DashboardPage() {
       <div className="panel dashboard-header-actions">
         <div className="header-tagline">
           <h3>Platform Overview</h3>
-          <p>Live operational intelligence across HRMS tenants and system workflows.</p>
         </div>
         <div className="actions-row">
-          <label className="header-date-filter">
-            <CalendarDays size={14} />
-            <select className="form-input" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)}>
-              <option value="today">Today</option>
-              <option value="this-week">This Week</option>
-              <option value="this-month">This Month</option>
-              <option value="this-quarter">This Quarter</option>
-            </select>
-          </label>
           <Button variant="ghost" onClick={loadDashboard}><RefreshCw size={14} /> Refresh</Button>
           <Button onClick={exportCsv}>Export Snapshot</Button>
         </div>

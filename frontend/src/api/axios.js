@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { getToken, logout } from '../utils/auth'
+import { redirectToLogin } from '../utils/navigation'
 import { handleDemoRequest, isDemoMode } from '../mocks/demoApi'
 
 const API_ROOT = import.meta.env.VITE_API_URL || 'http://localhost:5001'
@@ -36,9 +37,7 @@ api.interceptors.response.use(
     const status = error?.response?.status
     if (status === 401) {
       logout()
-      if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
-        window.location.href = '/login'
-      }
+      redirectToLogin()
     }
     return Promise.reject(error)
   }

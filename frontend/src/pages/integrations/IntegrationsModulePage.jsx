@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
+import { NavLink, useLocation } from 'react-router-dom'
 import PageHeader from '../../components/ui/PageHeader'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import FormInput from '../../components/ui/FormInput'
 import FilterDropdown from '../../components/ui/FilterDropdown'
 import DataTable from '../../components/ui/DataTable'
+import { navItems } from '../../data/dashboardData'
+import { readJsonStorage, writeJsonStorage } from '../../utils/browserStorage'
 
 const INTEGRATIONS_STORAGE_KEY = 'hrms_frontend_integrations_v3'
 
@@ -62,24 +65,15 @@ const providerFieldSchema = {
 }
 
 function IntegrationsModulePage({ page }) {
+  const { pathname } = useLocation()
   const [toast, setToast] = useState({ type: '', message: '' })
   const [integrations, setIntegrations] = useState(() => {
-    try {
-      const raw = localStorage.getItem(INTEGRATIONS_STORAGE_KEY)
-      const parsed = raw ? JSON.parse(raw) : null
-      return parsed?.integrations?.length ? parsed.integrations : defaultCards
-    } catch {
-      return defaultCards
-    }
+    const saved = readJsonStorage(INTEGRATIONS_STORAGE_KEY, null)
+    return saved?.integrations?.length ? saved.integrations : defaultCards
   })
   const [events, setEvents] = useState(() => {
-    try {
-      const raw = localStorage.getItem(INTEGRATIONS_STORAGE_KEY)
-      const parsed = raw ? JSON.parse(raw) : null
-      return parsed?.events?.length ? parsed.events : defaultEvents
-    } catch {
-      return defaultEvents
-    }
+    const saved = readJsonStorage(INTEGRATIONS_STORAGE_KEY, null)
+    return saved?.events?.length ? saved.events : defaultEvents
   })
 
   const [modalOpen, setModalOpen] = useState(false)
@@ -89,7 +83,7 @@ function IntegrationsModulePage({ page }) {
   const [providerForm, setProviderForm] = useState({ endpoint: '', apiKey: '', environment: 'production' })
 
   useEffect(() => {
-    localStorage.setItem(INTEGRATIONS_STORAGE_KEY, JSON.stringify({ integrations, events }))
+    writeJsonStorage(INTEGRATIONS_STORAGE_KEY, { integrations, events })
   }, [integrations, events])
 
   const activeGroup = useMemo(() => {
@@ -109,6 +103,31 @@ function IntegrationsModulePage({ page }) {
   }, [page, activeGroup])
 
   const activeProviderItem = integrations.find((item) => item.name === selectedProvider) || null
+  const integrationsModule = navItems.find((item) => item.label === 'Integrations')
+  const integrationGroupTabs = useMemo(() => ([
+    {
+      label: 'Identity & Collaboration',
+      path: integrationsModule?.children.find((child) => integrationGroups['Identity & Collaboration'].includes(child.label))?.path || '',
+      active: activeGroup === 'Identity & Collaboration'
+    },
+    {
+      label: 'Finance & Messaging',
+      path: integrationsModule?.children.find((child) => integrationGroups['Finance & Messaging'].includes(child.label))?.path || '',
+      active: activeGroup === 'Finance & Messaging'
+    },
+    {
+      label: 'Devices & APIs',
+      path: integrationsModule?.children.find((child) => integrationGroups['Devices & APIs'].includes(child.label))?.path || '',
+      active: activeGroup === 'Devices & APIs'
+    }
+  ]), [activeGroup, integrationsModule])
+  const activeGroupItems = useMemo(
+    () => groupItems.map((name) => ({
+      label: name,
+      path: integrationsModule?.children.find((child) => child.label === name)?.path || ''
+    })),
+    [groupItems, integrationsModule]
+  )
 
   useEffect(() => {
     if (!activeProviderItem) return
@@ -145,10 +164,10 @@ function IntegrationsModulePage({ page }) {
   }
 
   const handleTest = (item) => {
-    const passed = Math.random() > 0.2
+    const passed = Boolean(item?.config?.endpoint && item?.config?.apiKey && item?.config?.environment)
     patchItem(item.id, { lastTestAt: new Date().toISOString(), lastTestStatus: passed ? 'passed' : 'failed' })
     pushEvent(item.name, 'TEST', passed ? 'passed' : 'failed')
-    showToast(passed ? 'success' : 'error', `${item.name} test ${passed ? 'passed' : 'failed'}`)
+    showToast(passed ? 'success' : 'error', passed ? `${item.name} test passed` : `${item.name} test failed: missing config`)
   }
 
   const openConfig = (item) => {
@@ -181,6 +200,30 @@ function IntegrationsModulePage({ page }) {
         onPrimaryAction={() => showToast('success', 'Refreshed (frontend state)')}
       />
       {toast.message ? <div className={`toast toast-${toast.type}`}>{toast.message}</div> : null}
+
+      <div className="workspace-nav integrations-workspace-nav" aria-label="Integrations category navigation">
+        {integrationGroupTabs.map((tab) => (
+          <NavLink
+            key={tab.label}
+            to={tab.path || pathname}
+            className={({ isActive }) => `workspace-nav-chip ${isActive || tab.active ? 'active' : ''}`}
+          >
+            {tab.label.toUpperCase()}
+          </NavLink>
+        ))}
+      </div>
+
+      <div className="workspace-subnav integrations-workspace-subnav" aria-label="Integrations module navigation">
+        {activeGroupItems.map((item) => (
+          <NavLink
+            key={item.label}
+            to={item.path || pathname}
+            className={({ isActive }) => `workspace-nav-chip ${isActive ? 'active' : ''}`}
+          >
+            {item.label}
+          </NavLink>
+        ))}
+      </div>
 
       <div className="panel">
         <h3>Integration Workflow</h3>

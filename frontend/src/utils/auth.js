@@ -1,36 +1,65 @@
 const TOKEN_KEY = 'token'
 const USER_KEY = 'currentUser'
 
+const getStorageCandidates = () => {
+  if (typeof window === 'undefined') return []
+  return [window.sessionStorage, window.localStorage].filter(Boolean)
+}
+
+const readFromStorage = (key) => {
+  const [primary, fallback] = getStorageCandidates()
+  const primaryValue = primary?.getItem(key)
+  if (primaryValue !== null) return primaryValue
+
+  const fallbackValue = fallback?.getItem(key)
+  if (fallbackValue !== null && primary) {
+    primary.setItem(key, fallbackValue)
+    fallback.removeItem(key)
+  }
+  return fallbackValue
+}
+
+const writeToStorage = (key, value) => {
+  const [primary, fallback] = getStorageCandidates()
+  if (!primary) return
+  primary.setItem(key, value)
+  fallback?.removeItem(key)
+}
+
+const removeFromStorage = (key) => {
+  getStorageCandidates().forEach((storage) => storage.removeItem(key))
+}
+
 export const saveToken = (token, user = null) => {
   if (token) {
-    localStorage.setItem(TOKEN_KEY, token)
+    writeToStorage(TOKEN_KEY, token)
   } else {
-    localStorage.removeItem(TOKEN_KEY)
+    removeFromStorage(TOKEN_KEY)
   }
 
   if (user) {
-    localStorage.setItem(USER_KEY, JSON.stringify(user))
+    writeToStorage(USER_KEY, JSON.stringify(user))
   } else {
-    localStorage.removeItem(USER_KEY)
+    removeFromStorage(USER_KEY)
   }
 }
 
 export const getToken = () => {
-  return localStorage.getItem(TOKEN_KEY) || ''
+  return readFromStorage(TOKEN_KEY) || ''
 }
 
 export const getCurrentUser = () => {
-  const raw = localStorage.getItem(USER_KEY)
+  const raw = readFromStorage(USER_KEY)
   if (!raw) return null
   try {
     return JSON.parse(raw)
   } catch (_error) {
-    localStorage.removeItem(USER_KEY)
+    removeFromStorage(USER_KEY)
     return null
   }
 }
 
 export const logout = () => {
-  localStorage.removeItem(TOKEN_KEY)
-  localStorage.removeItem(USER_KEY)
+  removeFromStorage(TOKEN_KEY)
+  removeFromStorage(USER_KEY)
 }

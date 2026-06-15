@@ -1,9 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
+import { NavLink } from 'react-router-dom'
 import PageHeader from '../../components/ui/PageHeader'
 import Button from '../../components/ui/Button'
 import FilterDropdown from '../../components/ui/FilterDropdown'
 import FormInput from '../../components/ui/FormInput'
 import { setDateFormat } from '../../utils/dateFormat'
+
+const slugify = (value) =>
+  String(value || '')
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
 
 const settingGroups = [
   'General Settings',
@@ -154,6 +162,18 @@ function SystemSettingsModulePage({ page }) {
         description="Manage platform configuration with frontend-only editable controls."
         breadcrumb={['Super Admin', 'System Settings', activeGroup]}
       />
+      <div className="workspace-nav system-settings-workspace-nav" aria-label="System settings navigation">
+        {settingGroups.map((group) => (
+          <NavLink
+            key={group}
+            to={`/super-admin/system-settings/${slugify(group)}`}
+            className={({ isActive }) => `workspace-nav-chip ${isActive || page === group ? 'active' : ''}`}
+            data-group="system-settings"
+          >
+            {group}
+          </NavLink>
+        ))}
+      </div>
       {toast.message ? <div className={`toast toast-${toast.type}`}>{toast.message}</div> : null}
 
       <div id="system-settings-section" className="panel">

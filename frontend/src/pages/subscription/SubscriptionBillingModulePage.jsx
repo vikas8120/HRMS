@@ -170,9 +170,7 @@ const buildPlanForm = (type = 'standard', overrides = {}) => {
   const normalizedType = normalizePlanType(type)
   const template = planPresetTemplates[normalizedType] || planPresetTemplates.custom
   const parsedOverrideFeatures = splitPlanFeatures(overrides.features ?? template.features)
-  return {
-    name: normalizedType === 'custom' ? '' : template.name,
-    type: normalizedType,
+  const baseForm = {
     monthlyPrice: 0,
     yearlyPrice: 0,
     userLimit: 10,
@@ -182,7 +180,11 @@ const buildPlanForm = (type = 'standard', overrides = {}) => {
     status: 'active',
     ...template,
     ...overrides,
-    ...parsedOverrideFeatures,
+    ...parsedOverrideFeatures
+  }
+
+  return {
+    ...baseForm,
     type: normalizedType,
     name: normalizedType === 'custom' ? (overrides.name ?? '') : (overrides.name ?? template.name),
     features: undefined

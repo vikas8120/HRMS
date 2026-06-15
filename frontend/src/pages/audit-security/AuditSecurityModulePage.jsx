@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
+import { NavLink, useLocation } from 'react-router-dom'
 import PageHeader from '../../components/ui/PageHeader'
 import DataTable from '../../components/ui/DataTable'
 import SearchBar from '../../components/ui/SearchBar'
 import FilterDropdown from '../../components/ui/FilterDropdown'
 import Button from '../../components/ui/Button'
+import { navItems } from '../../data/dashboardData'
+import { readJsonStorage, writeJsonStorage } from '../../utils/browserStorage'
 
 const logCategories = [
   'Login Logs',
@@ -103,30 +106,21 @@ function Field({ label, children }) {
 }
 
 function AuditSecurityModulePage({ page }) {
+  const { pathname } = useLocation()
   const [logs, setLogs] = useState(() => {
-    try {
-      const raw = localStorage.getItem(AUDIT_STORAGE_KEY)
-      const parsed = raw ? JSON.parse(raw) : null
-      return parsed?.logs?.length ? parsed.logs : initialLogs
-    } catch {
-      return initialLogs
-    }
+    const saved = readJsonStorage(AUDIT_STORAGE_KEY, null)
+    return saved?.logs?.length ? saved.logs : initialLogs
   })
   const [search, setSearch] = useState('')
-  const [categoryFilter, setCategoryFilter] = useState('all')
+  const [logCategoryFilter, setLogCategoryFilter] = useState('all')
   const [toast, setToast] = useState({ type: '', message: '' })
   const [settingsByGroup, setSettingsByGroup] = useState(() => {
-    try {
-      const raw = localStorage.getItem(AUDIT_STORAGE_KEY)
-      const parsed = raw ? JSON.parse(raw) : null
-      return parsed?.settingsByGroup ? parsed.settingsByGroup : initialSettings
-    } catch {
-      return initialSettings
-    }
+    const saved = readJsonStorage(AUDIT_STORAGE_KEY, null)
+    return saved?.settingsByGroup ? saved.settingsByGroup : initialSettings
   })
 
   useEffect(() => {
-    localStorage.setItem(AUDIT_STORAGE_KEY, JSON.stringify({ logs, settingsByGroup }))
+    writeJsonStorage(AUDIT_STORAGE_KEY, { logs, settingsByGroup })
   }, [logs, settingsByGroup])
 
   const activeLogCategory = useMemo(() => {
@@ -136,6 +130,8 @@ function AuditSecurityModulePage({ page }) {
     return matched || ''
   }, [page])
 
+  const selectedLogCategory = activeLogCategory || logCategoryFilter
+
   const activeSettingsGroup = useMemo(() => {
     const pageKey = normalizeLabel(page)
     const matched = settingsGroups.find((item) => normalizeLabel(item) === pageKey)
@@ -144,18 +140,25 @@ function AuditSecurityModulePage({ page }) {
 
   const showLogsSection = !page || Boolean(activeLogCategory)
   const showSettingsSection = !page || Boolean(activeSettingsGroup)
+  const auditModule = navItems.find((item) => item.label === 'Audit & Security')
+  const auditTabs = useMemo(() => ([
+    ...settingsGroups.map((label) => ({
+      label,
+      path: auditModule?.children.find((child) => child.label === label)?.path || '',
+      active: activeSettingsGroup === label
+    }))
+  ]), [activeSettingsGroup, auditModule])
 
   const visibleLogRows = useMemo(() => {
-    const selected = activeLogCategory || categoryFilter
     const term = search.trim().toLowerCase()
     return logs
-      .filter((row) => (selected === 'all' ? true : row.category === selected))
+      .filter((row) => (selectedLogCategory === 'all' ? true : row.category === selectedLogCategory))
       .filter((row) => {
         if (!term) return true
         return [row.actorName, row.action, row.description, row.module, row.ipAddress].join(' ').toLowerCase().includes(term)
       })
       .map((x) => ({ ...x, dateTime: new Date(x.dateTime).toLocaleString() }))
-  }, [logs, activeLogCategory, categoryFilter, search])
+  }, [logs, selectedLogCategory, search])
 
   const logCols = [
     { key: 'dateTime', label: 'Date/Time' },
@@ -180,7 +183,7 @@ function AuditSecurityModulePage({ page }) {
   }
 
   const addAuditEntry = () => {
-    const selectedCategory = activeLogCategory || (categoryFilter === 'all' ? 'Security Logs' : categoryFilter)
+    const selectedCategory = selectedLogCategory === 'all' ? 'Security Logs' : selectedLogCategory
     setLogs((prev) => [{
       id: `log-${Date.now()}`,
       dateTime: new Date().toISOString(),
@@ -204,9 +207,21 @@ function AuditSecurityModulePage({ page }) {
         breadcrumb={['Super Admin', 'Audit & Security', page || 'Workspace']}
         primaryActionLabel="Refresh"
         onPrimaryAction={() => setToast({ type: 'success', message: 'Refreshed (frontend state)' })}
-      />
+      /> 
 
       {toast.message ? <div className={`toast toast-${toast.type}`}>{toast.message}</div> : null}
+
+      <div className="workspace-subnav audit-security-subnav" aria-label="Audit and security navigation">
+        {auditTabs.map((tab) => (
+          <NavLink
+            key={tab.label}
+            to={tab.path || pathname}
+            className={({ isActive }) => `workspace-nav-chip ${isActive || tab.active ? 'active' : ''}`}
+          >
+            {tab.label}
+          </NavLink>
+        ))}
+      </div>
 
       {showLogsSection ? (
         <div id="audit-logs-section">
@@ -215,16 +230,16 @@ function AuditSecurityModulePage({ page }) {
               <div className="search-wrap"><label>Search Logs</label><SearchBar value={search} onChange={setSearch} placeholder="Search action/description/actor" /></div>
               <FilterDropdown
                 label="Log Category"
-                value={activeLogCategory || categoryFilter}
-                onChange={setCategoryFilter}
-                options={[{ value: 'all', label: 'All' }, ...logCategories.map((name) => ({ value: name, label: name }))]}
+                value={selectedLogCategory}
+                onChange={setLogCategoryFilter}
+                options={[{ value: 'all', label: 'All Logs' }, ...logCategories.map((name) => ({ value: name, label: name }))]}
                 disabled={Boolean(activeLogCategory && activeLogCategory !== 'all')}
               />
             </div>
           </div>
           <div className="panel">
             <div className="panel-head">
-              <h3>{activeLogCategory && activeLogCategory !== 'all' ? `${activeLogCategory} Records` : 'Audit Logs'}</h3>
+              <h3>{selectedLogCategory && selectedLogCategory !== 'all' ? `${selectedLogCategory} Records` : 'Audit Logs'}</h3>
               <div className="actions-row">
                 <Button variant="ghost" onClick={addAuditEntry}>Add Audit Entry</Button>
                 <Button onClick={() => setToast({ type: 'success', message: `Exported ${visibleLogRows.length} logs (frontend)` })}>Export Logs</Button>

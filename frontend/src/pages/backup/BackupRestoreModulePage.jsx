@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
+import { NavLink, useLocation } from 'react-router-dom'
 import PageHeader from '../../components/ui/PageHeader'
 import DataTable from '../../components/ui/DataTable'
 import Button from '../../components/ui/Button'
 import FormInput from '../../components/ui/FormInput'
+import { navItems } from '../../data/dashboardData'
+import { readJsonStorage, writeJsonStorage } from '../../utils/browserStorage'
 
 const backupTypes = ['Database Backup', 'File Backup', 'Automatic Backup', 'Manual Backup', 'Backup Scheduling', 'Cloud Backup', 'Backup Encryption', 'Backup Logs']
 const restoreTypes = ['Restore Database', 'Restore Files', 'Disaster Recovery']
@@ -31,14 +34,10 @@ const actionMeta = {
 }
 
 function BackupRestoreModulePage({ page }) {
+  const { pathname } = useLocation()
   const [logs, setLogs] = useState(() => {
-    try {
-      const raw = localStorage.getItem(BACKUP_STORAGE_KEY)
-      const parsed = raw ? JSON.parse(raw) : null
-      return parsed?.logs?.length ? parsed.logs : seedLogs
-    } catch {
-      return seedLogs
-    }
+    const saved = readJsonStorage(BACKUP_STORAGE_KEY, null)
+    return saved?.logs?.length ? saved.logs : seedLogs
   })
   const [toast, setToast] = useState({ type: '', message: '' })
   const [target, setTarget] = useState('')
@@ -52,6 +51,26 @@ function BackupRestoreModulePage({ page }) {
   }, [page])
 
   const currentTypes = activeGroup === 'Backup' ? backupTypes : restoreTypes
+  const backupModule = navItems.find((item) => item.label === 'Backup & Restore')
+  const backupGroupTabs = useMemo(() => ([
+    {
+      label: 'Backup',
+      path: backupModule?.children.find((child) => backupTypes.includes(child.label))?.path || '',
+      active: activeGroup === 'Backup'
+    },
+    {
+      label: 'Restore',
+      path: backupModule?.children.find((child) => restoreTypes.includes(child.label))?.path || '',
+      active: activeGroup === 'Restore'
+    }
+  ]), [activeGroup, backupModule])
+  const activeGroupChildren = useMemo(
+    () => currentTypes.map((type) => ({
+      label: type,
+      path: backupModule?.children.find((child) => child.label === type)?.path || ''
+    })),
+    [currentTypes, backupModule]
+  )
 
   useEffect(() => {
     if (page && allTypes.includes(page)) {
@@ -62,7 +81,7 @@ function BackupRestoreModulePage({ page }) {
   }, [page, activeGroup])
 
   useEffect(() => {
-    localStorage.setItem(BACKUP_STORAGE_KEY, JSON.stringify({ logs }))
+    writeJsonStorage(BACKUP_STORAGE_KEY, { logs })
   }, [logs])
 
   const visibleRows = useMemo(() => logs
@@ -129,6 +148,30 @@ function BackupRestoreModulePage({ page }) {
         onPrimaryAction={() => showToast('success', 'Refreshed (frontend state)')}
       />
       {toast.message ? <div className={`toast toast-${toast.type}`}>{toast.message}</div> : null}
+
+      <div className="workspace-nav backup-workspace-nav" aria-label="Backup category navigation">
+        {backupGroupTabs.map((tab) => (
+          <NavLink
+            key={tab.label}
+            to={tab.path || pathname}
+            className={({ isActive }) => `workspace-nav-chip ${isActive || tab.active ? 'active' : ''}`}
+          >
+            {tab.label.toUpperCase()}
+          </NavLink>
+        ))}
+      </div>
+
+      <div className="workspace-subnav backup-workspace-subnav" aria-label="Backup module navigation">
+        {activeGroupChildren.map((item) => (
+          <NavLink
+            key={item.label}
+            to={item.path || pathname}
+            className={({ isActive }) => `workspace-nav-chip ${isActive ? 'active' : ''}`}
+          >
+            {item.label}
+          </NavLink>
+        ))}
+      </div>
 
       <div className="panel">
         <h3>{activeGroup} Actions</h3>

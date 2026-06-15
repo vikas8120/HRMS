@@ -2270,6 +2270,47 @@ tr:hover {
   border-color: color-mix(in srgb, #94a3b8 26%, var(--line));
 }
 
+/* Revenue analytics workspace polish */
+.module-reports .revenue-workspace-nav {
+  padding: 6px;
+  border-radius: 14px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.74), rgba(244, 248, 255, 0.6));
+  border: 1px solid rgba(161, 178, 236, 0.2);
+  box-shadow: 0 10px 26px rgba(70, 98, 175, 0.12);
+}
+
+.module-reports .revenue-workspace-subnav {
+  padding: 6px;
+  border-radius: 14px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.7), rgba(242, 247, 255, 0.58));
+  border: 1px solid rgba(161, 178, 236, 0.18);
+  box-shadow: 0 8px 20px rgba(70, 98, 175, 0.08);
+}
+
+.module-reports .revenue-workspace-nav .workspace-nav-chip {
+  min-height: 34px;
+  padding: 0 14px;
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+}
+
+.module-reports .revenue-workspace-subnav .workspace-nav-chip {
+  min-height: 34px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.module-reports .revenue-workspace-nav .workspace-nav-chip.active {
+  box-shadow: 0 4px 12px rgba(86, 99, 232, 0.18);
+}
+
 /* Final wow pass: module hero accents + micro illustrations */
 .module-admin-management .page-header::after,
 .module-company-management .page-header::after,
@@ -2989,9 +3030,9 @@ tr:hover {
 }
 
 .module-dashboard .chip-btn {
-  border-color: rgba(148, 163, 255, 0.34);
-  color: #cfd7ff;
-  background: rgba(99, 102, 241, 0.12);
+  border-color: rgba(106, 122, 214, 0.48);
+  color: #3c4f8f;
+  background: rgba(255, 255, 255, 0.78);
   transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
 }
 
@@ -3004,6 +3045,10 @@ tr:hover {
   background: linear-gradient(135deg, #6c63ff, #8b5cf6);
   color: #fff;
   box-shadow: 0 8px 18px rgba(108, 99, 255, 0.36);
+}
+
+.module-dashboard .chip-btn:not(.active) {
+  opacity: 1;
 }
 
 .module-dashboard .panel-head h3::before {
@@ -5482,17 +5527,30 @@ textarea {
   font-size: clamp(2rem, 2.6vw, 2.4rem);
 }
 
-.module-admin-management .admin-management-page .page-header > .btn {
-  min-height: 42px;
-  border-radius: 12px;
-  padding-inline: 16px;
+.module-admin-management .admin-workspace-nav {
+  padding: 6px;
+  border-radius: 14px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.72), rgba(242, 248, 255, 0.6));
+  border: 1px solid rgba(161, 178, 236, 0.2);
 }
 
 .module-admin-management .admin-workspace-subnav {
   padding: 6px;
   border-radius: 14px;
-  background: linear-gradient(145deg, rgba(255,255,255,0.68), rgba(244,248,255,0.58));
-  border: 1px solid rgba(161, 178, 236, 0.2);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.68), rgba(244, 248, 255, 0.58));
+  border: 1px solid rgba(161, 178, 236, 0.18);
+  row-gap: 6px;
+}
+
+.module-admin-management .admin-workspace-nav .workspace-nav-chip {
+  min-height: 34px;
+  padding: 0 14px;
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
 }
 
 .module-admin-management .admin-workspace-subnav .workspace-nav-chip {
@@ -5502,6 +5560,10 @@ textarea {
   align-items: center;
   line-height: 1;
   font-weight: 700;
+}
+
+.module-admin-management .admin-workspace-nav .workspace-nav-chip.active {
+  box-shadow: 0 4px 12px rgba(86, 99, 232, 0.18);
 }
 
 .module-admin-management .admin-management-page .filters-panel {
@@ -5595,40 +5657,44 @@ textarea {
 }
 
 .audit-security-subnav {
-  padding: 4px 6px;
-  border-radius: 12px;
-  background: rgba(255,255,255,0.5);
+  padding: 8px;
+  border-radius: 15px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.99), rgba(248, 250, 255, 0.96));
   border: 1px solid rgba(161, 178, 236, 0.24);
   display: flex;
-  gap: 4px;
+  gap: 8px;
   flex-wrap: wrap;
-  overflow: hidden;
-  margin-bottom: 10px;
+  align-items: flex-start;
+  overflow: visible;
+  margin-bottom: 14px;
+  box-shadow: 0 12px 24px rgba(70, 98, 175, 0.08);
 }
 
 .audit-security-subnav .workspace-nav-chip {
   flex: 0 0 auto;
-  border: 1px solid rgba(160, 178, 236, 0.35);
-  background: rgba(255,255,255,0.64);
-  min-height: 30px;
-  padding: 0 8px;
+  border: 1px solid rgba(146, 166, 225, 0.38);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 1), rgba(248, 250, 255, 0.96));
+  min-height: 36px;
+  padding: 0 13px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   line-height: 1;
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
   cursor: pointer;
   white-space: nowrap;
   overflow: visible;
-  box-shadow: none;
+  box-shadow: 0 2px 6px rgba(70, 98, 175, 0.08);
+  color: #18335f;
 }
 
 .audit-security-subnav .workspace-nav-chip.active {
-  background: linear-gradient(120deg, #4f67f7, #6757ea);
+  background: linear-gradient(135deg, #4f67f7, #6757ea);
   color: #fff;
   border-color: transparent;
+  box-shadow: 0 8px 18px rgba(79, 103, 247, 0.22);
 }
 
 .audit-settings-group {
@@ -6268,13 +6334,13 @@ textarea {
   border-radius: 26px;
   border-color: rgba(160, 175, 240, 0.32);
   box-shadow: 0 18px 42px rgba(66, 86, 158, 0.16);
-  padding: 16px 18px;
-  min-height: 176px;
+  padding: 12px 16px;
+  min-height: 148px;
 }
 
 .module-dashboard .dashboard-hero-copy h2 {
   color: #1e2d58;
-  font-size: clamp(1.8rem, 2.5vw, 2.4rem);
+  font-size: clamp(1.55rem, 2.1vw, 2rem);
   margin: 2px 0 6px;
 }
 
@@ -6287,17 +6353,17 @@ textarea {
 
 .module-dashboard .dashboard-hero-visual {
   border: 1px solid rgba(174, 190, 242, 0.3);
-  min-height: 124px;
+  min-height: 104px;
 }
 
 .module-dashboard .tile-a {
-  width: 132px;
-  height: 84px;
+  width: 114px;
+  height: 72px;
 }
 
 .module-dashboard .tile-b {
-  width: 120px;
-  height: 76px;
+  width: 104px;
+  height: 66px;
 }
 
 .module-dashboard .hero-signal-chip strong {
@@ -6310,13 +6376,13 @@ textarea {
 }
 
 .module-dashboard .dashboard-hero-signals {
-  gap: 8px;
-  margin-top: 4px;
+  gap: 6px;
+  margin-top: 2px;
   margin-bottom: 2px;
 }
 
 .module-dashboard .hero-signal-chip {
-  padding: 8px 10px;
+  padding: 7px 9px;
   border-radius: 10px;
 }
 

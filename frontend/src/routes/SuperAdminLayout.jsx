@@ -76,7 +76,7 @@ const workspaceGroupsByModule = {
   'Support Center': [
     {
       title: 'Ticket Queue',
-      items: ['Ticket Dashboard', 'Open Tickets', 'Closed Tickets', 'Escalated Tickets']
+      items: ['Ticket Queue', 'Open Tickets', 'Closed Tickets', 'Escalated Tickets']
     }
   ],
   'Audit & Security': [
@@ -272,7 +272,14 @@ function SuperAdminLayout() {
     'Company Management',
     'Subscription & Billing',
     'Revenue & Analytics',
-    'Feature Management'
+    'Feature Management',
+    'Reports',
+    'Backup & Restore',
+    'AI Center',
+    'Integrations',
+    'Audit & Security',
+    'Support Center',
+    'System Settings'
   ])
   const hideWorkspacePrefixes = [
     '/super-admin/company-management',
