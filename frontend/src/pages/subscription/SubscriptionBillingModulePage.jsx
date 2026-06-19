@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { CircleAlert, CreditCard, Receipt, BarChart3, Wallet } from 'lucide-react'
 import PageHeader from '../../components/ui/PageHeader'
 import DataTable from '../../components/ui/DataTable'
 import SearchBar from '../../components/ui/SearchBar'
@@ -11,23 +10,19 @@ import FormInput from '../../components/ui/FormInput'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import LoadingSkeleton from '../../components/ui/LoadingSkeleton'
 import EmptyState from '../../components/ui/EmptyState'
-import StatCard from '../../components/ui/StatCard'
 import {
   createAddon,
-  createCompanyCustomPlan,
   createCoupon,
   createInvoice,
   createPayment,
   createPlan,
   createSubscription,
-  deleteCompanyCustomPlan,
   deleteAddon,
   deleteCoupon,
   deleteInvoice,
   deletePlan,
   deleteSubscription,
   generateInvoice,
-  listCompanyCustomPlans,
   listAddons,
   listCoupons,
   listInvoices,
@@ -35,8 +30,8 @@ import {
   listPlans,
   listSubscriptions,
   refundPayment,
+  
   updateAddon,
-  updateCompanyCustomPlan,
   updateCoupon,
   updatePlan,
   updateSubscription,
@@ -46,24 +41,11 @@ import { fetchCompanies } from '../../api/companyManagementApi'
 import { formatDate, formatDateTime } from '../../utils/dateFormat'
 
 const submodules = new Set([
-  'Subscription Plans',
-  'Company Custom Plans',
-  'Plan Pricing',
-  'User Limits',
-  'Storage Limits',
-  'Plan Upgrade/Downgrade',
-  'Subscription History',
-  'Invoice Management',
-  'Payment Tracking',
-  'Failed Payments',
-  'Refund Management',
-  'Transaction History',
-  'Discount Coupons'
+  'Subscription Plans', 'Plan Pricing', 'User Limits', 'Storage Limits', 'Plan Upgrade/Downgrade', 'Subscription History', 'Invoice Management', 'Payment Tracking', 'Failed Payments', 'Refund Management', 'Transaction History', 'Discount Coupons'
 ])
 
 const sectionByPage = {
   'Subscription Plans': 'subscription-plans-section',
-  'Company Custom Plans': 'company-custom-plans-section',
   'Plan Pricing': 'subscription-plans-section',
   'User Limits': 'subscription-plans-section',
   'Storage Limits': 'subscription-plans-section',
@@ -77,6 +59,16 @@ const sectionByPage = {
   'Transaction History': 'subscription-payments-section',
   'Discount Coupons': 'subscription-coupons-section'
 }
+
+const planCols = [
+  { key: 'name', label: 'Plan' },
+  { key: 'type', label: 'Type' },
+  { key: 'monthlyPrice', label: 'Monthly' },
+  { key: 'yearlyPrice', label: 'Yearly' },
+  { key: 'userLimit', label: 'Users' },
+  { key: 'storageLimit', label: 'Storage(GB)' },
+  { key: 'status', label: 'Status' }
+]
 
 const allowedPlanTypes = ['standard', 'growth', 'enterprise', 'custom']
 const planTypeOptions = [
@@ -92,7 +84,7 @@ const planPresetTemplates = {
     yearlyPrice: 7999,
     userLimit: 1,
     storageLimit: 10,
-    features: ['Basic pipeline', 'Email support']
+    features: ['Up to 500 leads', 'Basic pipeline', 'Email support']
   },
   growth: {
     name: 'Growth',
@@ -100,7 +92,7 @@ const planPresetTemplates = {
     yearlyPrice: 14999,
     userLimit: 3,
     storageLimit: 25,
-    features: ['AI Engine (basic)', 'WhatsApp integration', 'Priority support']
+    features: ['Up to 5,000 leads', 'AI Engine (basic)', 'WhatsApp integration', 'Priority support']
   },
   enterprise: {
     name: 'Enterprise',
@@ -108,7 +100,7 @@ const planPresetTemplates = {
     yearlyPrice: 24999,
     userLimit: 5,
     storageLimit: 100,
-    features: ['AI Engine (GPT-4)', 'All integrations', 'Dedicated support', 'Custom reports']
+    features: ['Unlimited leads & deals', 'AI Engine (GPT-4)', 'All integrations', 'Dedicated support', 'Custom reports', 'White-labeling']
   },
   custom: {
     name: '',
@@ -132,6 +124,9 @@ const planPresetCards = Object.entries(planPresetTemplates).map(([type, plan]) =
 }))
 
 const planFeatureOptions = [
+  'Up to 500 leads',
+  'Up to 5,000 leads',
+  'Unlimited leads & deals',
   'Basic pipeline',
   'Advanced pipeline',
   'Email support',
@@ -141,7 +136,8 @@ const planFeatureOptions = [
   'AI Engine (basic)',
   'AI Engine (GPT-4)',
   'All integrations',
-  'Custom reports'
+  'Custom reports',
+  'White-labeling'
 ]
 
 const normalizePlanType = (value) => {
@@ -201,7 +197,6 @@ const resetPaymentForm = () => ({ companyId: '', invoiceId: '', amount: '', meth
 const resetCouponForm = () => ({ code: '', discountType: 'percent', discountValue: 10, active: true, expiresAt: '' })
 const resetAddonForm = () => ({ name: '', description: '', priceMonthly: 0, priceYearly: 0, active: true })
 const resetSubscriptionForm = () => ({ id: '', company: '', plan: '', billingCycle: 'monthly', status: 'active' })
-const resetCompanyCustomPlanForm = () => ({ companyId: '', name: '', monthlyPrice: 0, yearlyPrice: 0, userLimit: 0, storageLimit: 0, featureChoices: [], customFeatureText: '', status: 'active', notes: '' })
 const subscriptionModuleRoot = '/super-admin/subscription-and-billing'
 
 const subscriptionWorkspaceGroups = [
@@ -209,8 +204,7 @@ const subscriptionWorkspaceGroups = [
     title: 'Plans',
     path: `${subscriptionModuleRoot}/subscription-plans`,
     items: [
-      { label: 'Subscription Plans', path: `${subscriptionModuleRoot}/subscription-plans` },
-      { label: 'Company Custom Plans', path: `${subscriptionModuleRoot}/company-custom-plans` }
+      { label: 'Subscription Plans', path: `${subscriptionModuleRoot}/subscription-plans` }
     ]
   },
   {
@@ -230,11 +224,12 @@ function SubscriptionBillingModulePage({ page }) {
   const { pathname } = useLocation()
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState({ type: '', message: '' })
+  const [search, setSearch] = useState('')
   const [planTypeTab, setPlanTypeTab] = useState('standard')
+  const [statusFilter, setStatusFilter] = useState('all')
   const [pagination, setPagination] = useState({ page: 1, limit: 10, totalPages: 1 })
 
   const [plans, setPlans] = useState([])
-  const [companyCustomPlans, setCompanyCustomPlans] = useState([])
   const [subscriptions, setSubscriptions] = useState([])
   const [invoices, setInvoices] = useState([])
   const [payments, setPayments] = useState([])
@@ -246,11 +241,6 @@ function SubscriptionBillingModulePage({ page }) {
   const [selectedPlan, setSelectedPlan] = useState(null)
   const [planForm, setPlanForm] = useState(resetPlanForm())
   const [planEditEnabled, setPlanEditEnabled] = useState(false)
-  const [planFormError, setPlanFormError] = useState('')
-  const [companyCustomPlanModal, setCompanyCustomPlanModal] = useState(false)
-  const [selectedCompanyCustomPlan, setSelectedCompanyCustomPlan] = useState(null)
-  const [companyCustomPlanForm, setCompanyCustomPlanForm] = useState(resetCompanyCustomPlanForm())
-  const [companyCustomPlanError, setCompanyCustomPlanError] = useState('')
 
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [confirmConfig, setConfirmConfig] = useState({ title: 'Confirm', message: '', onConfirm: null })
@@ -276,17 +266,6 @@ function SubscriptionBillingModulePage({ page }) {
     [companies]
   )
   const planOptions = useMemo(() => plans.map((p) => ({ value: p._id, label: p.name })), [plans])
-  const companyCustomPlanOptions = useMemo(
-    () => companyCustomPlans.map((p) => ({ value: p._id, label: `${p.company?.companyName || 'Company'} - ${p.name}` })),
-    [companyCustomPlans]
-  )
-  const subscriptionPlanOptions = useMemo(
-    () => [
-      ...planOptions.map((option) => ({ value: `plan:${option.value}`, label: option.label })),
-      ...companyCustomPlanOptions.map((option) => ({ value: `custom:${option.value}`, label: option.label }))
-    ],
-    [planOptions, companyCustomPlanOptions]
-  )
   const activeWorkspaceGroupIndex = useMemo(() => {
     const foundIndex = subscriptionWorkspaceGroups.findIndex((group) =>
       group.items.some((item) => pathname === item.path || pathname.startsWith(`${item.path}/`))
@@ -303,7 +282,6 @@ function SubscriptionBillingModulePage({ page }) {
     setSelectedPlan(null)
     setPlanForm(resetPlanForm(normalizedType))
     setPlanEditEnabled(normalizedType === 'custom')
-    setPlanFormError('')
     setPlanModal(true)
   }
 
@@ -324,30 +302,7 @@ function SubscriptionBillingModulePage({ page }) {
       status: plan?.status || 'active'
     }))
     setPlanEditEnabled(normalizedType === 'custom')
-    setPlanFormError('')
     setPlanModal(true)
-  }
-
-  const openCompanyCustomPlanModal = (plan = null) => {
-    setSelectedCompanyCustomPlan(plan)
-    if (plan) {
-      setCompanyCustomPlanForm({
-        companyId: plan.company?._id || plan.company || '',
-        name: plan.name || '',
-        monthlyPrice: Number(plan.monthlyPrice ?? 0),
-        yearlyPrice: Number(plan.yearlyPrice ?? 0),
-        userLimit: Number(plan.userLimit ?? 0),
-        storageLimit: Number(plan.storageLimit ?? 0),
-        featureChoices: splitPlanFeatures(plan.features).featureChoices,
-        customFeatureText: splitPlanFeatures(plan.features).customFeatureText,
-        status: plan.status || 'active',
-        notes: plan.notes || ''
-      })
-    } else {
-      setCompanyCustomPlanForm(resetCompanyCustomPlanForm())
-    }
-    setCompanyCustomPlanError('')
-    setCompanyCustomPlanModal(true)
   }
 
   const handlePlanTypeChange = (nextType) => {
@@ -358,15 +313,6 @@ function SubscriptionBillingModulePage({ page }) {
 
   const togglePlanFeature = (feature) => {
     setPlanForm((prev) => {
-      const selected = new Set(prev.featureChoices || [])
-      if (selected.has(feature)) selected.delete(feature)
-      else selected.add(feature)
-      return { ...prev, featureChoices: [...selected] }
-    })
-  }
-
-  const toggleCompanyCustomPlanFeature = (feature) => {
-    setCompanyCustomPlanForm((prev) => {
       const selected = new Set(prev.featureChoices || [])
       if (selected.has(feature)) selected.delete(feature)
       else selected.add(feature)
@@ -387,20 +333,18 @@ function SubscriptionBillingModulePage({ page }) {
         : ['Plan Pricing', 'User Limits', 'Storage Limits'].includes(page)
           ? planTypeTab
           : 'all'
-      const [pRes, customPRes, sRes, iRes, payRes, cRes, aRes, companyRes] = await Promise.all([
-        listPlans({ page: 1, limit: 500, type: planTypeFilter, status: 'all' }),
-        listCompanyCustomPlans({ page: 1, limit: 500, status: 'all' }),
-        listSubscriptions({ page: 1, limit: 500, status: 'all' }),
-        listInvoices({ page: 1, limit: 500, status: 'all' }),
-        listPayments({ page: 1, limit: 500, status: 'all' }),
-        listCoupons({ page: 1, limit: 500 }),
-        listAddons({ page: 1, limit: 500 }),
+      const [pRes, sRes, iRes, payRes, cRes, aRes, companyRes] = await Promise.all([
+        listPlans({ page: pagination.page, limit: pagination.limit, search, type: planTypeFilter, status: statusFilter }),
+        listSubscriptions({ page: 1, limit: 500, search, status: statusFilter }),
+        listInvoices({ page: 1, limit: 500, search, status: statusFilter }),
+        listPayments({ page: 1, limit: 500, search, status: statusFilter }),
+        listCoupons({ page: 1, limit: 500, search }),
+        listAddons({ page: 1, limit: 500, search }),
         fetchCompanies({ page: 1, limit: 500, search: '', status: 'all', plan: 'all' })
       ])
 
       setPlans(pRes.items || [])
       setPagination(pRes.pagination || { page: 1, limit: 10, totalPages: 1 })
-      setCompanyCustomPlans(customPRes.items || [])
       setSubscriptions(sRes.items || [])
       setInvoices(iRes.items || [])
       setPayments(payRes.items || [])
@@ -417,7 +361,7 @@ function SubscriptionBillingModulePage({ page }) {
   useEffect(() => {
     loadData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pagination.page, planTypeTab, page])
+  }, [pagination.page, search, planTypeTab, statusFilter, page])
 
   useEffect(() => {
     if (page === 'Subscription Plans') setPlanTypeTab('standard')
@@ -434,24 +378,26 @@ function SubscriptionBillingModulePage({ page }) {
     if (!page || !sectionByPage[page]) return
     const timer = setTimeout(() => {
       const element = document.getElementById(sectionByPage[page])
-      if (element) element.scrollIntoView({ behavior: 'auto', block: 'start' })
+      if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }, 50)
     return () => clearTimeout(timer)
   }, [page])
 
   const planRows = useMemo(() => plans.map((p) => ({ ...p, id: p._id })), [plans])
+  const normalizedPlanRows = useMemo(() => planRows.map((p) => ({
+    ...p,
+    type: formatPlanTypeLabel(p.type || p.name),
+    monthlyPrice: p.monthlyPrice ?? p.price ?? 0,
+    yearlyPrice: p.yearlyPrice ?? (Number(p.monthlyPrice ?? p.price ?? 0) ? Number(p.monthlyPrice ?? p.price ?? 0) * 12 : 0)
+  })), [planRows])
   const planShowcaseRows = useMemo(() => {
-    if (planRows.length) return planRows
+    if (normalizedPlanRows.length) return normalizedPlanRows
     return planPresetCards
-  }, [planRows])
+  }, [normalizedPlanRows])
 
   const savePlan = async () => {
-    if (!planForm.name) {
-      setPlanFormError('Plan name is required')
-      return
-    }
+    if (!planForm.name) return toastError('Plan name is required')
     try {
-      setPlanFormError('')
       const payload = {
         ...planForm,
         features: uniqueList([...(planForm.featureChoices || []), ...parsePlanFeatures(planForm.customFeatureText)])
@@ -467,54 +413,18 @@ function SubscriptionBillingModulePage({ page }) {
       setPlanForm(resetPlanForm(planTypeTab))
       loadData()
     } catch (error) {
-      setPlanFormError(error?.response?.data?.message || 'Failed saving plan')
-    }
-  }
-
-  const saveCompanyCustomPlan = async () => {
-    if (!companyCustomPlanForm.companyId) {
-      setCompanyCustomPlanError('Company is required')
-      return
-    }
-    if (!companyCustomPlanForm.name) {
-      setCompanyCustomPlanError('Custom plan name is required')
-      return
-    }
-    try {
-      setCompanyCustomPlanError('')
-      const payload = {
-        ...companyCustomPlanForm,
-        company: companyCustomPlanForm.companyId,
-        features: uniqueList([...(companyCustomPlanForm.featureChoices || []), ...parsePlanFeatures(companyCustomPlanForm.customFeatureText)])
-      }
-      delete payload.companyId
-      delete payload.featureChoices
-      delete payload.customFeatureText
-      if (selectedCompanyCustomPlan) await updateCompanyCustomPlan(selectedCompanyCustomPlan._id, payload)
-      else await createCompanyCustomPlan(payload)
-      toastOk('Company custom plan saved successfully')
-      setCompanyCustomPlanModal(false)
-      setSelectedCompanyCustomPlan(null)
-      setCompanyCustomPlanForm(resetCompanyCustomPlanForm())
-      loadData()
-    } catch (error) {
-      setCompanyCustomPlanError(error?.response?.data?.message || 'Failed saving company custom plan')
+      toastError(error?.response?.data?.message || 'Failed saving plan')
     }
   }
 
   const saveSubscription = async () => {
     try {
       if (!subscriptionForm.company || !subscriptionForm.plan) return toastError('Company and plan are required')
-      const [planKind, planId] = String(subscriptionForm.plan).split(':')
-      const subscriptionPayload = {
+      await createSubscription({
         company: subscriptionForm.company,
+        plan: subscriptionForm.plan,
         billingCycle: subscriptionForm.billingCycle,
         status: subscriptionForm.status
-      }
-      if (planKind === 'custom') subscriptionPayload.customPlanId = planId
-      else subscriptionPayload.planId = planId
-      await createSubscription({
-        ...subscriptionPayload
       })
       toastOk('Subscription assigned to company')
       setAssignModal(false)
@@ -599,6 +509,7 @@ function SubscriptionBillingModulePage({ page }) {
       outstanding: Math.max(0, totalInvoiceAmount - totalPaidAmount)
     }
   }, [invoices, payments, subscriptions])
+
   const invoiceRows = invoices.map((x) => ({
     id: x._id,
     company: x.company?.companyName || x.company || '-',
@@ -627,44 +538,27 @@ function SubscriptionBillingModulePage({ page }) {
     discountValue: x.discountValue,
     status: x.active ? 'active' : 'inactive'
   }))
-  const filteredCouponRows = couponRows
+  const filteredCouponRows = statusFilter === 'all' ? couponRows : couponRows.filter((row) => row.status === statusFilter)
   const couponCols = [{ key: 'code', label: 'Code' }, { key: 'discountType', label: 'Type' }, { key: 'discountValue', label: 'Value' }, { key: 'status', label: 'Status' }]
 
   const addonRows = addons.map((x) => ({ id: x._id, name: x.name, monthly: x.priceMonthly, yearly: x.priceYearly, status: x.active ? 'active' : 'inactive' }))
   const addonCols = [{ key: 'name', label: 'Add-on' }, { key: 'monthly', label: 'Monthly' }, { key: 'yearly', label: 'Yearly' }, { key: 'status', label: 'Status' }]
 
-  const subsRows = subscriptions.map((x) => ({
-    id: x._id,
-    company: x.company?.companyName || x.company || '-',
-    plan: x.plan?.name || x.customPlan?.name || x.planLabel || x.plan || x.customPlan || '-',
-    billingCycle: x.billingCycle,
-    status: x.status
-  }))
+  const subsRows = subscriptions.map((x) => ({ id: x._id, company: x.company?.companyName || x.company || '-', plan: x.plan?.name || x.plan || '-', billingCycle: x.billingCycle, status: x.status }))
   const subsCols = [{ key: 'company', label: 'Company' }, { key: 'plan', label: 'Plan' }, { key: 'billingCycle', label: 'Cycle' }, { key: 'status', label: 'Status' }]
-
-  const companyCustomPlanRows = companyCustomPlans.map((plan) => ({
-    id: plan._id,
-    company: plan.company?.companyName || plan.company || '-',
-    name: plan.name || '-',
-    monthly: plan.monthlyPrice ?? 0,
-    yearly: plan.yearlyPrice ?? 0,
-    users: plan.userLimit ?? 0,
-    storage: plan.storageLimit ?? 0,
-    status: plan.status || 'inactive'
-  }))
-  const companyCustomPlanCols = [
-    { key: 'company', label: 'Company' },
-    { key: 'name', label: 'Plan Name' },
-    { key: 'monthly', label: 'Monthly' },
-    { key: 'yearly', label: 'Yearly' },
-    { key: 'users', label: 'Users' },
-    { key: 'storage', label: 'Storage' },
-    { key: 'status', label: 'Status' }
-  ]
 
   const renderPlanTable = (title) => (
     <div className={`panel ${['Subscription Plans', 'Plan Limits', 'Plan Pricing'].includes(title) ? 'subscription-plans-panel' : ''} ${['PlanLimits', 'Plan Limits', 'PlanPricing', 'Plan Pricing'].includes(title) ? 'plan-pricing-panel' : ''}`}>
       <div className="panel-head"><h3>{title}</h3>{title === 'Subscription Plans' ? <Button onClick={() => openPlanModal(planTypeTab)}>Create Plan</Button> : null}</div>
+      {['Subscription Plans', 'Plan Limits', 'Plan Pricing'].includes(title) ? (
+        <div className="tabs-row">
+          {planTypeOptions.map((tab) => (
+            <button key={tab.value} type="button" className={`chip-btn ${planTypeTab === tab.value ? 'active' : ''}`} onClick={() => { setPlanTypeTab(tab.value); setPagination((p) => ({ ...p, page: 1 })) }}>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
       {title === 'Subscription Plans' ? (
         <div className="plan-showcase-grid">
           {planShowcaseRows.map((plan) => (
@@ -672,16 +566,16 @@ function SubscriptionBillingModulePage({ page }) {
               <div className="plan-showcase-head">
                 <div>
                   <span className="plan-showcase-type">{formatPlanTypeLabel(plan.type)}</span>
-                  <h4>{plan.name || formatPlanTypeLabel(plan.type)}</h4>
+                  <h4>{plan.name}</h4>
                 </div>
                 <div className="plan-showcase-price">
-                  <strong>{plan.monthlyPrice ?? plan.price ?? 0}</strong>
+                  <strong>{plan.monthlyPrice}</strong>
                   <small>/month</small>
                 </div>
               </div>
               <div className="plan-showcase-meta">
-                <span>{plan.userLimit ?? 0} users included</span>
-                <span>{plan.storageLimit ?? 0} GB storage</span>
+                <span>{plan.userLimit} users included</span>
+                <span>{plan.storageLimit} GB storage</span>
               </div>
               <ul className="plan-showcase-features">
                 {((plans.find((item) => item._id === plan.id)?.features) || plan.features || []).map((feature) => (
@@ -701,31 +595,12 @@ function SubscriptionBillingModulePage({ page }) {
           ))}
         </div>
       ) : null}
-      {loading ? <LoadingSkeleton rows={4} /> : null}
-    </div>
-  )
-
-  const renderCompanyCustomPlanTable = () => (
-    <div className="panel" id="company-custom-plans-section">
-      <div className="panel-head">
-        <h3>Company Custom Plans</h3>
-        <Button onClick={() => openCompanyCustomPlanModal()}>Create Custom Plan</Button>
+      {loading ? <LoadingSkeleton rows={8} /> : <DataTable columns={planCols} rows={normalizedPlanRows} onEdit={(row) => { const p = plans.find((x) => x._id === row.id); if (!p) return; openPlanEditor(p) }} onDelete={(row) => openConfirm('Delete Plan', 'Are you sure you want to delete this subscription plan?', async () => { await deletePlan(row.id); toastOk('Plan deleted'); loadData() })} showViewAction={false} showDeleteAction={!['Plan Limits', 'Plan Pricing'].includes(title)} />}
+      <div className="pagination-row">
+        <Button variant="ghost" disabled={pagination.page <= 1} onClick={() => setPagination((v) => ({ ...v, page: v.page - 1 }))}>Prev</Button>
+        <span>Page {pagination.page} of {pagination.totalPages || 1}</span>
+        <Button variant="ghost" disabled={pagination.page >= pagination.totalPages} onClick={() => setPagination((v) => ({ ...v, page: v.page + 1 }))}>Next</Button>
       </div>
-      <DataTable
-        columns={companyCustomPlanCols}
-        rows={companyCustomPlanRows}
-        showViewAction={false}
-        onEdit={(row) => {
-          const found = companyCustomPlans.find((item) => item._id === row.id)
-          if (!found) return
-          openCompanyCustomPlanModal(found)
-        }}
-        onDelete={(row) => openConfirm('Delete Custom Plan', 'Delete this company custom plan?', async () => {
-          await deleteCompanyCustomPlan(row.id)
-          toastOk('Company custom plan deleted')
-          loadData()
-        })}
-      />
     </div>
   )
 
@@ -736,11 +611,9 @@ function SubscriptionBillingModulePage({ page }) {
       case 'User Limits':
       case 'Storage Limits':
         return renderPlanTable(activePage === 'User Limits' || activePage === 'Storage Limits' || activePage === 'Plan Pricing' ? 'Plan Pricing' : activePage)
-      case 'Company Custom Plans':
-        return renderCompanyCustomPlanTable()
       case 'Plan Upgrade/Downgrade':
       case 'Subscription History':
-        return <div className="panel"><div className="panel-head"><h3>{page}</h3><Button onClick={() => setAssignModal(true)}>Assign Subscription</Button></div><div className="form-grid"><FormInput label="Subscription ID" value={subscriptionForm.id} onChange={(e) => setSubscriptionForm((p) => ({ ...p, id: e.target.value }))} /><FilterDropdown label="Plan" value={subscriptionForm.plan} onChange={(v) => setSubscriptionForm((p) => ({ ...p, plan: v }))} options={[{ value: '', label: 'Select Plan' }, ...subscriptionPlanOptions]} /><FilterDropdown label="Status" value={subscriptionForm.status} onChange={(v) => setSubscriptionForm((p) => ({ ...p, status: v }))} options={[{ value: 'active', label: 'Active' }, { value: 'cancelled', label: 'Cancelled' }, { value: 'expired', label: 'Expired' }, { value: 'trial', label: 'Trial' }]} /><FilterDropdown label="Billing Cycle" value={subscriptionForm.billingCycle} onChange={(v) => setSubscriptionForm((p) => ({ ...p, billingCycle: v }))} options={[{ value: 'monthly', label: 'Monthly' }, { value: 'yearly', label: 'Yearly' }]} /></div><div className="actions-row"><Button onClick={async () => { try { if (!subscriptionForm.id) return toastError('Subscription ID required'); const [planKind, planId] = String(subscriptionForm.plan).split(':'); await upgradeDowngrade(subscriptionForm.id, planKind === 'custom' ? { customPlanId: planId, billingCycle: subscriptionForm.billingCycle } : { planId, billingCycle: subscriptionForm.billingCycle }); toastOk('Subscription upgraded/downgraded'); loadData() } catch (error) { toastError(error?.response?.data?.message || 'Update failed') } }}>Upgrade/Downgrade</Button><Button variant="ghost" onClick={async () => { try { if (!subscriptionForm.id) return toastError('Subscription ID required'); await updateSubscription(subscriptionForm.id, { status: subscriptionForm.status }); toastOk(`Subscription ${subscriptionForm.status}`); loadData() } catch (error) { toastError(error?.response?.data?.message || 'Status update failed') } }}>Activate/Cancel/Expire</Button></div><DataTable columns={subsCols} rows={subsRows} showViewAction={false} onEdit={(row) => { const found = subscriptions.find((item) => item._id === row.id); if (!found) return; setSubscriptionForm({ id: found._id, company: found.company?._id || found.company || '', plan: found.customPlan ? `custom:${found.customPlan?._id || found.customPlan}` : `plan:${found.plan?._id || found.plan || ''}`, billingCycle: found.billingCycle || 'monthly', status: found.status || 'active' }) }} onDelete={(row) => openConfirm('Delete Subscription', 'Delete this company subscription?', async () => { await deleteSubscription(row.id); toastOk('Subscription deleted'); loadData() })} /></div>
+        return <div className="panel"><div className="panel-head"><h3>{page}</h3><Button onClick={() => setAssignModal(true)}>Assign Subscription</Button></div><div className="form-grid"><FormInput label="Subscription ID" value={subscriptionForm.id} onChange={(e) => setSubscriptionForm((p) => ({ ...p, id: e.target.value }))} /><FilterDropdown label="Plan" value={subscriptionForm.plan} onChange={(v) => setSubscriptionForm((p) => ({ ...p, plan: v }))} options={[{ value: '', label: 'Select Plan' }, ...planOptions]} /><FilterDropdown label="Status" value={subscriptionForm.status} onChange={(v) => setSubscriptionForm((p) => ({ ...p, status: v }))} options={[{ value: 'active', label: 'Active' }, { value: 'cancelled', label: 'Cancelled' }, { value: 'expired', label: 'Expired' }, { value: 'trial', label: 'Trial' }]} /><FilterDropdown label="Billing Cycle" value={subscriptionForm.billingCycle} onChange={(v) => setSubscriptionForm((p) => ({ ...p, billingCycle: v }))} options={[{ value: 'monthly', label: 'Monthly' }, { value: 'yearly', label: 'Yearly' }]} /></div><div className="actions-row"><Button onClick={async () => { try { if (!subscriptionForm.id) return toastError('Subscription ID required'); await upgradeDowngrade(subscriptionForm.id, { planId: subscriptionForm.plan, billingCycle: subscriptionForm.billingCycle }); toastOk('Subscription upgraded/downgraded'); loadData() } catch (error) { toastError(error?.response?.data?.message || 'Update failed') } }}>Upgrade/Downgrade</Button><Button variant="ghost" onClick={async () => { try { if (!subscriptionForm.id) return toastError('Subscription ID required'); await updateSubscription(subscriptionForm.id, { status: subscriptionForm.status }); toastOk(`Subscription ${subscriptionForm.status}`); loadData() } catch (error) { toastError(error?.response?.data?.message || 'Status update failed') } }}>Activate/Cancel/Expire</Button></div><DataTable columns={subsCols} rows={subsRows} showViewAction={false} onEdit={(row) => { const found = subscriptions.find((item) => item._id === row.id); if (!found) return; setSubscriptionForm({ id: found._id, company: found.company?._id || found.company || '', plan: found.plan?._id || found.plan || '', billingCycle: found.billingCycle || 'monthly', status: found.status || 'active' }) }} onDelete={(row) => openConfirm('Delete Subscription', 'Delete this company subscription?', async () => { await deleteSubscription(row.id); toastOk('Subscription deleted'); loadData() })} /></div>
       case 'Invoice Management':
       case 'Generate Invoice':
         return <div className="panel"><div className="panel-head"><h3>{page}</h3><Button onClick={() => { setInvoiceForm(resetInvoiceForm()); setInvoiceModal(true) }}>New Invoice</Button></div><DataTable columns={invoiceCols} rows={invoiceRows} showViewAction={false} showEditAction={false} onDelete={(row) => openConfirm('Delete Invoice', 'Delete this invoice?', async () => { await deleteInvoice(row.id); toastOk('Invoice deleted'); loadData() })} /></div>
@@ -846,17 +719,9 @@ function SubscriptionBillingModulePage({ page }) {
       </div>
       {toast.message ? <div className={`toast toast-${toast.type}`}>{toast.message}</div> : null}
       {page === 'Subscription Plans' || !page ? (
-        <div className="billing-summary-panel">
-          <h3>Billing Summary</h3>
-          <div className="stats-grid premium-stats-grid billing-summary-grid">
-            <StatCard title="Active Subscriptions" value={billingSummary.activeSubscriptions} trend="Live subscription count" icon={CreditCard} />
-            <StatCard title="Pending Invoices" value={billingSummary.pendingInvoices} trend="Needs collection" icon={Receipt} trendTone="warning" />
-            <StatCard title="Failed Payments" value={billingSummary.failedPayments} trend="Payment issues" icon={CircleAlert} trendTone="danger" />
-            <StatCard title="Revenue" value={billingSummary.revenue} trend="Collected so far" icon={BarChart3} trendTone="success" />
-            <StatCard title="Outstanding" value={billingSummary.outstanding} trend="Still due" icon={Wallet} trendTone="info" />
-          </div>
-        </div>
+        <div className="panel"><h3>Billing Summary</h3><div className="stats-grid"><div className="stat-card"><h4>Active Subscriptions</h4><p>{billingSummary.activeSubscriptions}</p></div><div className="stat-card"><h4>Pending Invoices</h4><p>{billingSummary.pendingInvoices}</p></div><div className="stat-card"><h4>Failed Payments</h4><p>{billingSummary.failedPayments}</p></div><div className="stat-card"><h4>Revenue</h4><p>{billingSummary.revenue}</p></div><div className="stat-card"><h4>Outstanding</h4><p>{billingSummary.outstanding}</p></div></div></div>
       ) : null}
+      <div className="panel filters-panel"><div className="filters-row"><div className="search-wrap"><label>Search</label><SearchBar value={search} onChange={setSearch} placeholder="Search by name/code/invoice" /></div><FilterDropdown label="Status" value={statusFilter} onChange={(v) => { setStatusFilter(v); setPagination((prev) => ({ ...prev, page: 1 })) }} options={page === 'Discount Coupons' ? [{ value: 'all', label: 'All' }, { value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }] : [{ value: 'all', label: 'All' }, { value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }, { value: 'pending', label: 'Pending' }, { value: 'failed', label: 'Failed' }, { value: 'completed', label: 'Completed' }, { value: 'paid', label: 'Paid' }, { value: 'cancelled', label: 'Cancelled' }, { value: 'expired', label: 'Expired' }]} /></div></div>
       {submodules.has(page) || !page ? renderSection(page || 'Subscription Plans') : <EmptyState title="Unknown Subscription module" />}
 
       <Modal
@@ -867,11 +732,6 @@ function SubscriptionBillingModulePage({ page }) {
         bodyClassName="subscription-plan-form-body"
       >
         <div className="subscription-plan-form">
-          {planFormError ? (
-            <div className="form-inline-alert form-inline-alert-error" role="alert">
-              {planFormError}
-            </div>
-          ) : null}
           <div className="subscription-form-section">
             <div className="subscription-form-section-head">
               <h4>Plan Basics</h4>
@@ -974,126 +834,10 @@ function SubscriptionBillingModulePage({ page }) {
         </div>
       </Modal>
 
-      <Modal
-        open={companyCustomPlanModal}
-        title={selectedCompanyCustomPlan ? 'Edit Company Custom Plan' : 'Create Company Custom Plan'}
-        onClose={() => {
-          setCompanyCustomPlanModal(false)
-          setSelectedCompanyCustomPlan(null)
-          setCompanyCustomPlanForm(resetCompanyCustomPlanForm())
-        }}
-        modalClassName="subscription-plan-form-shell"
-        bodyClassName="subscription-plan-form-body"
-      >
-        <div className="subscription-plan-form">
-          {companyCustomPlanError ? (
-            <div className="form-inline-alert form-inline-alert-error" role="alert">
-              {companyCustomPlanError}
-            </div>
-          ) : null}
-          <div className="subscription-form-section">
-            <div className="subscription-form-section-head">
-              <h4>Company</h4>
-              <p>Select the tenant company that should receive this custom plan.</p>
-            </div>
-            <div className="form-grid subscription-plan-grid">
-              <FilterDropdown
-                label="Company *"
-                value={companyCustomPlanForm.companyId}
-                onChange={(v) => setCompanyCustomPlanForm((p) => ({ ...p, companyId: v }))}
-                options={[{ value: '', label: 'Select Company' }, ...companyOptions]}
-              />
-              <FormInput
-                label="Plan Name *"
-                value={companyCustomPlanForm.name}
-                onChange={(e) => setCompanyCustomPlanForm((p) => ({ ...p, name: e.target.value }))}
-                placeholder="Example: Custom Enterprise"
-              />
-            </div>
-          </div>
-
-          <div className="subscription-form-section">
-            <div className="subscription-form-section-head">
-              <h4>Pricing</h4>
-              <p>Set the company-specific monthly and yearly price.</p>
-            </div>
-            <div className="form-grid subscription-plan-grid">
-              <FormInput label="Monthly Price *" type="number" min="0" value={companyCustomPlanForm.monthlyPrice} onChange={(e) => setCompanyCustomPlanForm((p) => ({ ...p, monthlyPrice: Number(e.target.value) }))} />
-              <FormInput label="Yearly Price *" type="number" min="0" value={companyCustomPlanForm.yearlyPrice} onChange={(e) => setCompanyCustomPlanForm((p) => ({ ...p, yearlyPrice: Number(e.target.value) }))} />
-            </div>
-          </div>
-
-          <div className="subscription-form-section">
-            <div className="subscription-form-section-head">
-              <h4>Limits & Features</h4>
-              <p>Customize plan quota and feature list for this company only.</p>
-            </div>
-            <div className="form-grid subscription-plan-grid">
-              <FormInput label="User Limit" type="number" min="0" value={companyCustomPlanForm.userLimit} onChange={(e) => setCompanyCustomPlanForm((p) => ({ ...p, userLimit: Number(e.target.value) }))} />
-              <FormInput label="Storage Limit (GB)" type="number" min="0" value={companyCustomPlanForm.storageLimit} onChange={(e) => setCompanyCustomPlanForm((p) => ({ ...p, storageLimit: Number(e.target.value) }))} />
-              <div className="subscription-form-field full-width">
-                <span className="subscription-chip-label">Features</span>
-                <div className="subscription-feature-chip-grid">
-                  {planFeatureOptions.map((feature) => (
-                    <button
-                      key={feature}
-                      type="button"
-                      className={`feature-chip ${(companyCustomPlanForm.featureChoices || []).includes(feature) ? 'active' : ''}`}
-                      onClick={() => toggleCompanyCustomPlanFeature(feature)}
-                    >
-                      {feature}
-                    </button>
-                  ))}
-                </div>
-                <small className="field-hint">Click features to add or remove them.</small>
-                <FormInput
-                  label="Custom Feature(s) Optional"
-                  placeholder="Example: SLA support, Dedicated onboarding"
-                  value={companyCustomPlanForm.customFeatureText}
-                  onChange={(e) => setCompanyCustomPlanForm((p) => ({ ...p, customFeatureText: e.target.value }))}
-                />
-                <small className="field-hint">You can add extra features here, separated by commas.</small>
-                <FormInput
-                  label="Notes"
-                  value={companyCustomPlanForm.notes}
-                  onChange={(e) => setCompanyCustomPlanForm((p) => ({ ...p, notes: e.target.value }))}
-                  placeholder="Optional internal note"
-                />
-                <div className="subscription-selected-features">
-                  <span className="subscription-chip-label">Selected Features Preview</span>
-                  <div className="subscription-selected-feature-list">
-                    {uniqueList([...(companyCustomPlanForm.featureChoices || []), ...parsePlanFeatures(companyCustomPlanForm.customFeatureText)]).length ? (
-                      uniqueList([...(companyCustomPlanForm.featureChoices || []), ...parsePlanFeatures(companyCustomPlanForm.customFeatureText)]).map((feature) => (
-                        <span key={feature} className="selected-feature-pill">{feature}</span>
-                      ))
-                    ) : (
-                      <span className="selected-feature-empty">No features selected yet.</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="subscription-form-meta-note">
-            <span>* Required fields</span>
-            <span>Stored separately from the default subscription plans.</span>
-          </div>
-          <div className="modal-actions subscription-plan-form-actions">
-            <Button variant="ghost" onClick={() => {
-              setCompanyCustomPlanModal(false)
-              setSelectedCompanyCustomPlan(null)
-              setCompanyCustomPlanForm(resetCompanyCustomPlanForm())
-            }}>Cancel</Button>
-            <Button onClick={saveCompanyCustomPlan}>Save Custom Plan</Button>
-          </div>
-        </div>
-      </Modal>
-
       <Modal open={assignModal} title="Assign Subscription" onClose={() => setAssignModal(false)}>
         <div className="form-grid">
           <FilterDropdown label="Company" value={subscriptionForm.company} onChange={(v) => setSubscriptionForm((p) => ({ ...p, company: v }))} options={[{ value: '', label: 'Select Company' }, ...companyOptions]} />
-          <FilterDropdown label="Plan" value={subscriptionForm.plan} onChange={(v) => setSubscriptionForm((p) => ({ ...p, plan: v }))} options={[{ value: '', label: 'Select Plan' }, ...subscriptionPlanOptions]} />
+          <FilterDropdown label="Plan" value={subscriptionForm.plan} onChange={(v) => setSubscriptionForm((p) => ({ ...p, plan: v }))} options={[{ value: '', label: 'Select Plan' }, ...planOptions]} />
           <FilterDropdown label="Billing Cycle" value={subscriptionForm.billingCycle} onChange={(v) => setSubscriptionForm((p) => ({ ...p, billingCycle: v }))} options={[{ value: 'monthly', label: 'Monthly' }, { value: 'yearly', label: 'Yearly' }]} />
           <FilterDropdown label="Status" value={subscriptionForm.status} onChange={(v) => setSubscriptionForm((p) => ({ ...p, status: v }))} options={[{ value: 'active', label: 'Active' }, { value: 'trial', label: 'Trial' }]} />
         </div>

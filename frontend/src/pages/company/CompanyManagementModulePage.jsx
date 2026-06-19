@@ -11,29 +11,27 @@ import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import LoadingSkeleton from '../../components/ui/LoadingSkeleton'
 import EmptyState from '../../components/ui/EmptyState'
 import {
+  addBranch,
   createCompany,
+  deleteBranch,
   deleteCompany,
   fetchCompanies,
   fetchCompanyActivityLogs,
   getCompanyById,
   updateBranding,
+  updateBranch,
   updateCompany,
-  updateCompanyStatus
+  updateCompanyStatus,
+  updateDomain
 } from '../../api/companyManagementApi'
 import { listPlans } from '../../api/subscriptionBillingApi'
-
-const fallbackPlanCatalog = [
-  { value: 'Starter', label: 'Starter', employeeLimit: 50, storageLimit: 5 },
-  { value: 'Growth', label: 'Growth', employeeLimit: 150, storageLimit: 25 },
-  { value: 'Enterprise', label: 'Enterprise', employeeLimit: 500, storageLimit: 100 },
-  { value: 'Custom', label: 'Custom', employeeLimit: 10, storageLimit: 5 }
-]
 
 const defaultForm = {
   companyName: '', companyCode: '', industry: '', email: '', phone: '', address: '', city: '', state: '',
   country: '', timezone: '', currency: '', gst: '', pan: '', plan: 'Starter', employeeLimit: 50, storageLimit: 5, status: 'active'
 }
 const defaultBrandingForm = { logoUrl: '', primaryColor: '#0f766e', secondaryColor: '#115e59', customDomain: '', loginPageBranding: '' }
+const defaultDomainForm = { customDomain: '', verified: false, sslStatus: 'pending' }
 const currencyOptions = [
   { value: '', label: 'Select Currency' },
   { value: 'INR', label: 'INR - Indian Rupee' },
@@ -117,7 +115,9 @@ const sectionByPage = {
   'Company Profile': 'company-profile-section',
   'Company Status': 'company-status-section',
   'Company Branding': 'company-branding-section',
+  'Branch Management': 'branch-management-section',
   'Company Storage Usage': 'company-storage-section',
+  'Company Domain Setup': 'company-domain-section',
   'Company Activity Logs': 'company-logs-section',
   'Company Configuration': 'company-config-section',
   'Company Suspension': 'company-suspend-section',
@@ -132,14 +132,16 @@ const companyWorkspaceGroups = [
     items: [
       { label: 'Company Management', path: `${companyModuleRoot}/company-management` },
       { label: 'Company Branding', path: `${companyModuleRoot}/company-branding` },
+      { label: 'Company Domain Setup', path: `${companyModuleRoot}/company-domain-setup` },
       { label: 'Company Suspension', path: `${companyModuleRoot}/company-suspension` },
       { label: 'Company Reactivation', path: `${companyModuleRoot}/company-reactivation` }
     ]
   },
   {
     title: 'Operations',
-    path: `${companyModuleRoot}/company-storage-usage`,
+    path: `${companyModuleRoot}/branch-management`,
     items: [
+      { label: 'Branch Management', path: `${companyModuleRoot}/branch-management` },
       { label: 'Company Storage Usage', path: `${companyModuleRoot}/company-storage-usage` },
       { label: 'Company Activity Logs', path: `${companyModuleRoot}/company-activity-logs` }
     ]
@@ -154,21 +156,22 @@ function CompanyManagementModulePage({ page }) {
   const [planFilter, setPlanFilter] = useState('all')
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState({ type: '', title: '', message: '' })
-  const [planCatalog, setPlanCatalog] = useState(fallbackPlanCatalog)
-  const planOptions = useMemo(
-    () => planCatalog.map(({ value, label }) => ({ value, label })),
-    [planCatalog]
-  )
+  const [planOptions, setPlanOptions] = useState([
+    { value: 'Starter', label: 'Starter' },
+    { value: 'Growth', label: 'Growth' },
+    { value: 'Enterprise', label: 'Enterprise' }
+  ])
 
   const [modalOpen, setModalOpen] = useState(false)
   const [selectedId, setSelectedId] = useState('')
   const [form, setForm] = useState(defaultForm)
   const [formErrors, setFormErrors] = useState({})
-  const [formSubmitError, setFormSubmitError] = useState('')
   const [companyCodeManuallySet, setCompanyCodeManuallySet] = useState(false)
 
   const [profileData, setProfileData] = useState(null)
   const [profileTab, setProfileTab] = useState('Overview')
+  const [branchForm, setBranchForm] = useState({ name: '', code: '', address: '', city: '', state: '', manager: '', phone: '', status: 'active' })
+  const [domainForm, setDomainForm] = useState(defaultDomainForm)
   const [brandingForm, setBrandingForm] = useState(defaultBrandingForm)
   const [activityLogs, setActivityLogs] = useState([])
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -193,24 +196,6 @@ function CompanyManagementModulePage({ page }) {
   const showError = (message) => showToast('error', 'Action failed', message)
   const showSuccess = (title, message = '') => showToast('success', title, message)
   const normalizeId = (value) => String(value || '').trim()
-  const normalizePlanKey = (value) => String(value || '').trim().toLowerCase()
-  const resolvePlanLimits = (planName, fallback = defaultForm) => {
-    const normalized = normalizePlanKey(planName)
-    const match = planCatalog.find((plan) => normalizePlanKey(plan.value) === normalized || normalizePlanKey(plan.label) === normalized)
-    return {
-      employeeLimit: Number(match?.employeeLimit ?? fallback.employeeLimit ?? defaultForm.employeeLimit),
-      storageLimit: Number(match?.storageLimit ?? fallback.storageLimit ?? defaultForm.storageLimit)
-    }
-  }
-  const applyPlanDefaults = (planName, baseForm = defaultForm) => {
-    const limits = resolvePlanLimits(planName, baseForm)
-    return {
-      ...baseForm,
-      plan: planName || baseForm.plan || defaultForm.plan,
-      employeeLimit: limits.employeeLimit,
-      storageLimit: limits.storageLimit
-    }
-  }
   const getEffectiveCompanyId = () => normalizeId(selectedId || profileData?.id || profileData?._id || targetCompany?.id || '')
   const isTableExpanded = (key) => Boolean(expandedTables[key])
   const toggleTable = (key) => setExpandedTables((prev) => ({ ...prev, [key]: !prev[key] }))
@@ -226,14 +211,13 @@ function CompanyManagementModulePage({ page }) {
     setSelectedId(normalizeId(company.id || company._id || ''))
     setProfileData(company)
     setBrandingForm(company.branding || defaultBrandingForm)
-    const planName = company.plan || defaultForm.plan
-    const planLimits = resolvePlanLimits(planName, company)
+    setDomainForm(company.domainSetup || defaultDomainForm)
     setConfigForm({
       currency: company.currency || '',
-      employeeLimit: planLimits.employeeLimit,
-      storageLimit: planLimits.storageLimit,
+      employeeLimit: Number(company.employeeLimit || 0),
+      storageLimit: Number(company.storageLimit || 0),
       status: String(company.status || 'active').toLowerCase(),
-      plan: planName
+      plan: company.plan || 'Starter'
     })
   }
 
@@ -253,19 +237,16 @@ function CompanyManagementModulePage({ page }) {
   const loadPlanOptions = async () => {
     try {
       const response = await listPlans({ page: 1, limit: 200, search: '' })
-      const activePlans = (response?.items || response?.plans || []).filter((item) => String(item.status || 'active').toLowerCase() === 'active' || !item.status)
-      if (!activePlans.length) return
-      const normalized = activePlans.map((plan) => ({
-        value: plan.name || plan.type || plan.plan || 'Starter',
-        label: plan.name || plan.type || plan.plan || 'Starter',
-        employeeLimit: Number(plan.employeeLimit ?? plan.userLimit ?? plan.seatLimit ?? defaultForm.employeeLimit),
-        storageLimit: Number(plan.storageLimit ?? defaultForm.storageLimit)
-      }))
-      const merged = [...normalized, ...fallbackPlanCatalog]
-      const unique = merged.filter((item, index, array) => index === array.findIndex((entry) => String(entry.value).toLowerCase() === String(item.value).toLowerCase()))
-      setPlanCatalog(unique)
+      const activePlans = (response?.items || []).filter((item) => item.status === 'active')
+      if (activePlans.length > 0) {
+        const normalized = activePlans.map((plan) => ({
+          value: plan.name,
+          label: plan.name
+        }))
+        setPlanOptions(normalized)
+      }
     } catch (_error) {
-      setPlanCatalog(fallbackPlanCatalog)
+      // Keep existing fallback options to avoid blocking company creation.
     }
   }
 
@@ -286,6 +267,18 @@ function CompanyManagementModulePage({ page }) {
     }, 50)
     return () => clearTimeout(timer)
   }, [page])
+
+  useEffect(() => {
+    if (page !== 'Branch Management') return
+    const companyId = getEffectiveCompanyId()
+    if (!companyId) return
+    if (profileData?.id === companyId || profileData?._id === companyId) return
+
+    getCompanyById(companyId)
+      .then((res) => syncSelectedCompany(res.item))
+      .catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, selectedId])
 
   const companyRows = useMemo(() => items.map((item) => ({
     id: normalizeId(item.id || item._id),
@@ -327,10 +320,9 @@ function CompanyManagementModulePage({ page }) {
   })), [items])
   const openAdd = () => {
     setSelectedId('')
-    setForm(applyPlanDefaults(defaultForm.plan, defaultForm))
+    setForm(defaultForm)
     setCompanyCodeManuallySet(false)
     setFormErrors({})
-    setFormSubmitError('')
     setModalOpen(true)
   }
 
@@ -338,15 +330,19 @@ function CompanyManagementModulePage({ page }) {
     try {
       const res = await getCompanyById(row.id)
       setSelectedId(row.id)
-      setForm(applyPlanDefaults(res.item?.plan || defaultForm.plan, { ...defaultForm, ...res.item }))
+      setForm({ ...defaultForm, ...res.item })
       setCompanyCodeManuallySet(true)
       syncSelectedCompany(res.item)
       setFormErrors({})
-      setFormSubmitError('')
       setModalOpen(true)
     } catch (error) {
       showError(error?.response?.data?.message || 'Failed to load company')
     }
+  }
+
+  const refreshCompanyProfile = async (companyId) => {
+    const res = await getCompanyById(normalizeId(companyId))
+    syncSelectedCompany(res.item)
   }
 
   const openStatusEdit = (row) => {
@@ -389,26 +385,20 @@ function CompanyManagementModulePage({ page }) {
   const saveCompany = async (event) => {
     if (event) event.preventDefault()
     if (!validateCompanyForm()) {
-      setFormSubmitError('Please fix highlighted fields')
+      showError('Please fix highlighted fields')
       return
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(form.email)) {
-      setFormSubmitError('Invalid email format')
-      return
-    }
+    if (!emailRegex.test(form.email)) return showError('Invalid email format')
 
     try {
-      setFormSubmitError('')
-      const planDrivenValues = applyPlanDefaults(form.plan, form)
-      const payload = { ...form, ...planDrivenValues }
       if (selectedId) {
-        const res = await updateCompany(selectedId, payload)
+        const res = await updateCompany(selectedId, form)
         syncSelectedCompany(res.item)
         showSuccess('Company updated successfully')
       } else {
-        const res = await createCompany(payload)
+        const res = await createCompany(form)
         syncSelectedCompany(res.item)
         setActivityLogs([])
         setProfileTab('Overview')
@@ -417,7 +407,7 @@ function CompanyManagementModulePage({ page }) {
       setModalOpen(false)
       await loadCompanies()
     } catch (error) {
-      setFormSubmitError(error?.response?.data?.message || 'Failed to save company')
+      showError(error?.response?.data?.message || 'Failed to save company')
     }
   }
 
@@ -445,6 +435,15 @@ function CompanyManagementModulePage({ page }) {
     }
   }
 
+  const branchColumns = [
+    { key: 'name', label: 'Name' },
+    { key: 'code', label: 'Code' },
+    { key: 'city', label: 'City' },
+    { key: 'manager', label: 'Manager' },
+    { key: 'phone', label: 'Phone' },
+    { key: 'status', label: 'Status' }
+  ]
+
   const logColumns = [
     { key: 'action', label: 'Action' },
     { key: 'description', label: 'Description' },
@@ -460,7 +459,7 @@ function CompanyManagementModulePage({ page }) {
             <SearchBar value={search} onChange={setSearch} placeholder="Search company name/code/email" />
           </div>
           <FilterDropdown label="Status" value={statusFilter} onChange={setStatusFilter} options={[{ value: 'all', label: 'All' }, { value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }, { value: 'suspended', label: 'Suspended' }, { value: 'trial', label: 'Trial' }, { value: 'expired', label: 'Expired' }]} />
-          <FilterDropdown label="Plan" value={planFilter} onChange={setPlanFilter} options={[{ value: 'all', label: 'All' }, ...planOptions]} />
+          <FilterDropdown label="Plan" value={planFilter} onChange={setPlanFilter} options={[{ value: 'all', label: 'All' }, { value: 'Starter', label: 'Starter' }, { value: 'Growth', label: 'Growth' }, { value: 'Enterprise', label: 'Enterprise' }]} />
         </div>
       </div>
       <div className="panel">
@@ -491,7 +490,7 @@ function CompanyManagementModulePage({ page }) {
   const renderProfile = () => {
     if (!profileData) return <EmptyState title="Select a company from Company List and click View" description="Company profile appears here with tabs." />
 
-    const tabs = ['Overview', 'Admins', 'Subscription', 'Storage', 'Activity Logs', 'Settings']
+    const tabs = ['Overview', 'Branches', 'Admins', 'Subscription', 'Storage', 'Activity Logs', 'Settings']
 
     return (
       <div className="panel">
@@ -501,6 +500,18 @@ function CompanyManagementModulePage({ page }) {
         </div>
 
         {profileTab === 'Overview' ? <div className="form-grid"><div><strong>Code:</strong> {profileData.companyCode}</div><div><strong>Industry:</strong> {profileData.industry}</div><div><strong>Email:</strong> {profileData.email}</div><div><strong>Phone:</strong> {profileData.phone}</div></div> : null}
+        {profileTab === 'Branches' ? (
+          <>
+            <DataTable columns={branchColumns} rows={tableRows('profile-branches', (profileData.branches || []).map((b) => ({ ...b, id: b._id })))} showActions={false} />
+            {(profileData.branches || []).length > COMPACT_ROW_LIMIT ? (
+              <div className="actions-row" style={{ marginTop: 8 }}>
+                <Button variant="ghost" onClick={() => toggleTable('profile-branches')}>
+                  {isTableExpanded('profile-branches') ? 'Show less' : `Show all (${profileData.branches.length})`}
+                </Button>
+              </div>
+            ) : null}
+          </>
+        ) : null}
         {profileTab === 'Admins' ? <p>Admins integration available via Admin Management module.</p> : null}
         {profileTab === 'Subscription' ? <div className="form-grid"><div><strong>Plan:</strong> {profileData.plan}</div><div><strong>Status:</strong> {profileData.status}</div><div><strong>Employee Limit:</strong> {profileData.employeeLimit}</div></div> : null}
         {profileTab === 'Storage' ? <div className="form-grid"><div><strong>Used Storage:</strong> {profileData.storageUsage?.usedStorage || 0} GB</div><div><strong>Storage Limit:</strong> {profileData.storageLimit} GB</div><div><strong>Documents:</strong> {profileData.storageUsage?.documentsCount || 0}</div><div><strong>Backup Size:</strong> {profileData.storageUsage?.backupSize || 0} GB</div></div> : null}
@@ -564,8 +575,7 @@ function CompanyManagementModulePage({ page }) {
             return
           }
           try {
-            const res = await getCompanyById(nextId)
-            syncSelectedCompany(res.item)
+            await refreshCompanyProfile(nextId)
           } catch (error) {
             showError(error?.response?.data?.message || 'Failed to load company')
           }
@@ -577,10 +587,16 @@ function CompanyManagementModulePage({ page }) {
       />
       <div className="form-grid">
         <FormInput label="Logo URL" value={brandingForm.logoUrl} onChange={(e) => setBrandingForm((p) => ({ ...p, logoUrl: e.target.value }))} />
+        <FormInput label="Primary Color" value={brandingForm.primaryColor} onChange={(e) => setBrandingForm((p) => ({ ...p, primaryColor: e.target.value }))} />
+        <FormInput label="Secondary Color" value={brandingForm.secondaryColor} onChange={(e) => setBrandingForm((p) => ({ ...p, secondaryColor: e.target.value }))} />
         <FormInput label="Custom Domain" value={brandingForm.customDomain} onChange={(e) => setBrandingForm((p) => ({ ...p, customDomain: e.target.value }))} />
         <FormInput label="Login Page Branding" value={brandingForm.loginPageBranding} onChange={(e) => setBrandingForm((p) => ({ ...p, loginPageBranding: e.target.value }))} />
       </div>
       <div className="form-grid" style={{ marginBottom: 12 }}>
+        <div>
+          <strong>Preview</strong>
+          <div style={{ marginTop: 8, height: 52, borderRadius: 12, border: '1px solid rgba(120,140,180,.25)', background: `linear-gradient(90deg, ${brandingForm.primaryColor || '#0f766e'}, ${brandingForm.secondaryColor || '#115e59'})` }} />
+        </div>
         <div>
           <strong>Company</strong>
           <p>{profileData?.companyName || 'No company selected'}</p>
@@ -590,8 +606,11 @@ function CompanyManagementModulePage({ page }) {
         try {
           const companyId = getEffectiveCompanyId()
           if (!companyId) return showError('Select a company first from Company List')
+          const hexRegex = /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/
           const urlRegex = /^(https?:\/\/)[^\s]+$/i
           const domainRegex = /^(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$/
+          if (brandingForm.primaryColor && !hexRegex.test(brandingForm.primaryColor)) return showError('Primary color must be valid hex (e.g. #0f766e)')
+          if (brandingForm.secondaryColor && !hexRegex.test(brandingForm.secondaryColor)) return showError('Secondary color must be valid hex (e.g. #115e59)')
           if (brandingForm.logoUrl && !urlRegex.test(brandingForm.logoUrl)) return showError('Logo URL must start with http:// or https://')
           if (brandingForm.customDomain && !domainRegex.test(brandingForm.customDomain)) return showError('Custom domain format is invalid')
           const res = await updateBranding(companyId, brandingForm)
@@ -602,6 +621,107 @@ function CompanyManagementModulePage({ page }) {
           showError(error?.response?.data?.message || 'Failed to update branding')
         }
       }}>Save Branding</Button>
+    </div>
+  )
+
+  const renderBranches = () => (
+    <div className="panel">
+      <h3>Branch Management</h3>
+      <FilterDropdown
+        label="Company"
+        value={getEffectiveCompanyId()}
+        onChange={async (value) => {
+          const nextId = normalizeId(value)
+          setSelectedId(nextId)
+          if (!nextId) {
+            setProfileData(null)
+            return
+          }
+          try {
+            await refreshCompanyProfile(nextId)
+          } catch (_error) {}
+        }}
+        options={[
+          { value: '', label: 'Select Company' },
+          ...companyRows.map((company) => ({ value: normalizeId(company.id), label: `${company.companyName} (${company.companyCode})` }))
+        ]}
+      />
+      <div className="form-grid">
+        <FormInput label="Name" value={branchForm.name} onChange={(e) => setBranchForm((p) => ({ ...p, name: e.target.value }))} />
+        <FormInput label="Code" value={branchForm.code} onChange={(e) => setBranchForm((p) => ({ ...p, code: e.target.value }))} />
+        <FormInput label="Address" value={branchForm.address} onChange={(e) => setBranchForm((p) => ({ ...p, address: e.target.value }))} />
+        <FormInput label="City" value={branchForm.city} onChange={(e) => setBranchForm((p) => ({ ...p, city: e.target.value }))} />
+        <FormInput label="State" value={branchForm.state} onChange={(e) => setBranchForm((p) => ({ ...p, state: e.target.value }))} />
+        <FormInput label="Manager" value={branchForm.manager} onChange={(e) => setBranchForm((p) => ({ ...p, manager: e.target.value }))} />
+        <FormInput label="Phone" value={branchForm.phone} onChange={(e) => setBranchForm((p) => ({ ...p, phone: e.target.value }))} />
+        <FilterDropdown label="Status" value={branchForm.status} onChange={(value) => setBranchForm((p) => ({ ...p, status: value }))} options={[{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }, { value: 'suspended', label: 'Suspended' }]} />
+      </div>
+      <div className="actions-row">
+        <Button onClick={async () => {
+          try {
+            const companyId = getEffectiveCompanyId()
+            if (!companyId) return showError('Select a company first from Company List')
+            if (!branchForm.name?.trim() || !branchForm.code?.trim()) return showError('Branch name and code are required')
+            await addBranch(companyId, branchForm)
+            showSuccess('Branch added')
+            await refreshCompanyProfile(companyId)
+            setBranchForm({ name: '', code: '', address: '', city: '', state: '', manager: '', phone: '', status: 'active' })
+          } catch (error) {
+            showError(error?.response?.data?.message || 'Failed to add branch')
+          }
+        }}>Add Branch</Button>
+        <Button variant="danger" onClick={async () => {
+          try {
+            const companyId = getEffectiveCompanyId()
+            if (!companyId) return showError('Select a company first from Company List')
+            // Always fetch latest before delete to avoid stale UI state.
+            const current = await getCompanyById(companyId)
+            const branches = current?.item?.branches || []
+            if (!branches[0]) return showError('No branch available to delete')
+            const firstBranchId = normalizeId(branches[0]?._id || branches[0]?.id)
+            if (!firstBranchId) return showError('Unable to resolve branch id for deletion')
+            await deleteBranch(companyId, firstBranchId)
+            showSuccess('First branch deleted')
+            await refreshCompanyProfile(companyId)
+          } catch (error) {
+            showError(error?.response?.data?.message || 'Failed to delete branch')
+          }
+        }}>Delete First Branch</Button>
+      </div>
+      <div className="branch-results-box">
+        {profileData?.branches?.length ? <DataTable columns={branchColumns} rows={tableRows('branch-management-table', profileData.branches.map((b) => ({ ...b, id: normalizeId(b._id || b.id) })))} showViewAction={false} onEdit={async (row) => {
+          try {
+            const companyId = getEffectiveCompanyId()
+            if (!companyId) return showError('Select a company first from Company List')
+            const branchId = normalizeId(row.id)
+            if (!branchId) return showError('Unable to resolve branch id for update')
+            await updateBranch(companyId, branchId, { status: row.status === 'active' ? 'inactive' : 'active' })
+            await refreshCompanyProfile(companyId)
+            showSuccess('Branch updated')
+          } catch (error) {
+            showError(error?.response?.data?.message || 'Failed to update branch')
+          }
+        }} onDelete={async (row) => {
+          try {
+            const companyId = getEffectiveCompanyId()
+            if (!companyId) return showError('Select a company first from Company List')
+            const branchId = normalizeId(row.id)
+            if (!branchId) return showError('Unable to resolve branch id for deletion')
+            await deleteBranch(companyId, branchId)
+            await refreshCompanyProfile(companyId)
+            showSuccess(`Branch ${row.name || ''} deleted`.trim())
+          } catch (error) {
+            showError(error?.response?.data?.message || 'Failed to delete branch')
+          }
+        }} /> : <EmptyState title="No branches yet" description="Add branch using form." />}
+      </div>
+      {profileData?.branches?.length > COMPACT_ROW_LIMIT ? (
+        <div className="actions-row" style={{ marginTop: 8 }}>
+          <Button variant="ghost" onClick={() => toggleTable('branch-management-table')}>
+            {isTableExpanded('branch-management-table') ? 'Show less' : `Show all (${profileData.branches.length})`}
+          </Button>
+        </div>
+      ) : null}
     </div>
   )
 
@@ -643,6 +763,34 @@ function CompanyManagementModulePage({ page }) {
         </div>
       ) : null}
       <p>Select a row with View to inspect storage details quickly.</p>
+    </div>
+  )
+
+  const renderDomain = () => (
+    <div className="panel">
+      <h3>Company Domain Setup</h3>
+      <FormInput label="Company ID" value={getEffectiveCompanyId()} onChange={(e) => setSelectedId(e.target.value)} />
+      <div className="form-grid company-domain-grid">
+        <div className="full-width">
+          <FormInput label="Custom Domain" value={domainForm.customDomain} onChange={(e) => setDomainForm((p) => ({ ...p, customDomain: e.target.value }))} />
+        </div>
+        <FilterDropdown label="SSL Status" value={domainForm.sslStatus} onChange={(value) => setDomainForm((p) => ({ ...p, sslStatus: value }))} options={[{ value: 'pending', label: 'Pending' }, { value: 'active', label: 'Active' }, { value: 'failed', label: 'Failed' }]} />
+        <FilterDropdown label="Verified" value={domainForm.verified ? 'yes' : 'no'} onChange={(value) => setDomainForm((p) => ({ ...p, verified: value === 'yes' }))} options={[{ value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }]} />
+      </div>
+      <div className="actions-row company-domain-actions">
+        <Button onClick={async () => {
+        try {
+          const companyId = getEffectiveCompanyId()
+          if (!companyId) return showError('Select a company first from Company List')
+          const res = await updateDomain(companyId, domainForm)
+          syncSelectedCompany(res.item)
+          showSuccess('Domain setup updated')
+          await loadCompanies()
+        } catch (error) {
+          showError(error?.response?.data?.message || 'Failed to update domain setup')
+        }
+        }}>Save Domain Setup</Button>
+      </div>
     </div>
   )
 
@@ -705,9 +853,9 @@ function CompanyManagementModulePage({ page }) {
         <>
           <div className="form-grid">
             <FilterDropdown label="Currency" value={configForm.currency} onChange={(value) => setConfigForm((p) => ({ ...p, currency: value }))} options={currencyOptions} />
-            <FormInput label="Employee Limit" type="number" value={configForm.employeeLimit} disabled />
-            <FormInput label="Storage Limit (GB)" type="number" value={configForm.storageLimit} disabled />
-            <FilterDropdown label="Plan" value={configForm.plan} onChange={(value) => setConfigForm((p) => ({ ...p, plan: value, ...resolvePlanLimits(value, p) }))} options={planOptions} />
+            <FormInput label="Employee Limit" type="number" value={configForm.employeeLimit} onChange={(e) => setConfigForm((p) => ({ ...p, employeeLimit: Number(e.target.value || 0) }))} />
+            <FormInput label="Storage Limit (GB)" type="number" value={configForm.storageLimit} onChange={(e) => setConfigForm((p) => ({ ...p, storageLimit: Number(e.target.value || 0) }))} />
+            <FilterDropdown label="Plan" value={configForm.plan} onChange={(value) => setConfigForm((p) => ({ ...p, plan: value }))} options={planOptions} />
             <FilterDropdown label="Status" value={configForm.status} onChange={(value) => setConfigForm((p) => ({ ...p, status: value }))} options={[{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }, { value: 'suspended', label: 'Suspended' }, { value: 'trial', label: 'Trial' }, { value: 'expired', label: 'Expired' }]} />
           </div>
           <div className="actions-row">
@@ -716,11 +864,11 @@ function CompanyManagementModulePage({ page }) {
               try {
                 const companyId = getEffectiveCompanyId()
                 if (!companyId) return showError('Select a company first')
-                const planDrivenValues = resolvePlanLimits(configForm.plan, configForm)
+                if (configForm.employeeLimit < 0 || configForm.storageLimit < 0) return showError('Limits must be zero or greater')
                 const res = await updateCompany(companyId, {
                   currency: configForm.currency,
-                  employeeLimit: Number(planDrivenValues.employeeLimit || 0),
-                  storageLimit: Number(planDrivenValues.storageLimit || 0),
+                  employeeLimit: Number(configForm.employeeLimit || 0),
+                  storageLimit: Number(configForm.storageLimit || 0),
                   status: configForm.status,
                   plan: configForm.plan
                 })
@@ -812,7 +960,9 @@ function CompanyManagementModulePage({ page }) {
       case 'Company Profile': return renderProfile()
       case 'Company Status': return renderStatus()
       case 'Company Branding': return renderBranding()
+      case 'Branch Management': return renderBranches()
       case 'Company Storage Usage': return renderStorage()
+      case 'Company Domain Setup': return renderDomain()
       case 'Company Activity Logs': return renderLogs()
       case 'Company Configuration': return renderConfig()
       case 'Company Suspension': return renderSuspendReactivate('suspend')
@@ -827,7 +977,7 @@ function CompanyManagementModulePage({ page }) {
     <section className="section-layout company-management-page">
       <PageHeader
         title="Company Management"
-        description="Single-page control center for tenant lifecycle, profile, branding, storage, and governance."
+        description="Single-page control center for tenant lifecycle, profile, branding, domain, branches, and governance."
         breadcrumb={['Super Admin', 'Company Management', pageBreadcrumb].filter(Boolean)}
         primaryActionLabel="Add Company"
         onPrimaryAction={openAdd}
@@ -875,11 +1025,6 @@ function CompanyManagementModulePage({ page }) {
         bodyClassName="company-form-body"
       >
         <form className="company-form-modal" onSubmit={saveCompany}>
-          {formSubmitError ? (
-            <div className="form-inline-alert form-inline-alert-error" role="alert">
-              {formSubmitError}
-            </div>
-          ) : null}
           <div className="company-form-section">
             <div className="company-form-section-head">
               <h4>Company Info</h4>
@@ -994,11 +1139,10 @@ function CompanyManagementModulePage({ page }) {
               <p>Configure subscription and usage limits.</p>
             </div>
             <div className="form-grid company-form-grid">
-              <FilterDropdown label="Plan *" value={form.plan} onChange={(value) => setForm((p) => applyPlanDefaults(value, { ...p }))} options={planOptions} />
-              <FormInput label="Employee Limit" type="number" min="0" value={form.employeeLimit} disabled />
-              <FormInput label="Storage Limit (GB)" type="number" min="0" value={form.storageLimit} disabled />
+              <FilterDropdown label="Plan *" value={form.plan} onChange={(value) => setForm((p) => ({ ...p, plan: value }))} options={planOptions} />
+              <FormInput label="Employee Limit" type="number" min="0" value={form.employeeLimit} onChange={(e) => setForm((p) => ({ ...p, employeeLimit: Number(e.target.value) }))} />
+              <FormInput label="Storage Limit (GB)" type="number" min="0" value={form.storageLimit} onChange={(e) => setForm((p) => ({ ...p, storageLimit: Number(e.target.value) }))} />
             </div>
-            <small className="field-hint">These values come from the selected subscription plan and are managed from Subscription & Billing.</small>
           </div>
 
           <div className="company-form-meta-note">
