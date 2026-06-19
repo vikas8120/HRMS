@@ -11,41 +11,25 @@ import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import EmptyState from '../../components/ui/EmptyState'
 import LoadingSkeleton from '../../components/ui/LoadingSkeleton'
 import {
-  assignCompanies,
-  assignRoleToAdmin,
   createAdmin,
-  createRole,
   deleteAdmin,
-  fetchAccessLogs,
   fetchActivityLogs,
   fetchAdmins,
-  fetchRoles,
   fetchTenantCompanies,
   getAdminById,
   resetAdminPassword,
   updateAdmin,
-  updateAdminStatus,
-  updateRolePermissions
+  updateAdminStatus
 } from '../../api/adminManagementApi'
-
-const defaultPermissions = [
-  { module: 'Admin Management', view: true, create: false, edit: false, delete: false, approve: false, export: false },
-  { module: 'Company Management', view: true, create: false, edit: false, delete: false, approve: false, export: false },
-  { module: 'Support Center', view: true, create: false, edit: false, delete: false, approve: false, export: false }
-]
 
 const sectionByPage = {
   'Admin Management': 'admin-list-section',
   'Admin List': 'admin-list-section',
   'Add Admin': 'admin-list-section',
   'Edit Admin': 'admin-list-section',
-  'Assign Companies': 'assign-companies-section',
   'Reset Password': 'reset-password-section',
-  'Admin Access Logs': 'admin-access-logs-section',
   'Admin Activity Tracking': 'admin-activity-logs-section',
-  'Account Lock/Unlock': 'account-lock-section',
-  'Role Assignment': 'role-assignment-section',
-  'Permission Control': 'permission-control-section'
+  'Account Lock/Unlock': 'account-lock-section'
 }
 
 const adminModuleRoot = '/super-admin/admin-management'
@@ -55,34 +39,38 @@ const adminWorkspaceGroups = [
     path: `${adminModuleRoot}/admin-management`,
     items: [
       { label: 'Admin Management', path: `${adminModuleRoot}/admin-management` },
-      { label: 'Assign Companies', path: `${adminModuleRoot}/assign-companies` },
-      { label: 'Role Assignment', path: `${adminModuleRoot}/role-assignment` },
-      { label: 'Permission Control', path: `${adminModuleRoot}/permission-control` }
-    ]
-  },
-  {
-    title: 'Security',
-    path: `${adminModuleRoot}/reset-password`,
-    items: [
       { label: 'Reset Password', path: `${adminModuleRoot}/reset-password` },
-      { label: 'Account Lock/Unlock', path: `${adminModuleRoot}/account-lock-unlock` }
-    ]
-  },
-  {
-    title: 'Audit',
-    path: `${adminModuleRoot}/admin-access-logs`,
-    items: [
-      { label: 'Admin Access Logs', path: `${adminModuleRoot}/admin-access-logs` },
       { label: 'Admin Activity Tracking', path: `${adminModuleRoot}/admin-activity-tracking` }
     ]
   }
 ]
+
+const defaultAdminForm = {
+  name: '',
+  email: '',
+  phone: '',
+  secondaryPhone: '',
+  address: '',
+  aadhaarNumber: '',
+  panNumber: '',
+  employeeCode: '',
+  designation: '',
+  department: '',
+  gender: '',
+  dateOfBirth: '',
+  joiningDate: '',
+  emergencyContactName: '',
+  emergencyContactPhone: '',
+  notes: '',
+  password: '',
+  confirmPassword: '',
+  companyId: '',
+  status: 'active'
+}
 function AdminManagementModulePage({ page }) {
   const { pathname } = useLocation()
   const [admins, setAdmins] = useState([])
   const [companies, setCompanies] = useState([])
-  const [roles, setRoles] = useState([])
-  const [accessLogs, setAccessLogs] = useState([])
   const [activityLogs, setActivityLogs] = useState([])
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState({ type: '', message: '' })
@@ -96,24 +84,12 @@ function AdminManagementModulePage({ page }) {
   const [modalOpen, setModalOpen] = useState(false)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
   const [adminToDelete, setAdminToDelete] = useState(null)
+  const [formErrors, setFormErrors] = useState({})
+  const [formSubmitError, setFormSubmitError] = useState('')
 
-  const [addEditForm, setAddEditForm] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    password: '',
-    confirmPassword: '',
-    companyId: '',
-    status: 'active'
-  })
+  const [addEditForm, setAddEditForm] = useState(defaultAdminForm)
 
-  const [assignCompaniesForm, setAssignCompaniesForm] = useState({ adminId: '', companyIds: [] })
   const [resetPasswordForm, setResetPasswordForm] = useState({ adminId: '', password: '', confirmPassword: '' })
-  const [roleAssignmentForm, setRoleAssignmentForm] = useState({ adminId: '', role: '' })
-  const [permissionRoleId, setPermissionRoleId] = useState('')
-  const [permissionRows, setPermissionRows] = useState(defaultPermissions)
-  const [newRoleName, setNewRoleName] = useState('')
-
   const setSuccess = (message) => setToast({ type: 'success', message })
   const setError = (message) => setToast({ type: 'error', message })
   const setInfo = (message) => setToast({ type: 'success', message })
@@ -127,15 +103,20 @@ function AdminManagementModulePage({ page }) {
   const loadBaseData = async () => {
     setLoading(true)
     try {
-      const [adminsRes, companiesRes, rolesRes] = await Promise.all([
+      const [adminsRes, companiesRes] = await Promise.all([
         fetchAdmins({ page: pagination.page, limit: pagination.limit, search, status: statusFilter, company: companyFilter }),
-        fetchTenantCompanies(),
-        fetchRoles()
+        fetchTenantCompanies()
       ])
       setAdmins(adminsRes?.items || [])
       setPagination(adminsRes?.pagination || { page: 1, limit: 10, total: 0, totalPages: 1 })
-      setCompanies(companiesRes.companies || [])
-      setRoles(rolesRes?.items || [])
+      const nextCompanies = Array.isArray(companiesRes?.companies)
+        ? companiesRes.companies
+        : Array.isArray(companiesRes?.items)
+          ? companiesRes.items
+          : Array.isArray(companiesRes)
+            ? companiesRes
+            : []
+      setCompanies(nextCompanies)
     } catch (error) {
       setError(error?.response?.data?.message || 'Failed to load admin management data')
     } finally {
@@ -149,17 +130,15 @@ function AdminManagementModulePage({ page }) {
   }, [pagination.page, search, statusFilter, companyFilter])
 
   useEffect(() => {
-    fetchAccessLogs().then((res) => setAccessLogs(res.items)).catch(() => setAccessLogs([]))
     fetchActivityLogs().then((res) => setActivityLogs(res.items)).catch(() => setActivityLogs([]))
   }, [])
 
   useEffect(() => {
-    if (page === 'Account Lock/Unlock') {
-      setSearch('')
-      setStatusFilter('all')
-      setCompanyFilter('all')
-      setPagination((prev) => ({ ...prev, page: 1 }))
-    }
+    if (page !== 'Reset Password' && page !== 'Account Lock/Unlock') return
+    setSearch('')
+    setStatusFilter('all')
+    setCompanyFilter('all')
+    setPagination((prev) => ({ ...prev, page: 1 }))
   }, [page])
 
   useEffect(() => {
@@ -180,6 +159,23 @@ function AdminManagementModulePage({ page }) {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page])
+
+  useEffect(() => {
+    if (modalOpen && companies.length === 0) {
+      fetchTenantCompanies()
+        .then((res) => {
+          const nextCompanies = Array.isArray(res?.companies)
+            ? res.companies
+            : Array.isArray(res?.items)
+              ? res.items
+              : Array.isArray(res)
+                ? res
+                : []
+          setCompanies(nextCompanies)
+        })
+        .catch(() => {})
+    }
+  }, [modalOpen, companies.length])
 
   const adminColumns = [
     { key: 'name', label: 'Name' },
@@ -206,27 +202,63 @@ function AdminManagementModulePage({ page }) {
     [admins]
   )
 
-  const validateAddEdit = (isEdit) => {
-    if (!addEditForm.name || !addEditForm.email || !addEditForm.phone || !addEditForm.companyId) {
-      setError('Please fill all required fields')
-      return false
-    }
+  const normalizeAdminForm = (item = {}) => ({
+    ...defaultAdminForm,
+    name: item.name || '',
+    email: item.email || '',
+    phone: item.phone || '',
+    secondaryPhone: item.secondaryPhone || '',
+    address: item.address || '',
+    aadhaarNumber: item.aadhaarNumber || '',
+    panNumber: item.panNumber || '',
+    employeeCode: item.employeeCode || '',
+    designation: item.designation || '',
+    department: item.department || '',
+    gender: item.gender || '',
+    dateOfBirth: item.dateOfBirth || '',
+    joiningDate: item.joiningDate || '',
+    emergencyContactName: item.emergencyContactName || '',
+    emergencyContactPhone: item.emergencyContactPhone || '',
+    notes: item.notes || '',
+    companyId: item.companyId || '',
+    status: item.status || 'active'
+  })
 
+  const validateAddEdit = (isEdit) => {
+    const nextErrors = {}
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(addEditForm.email)) {
-      setError('Invalid email format')
-      return false
+      nextErrors.email = 'Invalid email format'
+    }
+
+    if (!addEditForm.name?.trim()) nextErrors.name = 'Admin name is required'
+    if (!addEditForm.phone?.trim()) nextErrors.phone = 'Phone number is required'
+    if (!addEditForm.address?.trim()) nextErrors.address = 'Address is required'
+    if (!addEditForm.aadhaarNumber?.trim()) nextErrors.aadhaarNumber = 'Aadhaar number is required'
+    if (!addEditForm.panNumber?.trim()) nextErrors.panNumber = 'PAN number is required'
+    if (!addEditForm.companyId?.trim()) nextErrors.companyId = 'Company is required'
+
+    const aadhaarDigits = String(addEditForm.aadhaarNumber || '').replace(/\D/g, '')
+    if (aadhaarDigits && aadhaarDigits.length !== 12) nextErrors.aadhaarNumber = 'Aadhaar number must be 12 digits'
+
+    const panPattern = /^[A-Z]{5}[0-9]{4}[A-Z]$/
+    if (addEditForm.panNumber && !panPattern.test(String(addEditForm.panNumber).toUpperCase())) {
+      nextErrors.panNumber = 'PAN format should be ABCDE1234F'
     }
 
     if (!isEdit) {
       if (!addEditForm.password) {
-        setError('Password is required')
-        return false
+        nextErrors.password = 'Password is required'
       }
       if (addEditForm.password !== addEditForm.confirmPassword) {
-        setError('Passwords do not match')
-        return false
+        nextErrors.confirmPassword = 'Passwords do not match'
       }
+    }
+
+    setFormErrors(nextErrors)
+    if (Object.keys(nextErrors).length > 0) {
+      setFormSubmitError('Please fix the highlighted fields')
+      return false
     }
 
     return true
@@ -234,15 +266,9 @@ function AdminManagementModulePage({ page }) {
 
   const openAdd = () => {
     setSelectedAdminId('')
-    setAddEditForm({
-      name: '',
-      email: '',
-      phone: '',
-      password: '',
-      confirmPassword: '',
-      companyId: '',
-      status: 'active'
-    })
+    setAddEditForm(defaultAdminForm)
+    setFormErrors({})
+    setFormSubmitError('')
     setModalOpen(true)
   }
 
@@ -252,14 +278,12 @@ function AdminManagementModulePage({ page }) {
       const item = res.item
       setSelectedAdminId(item.id)
       setAddEditForm({
-        name: item.name,
-        email: item.email,
-        phone: item.phone,
+        ...normalizeAdminForm(item),
         password: '',
-        confirmPassword: '',
-        companyId: item.companyId || '',
-        status: item.status
+        confirmPassword: ''
       })
+      setFormErrors({})
+      setFormSubmitError('')
       setModalOpen(true)
     } catch (error) {
       setError(error?.response?.data?.message || 'Failed to load admin details')
@@ -271,19 +295,46 @@ function AdminManagementModulePage({ page }) {
     if (!validateAddEdit(isEdit)) return
 
     try {
+      setFormSubmitError('')
       if (isEdit) {
-        await updateAdmin(selectedAdminId, {
-          name: addEditForm.name,
-          phone: addEditForm.phone,
-          companyId: addEditForm.companyId,
-          status: addEditForm.status
-        })
+          await updateAdmin(selectedAdminId, {
+            name: addEditForm.name,
+            phone: addEditForm.phone,
+            secondaryPhone: addEditForm.secondaryPhone,
+            address: addEditForm.address,
+          aadhaarNumber: addEditForm.aadhaarNumber,
+          panNumber: addEditForm.panNumber,
+          employeeCode: addEditForm.employeeCode,
+          designation: addEditForm.designation,
+          department: addEditForm.department,
+          gender: addEditForm.gender,
+          dateOfBirth: addEditForm.dateOfBirth,
+            joiningDate: addEditForm.joiningDate,
+            emergencyContactName: addEditForm.emergencyContactName,
+            emergencyContactPhone: addEditForm.emergencyContactPhone,
+            notes: addEditForm.notes,
+            companyId: addEditForm.companyId,
+            status: addEditForm.status
+          })
         setSuccess('Admin updated successfully')
       } else {
         await createAdmin({
           name: addEditForm.name,
           email: addEditForm.email,
           phone: addEditForm.phone,
+          secondaryPhone: addEditForm.secondaryPhone,
+          address: addEditForm.address,
+          aadhaarNumber: addEditForm.aadhaarNumber,
+          panNumber: addEditForm.panNumber,
+          employeeCode: addEditForm.employeeCode,
+          designation: addEditForm.designation,
+          department: addEditForm.department,
+          gender: addEditForm.gender,
+          dateOfBirth: addEditForm.dateOfBirth,
+          joiningDate: addEditForm.joiningDate,
+          emergencyContactName: addEditForm.emergencyContactName,
+          emergencyContactPhone: addEditForm.emergencyContactPhone,
+          notes: addEditForm.notes,
           password: addEditForm.password,
           companyId: addEditForm.companyId,
           status: addEditForm.status
@@ -292,9 +343,10 @@ function AdminManagementModulePage({ page }) {
       }
       setModalOpen(false)
       setSelectedAdminId('')
+      setFormErrors({})
       loadBaseData()
     } catch (error) {
-      setError(error?.response?.data?.message || 'Failed to save admin')
+      setFormSubmitError(error?.response?.data?.message || 'Failed to save admin')
     }
   }
 
@@ -399,38 +451,6 @@ function AdminManagementModulePage({ page }) {
     </div>
   )
 
-  const renderAssignCompanies = () => (
-    <div className="panel">
-      <h3>Assign Companies</h3>
-      <div className="form-grid">
-        <FilterDropdown label="Select Admin" value={assignCompaniesForm.adminId} onChange={(value) => setAssignCompaniesForm((p) => ({ ...p, adminId: value }))} options={[{ value: '', label: 'Select admin' }, ...admins.map((a) => ({ value: a.id, label: `${a.name} (${a.email})` }))]} />
-        <div className="multi-select-wrap">
-          <label>Companies</label>
-          <div className="checkbox-grid">
-            {companies.map((company) => (
-              <label key={company._id} className="checkbox-item">
-                <input type="checkbox" checked={assignCompaniesForm.companyIds.includes(company._id)} onChange={(e) => setAssignCompaniesForm((prev) => ({ ...prev, companyIds: e.target.checked ? [...prev.companyIds, company._id] : prev.companyIds.filter((id) => id !== company._id) }))} />
-                <span>{company.companyName}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-      </div>
-      <Button onClick={async () => {
-        if (!assignCompaniesForm.adminId) return setError('Select admin first')
-        try {
-          await assignCompanies(assignCompaniesForm.adminId, assignCompaniesForm.companyIds)
-          setSuccess('Companies assigned successfully')
-          loadBaseData()
-        } catch (error) {
-          setError(error?.response?.data?.message || 'Failed to assign companies')
-        }
-      }}>Save Assigned Companies</Button>
-      <div className="spacer" />
-      <DataTable columns={adminColumns} rows={adminRows} showViewAction={false} onEdit={openEdit} showDeleteAction={false} />
-    </div>
-  )
-
   const renderResetPassword = () => (
     <div className="panel">
       <h3>Reset Password</h3>
@@ -459,15 +479,6 @@ function AdminManagementModulePage({ page }) {
     </div>
   )
 
-  const accessLogColumns = [
-    { key: 'admin', label: 'Admin' },
-    { key: 'email', label: 'Email' },
-    { key: 'ipAddress', label: 'IP Address' },
-    { key: 'device', label: 'Device' },
-    { key: 'action', label: 'Action' },
-    { key: 'dateTime', label: 'Date/Time' }
-  ]
-
   const activityLogColumns = [
     { key: 'admin', label: 'Admin' },
     { key: 'module', label: 'Module' },
@@ -475,26 +486,6 @@ function AdminManagementModulePage({ page }) {
     { key: 'description', label: 'Description' },
     { key: 'dateTime', label: 'Date/Time' }
   ]
-
-  const renderLogs = (type) => {
-    const rows = (type === 'access' ? accessLogs : activityLogs).map((entry) => ({
-      id: entry._id,
-      admin: entry.admin?.name || '-',
-      email: entry.email || entry.admin?.email || '-',
-      ipAddress: entry.ipAddress || '-',
-      device: entry.device || '-',
-      action: entry.action,
-      module: entry.module,
-      description: entry.description,
-      dateTime: new Date(entry.dateTime).toLocaleString()
-    }))
-
-    return (
-      <div className="panel">
-        <DataTable columns={type === 'access' ? accessLogColumns : activityLogColumns} rows={rows} showViewAction={false} showEditAction={false} showDeleteAction={false} />
-      </div>
-    )
-  }
 
   const renderLockUnlock = () => (
     <div className="panel admin-lock-panel">
@@ -524,110 +515,6 @@ function AdminManagementModulePage({ page }) {
     </div>
   )
 
-  const renderRoleAssignment = () => (
-    <div className="panel">
-      <h3>Role Assignment</h3>
-      {admins.length === 0 ? <EmptyState title="No admins available" description="Create an admin first, then assign a role." /> : null}
-      <div className="form-grid">
-        <FilterDropdown label="Select Admin" value={roleAssignmentForm.adminId} onChange={(value) => setRoleAssignmentForm((p) => ({ ...p, adminId: value }))} options={[{ value: '', label: 'Select admin' }, ...admins.map((a) => ({ value: a.id, label: `${a.name} (${a.email})` }))]} />
-        <FilterDropdown label="Select Role" value={roleAssignmentForm.role} onChange={(value) => setRoleAssignmentForm((p) => ({ ...p, role: value }))} options={[{ value: '', label: 'Select role' }, ...[...new Set(['COMPANY_ADMIN', 'HR_ADMIN', ...roles.map((r) => r.name)])].map((r) => ({ value: r, label: r }))]} />
-      </div>
-      <p style={{ marginTop: 8, marginBottom: 8 }}>
-        <strong>Selected Admin:</strong> {admins.find((a) => a.id === roleAssignmentForm.adminId)?.name || 'None'}
-      </p>
-      <Button disabled={!roleAssignmentForm.adminId || !roleAssignmentForm.role} onClick={async () => {
-        if (!roleAssignmentForm.adminId || !roleAssignmentForm.role) return setError('Select admin and role')
-        try {
-          await assignRoleToAdmin(roleAssignmentForm.adminId, roleAssignmentForm.role)
-          setSuccess('Role assigned successfully')
-          loadBaseData()
-        } catch (error) {
-          setError(error?.response?.data?.message || 'Failed to assign role')
-        }
-      }}>Save Role</Button>
-    </div>
-  )
-
-  const renderPermissionControl = () => (
-    <div className="panel">
-      <h3>Permission Control</h3>
-      <div className="form-grid">
-        <FilterDropdown
-          label="Role"
-          value={permissionRoleId}
-          onChange={(value) => {
-            setPermissionRoleId(value)
-            const selected = roles.find((r) => r._id === value)
-            setPermissionRows(selected?.permissions?.length ? selected.permissions : defaultPermissions)
-          }}
-          options={[{ value: '', label: 'Select role' }, ...roles.map((r) => ({ value: r._id, label: r.name }))]}
-        />
-        <FormInput
-          label="Create Role"
-          placeholder="Role name"
-          value={newRoleName}
-          onChange={(e) => setNewRoleName(e.target.value)}
-        />
-      </div>
-      <div className="actions-row" style={{ marginBottom: 12 }}>
-        <Button
-          variant="ghost"
-          onClick={async () => {
-            const roleName = String(newRoleName || '').trim()
-            if (!roleName) return setError('Enter role name first')
-            try {
-              await createRole({ name: roleName, permissions: defaultPermissions })
-              setSuccess('Role created')
-              setNewRoleName('')
-              const refreshed = await fetchRoles()
-              const nextRoles = refreshed?.items || []
-              setRoles(nextRoles)
-              const created = nextRoles.find((r) => r.name === roleName)
-              if (created?._id) {
-                setPermissionRoleId(created._id)
-                setPermissionRows(created.permissions?.length ? created.permissions : defaultPermissions)
-              }
-            } catch (error) {
-              setError(error?.response?.data?.message || 'Failed to create role')
-            }
-          }}
-        >
-          Create Role
-        </Button>
-      </div>
-
-      {permissionRows.length === 0 ? <EmptyState title="No permissions configured" /> : (
-        <div className="permission-grid">
-          {permissionRows.map((perm, index) => (
-            <div className="permission-card" key={`${perm.module}-${index}`}>
-              <h4>{perm.module}</h4>
-              {['view', 'create', 'edit', 'delete', 'approve', 'export'].map((action) => (
-                <label key={action} className="checkbox-item">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(perm[action])}
-                    onChange={(e) => setPermissionRows((prev) => prev.map((row, rowIndex) => rowIndex === index ? { ...row, [action]: e.target.checked } : row))}
-                  />
-                  <span>{action}</span>
-                </label>
-              ))}
-            </div>
-          ))}
-        </div>
-      )}
-
-      <Button onClick={async () => {
-        if (!permissionRoleId) return setError('Select role first')
-        try {
-          await updateRolePermissions(permissionRoleId, permissionRows)
-          setSuccess('Permissions updated successfully')
-        } catch (error) {
-          setError(error?.response?.data?.message || 'Failed to update permissions')
-        }
-      }}>Save Permissions</Button>
-    </div>
-  )
-
   const renderAdminManagementPage = () => <div id="admin-list-section">{renderAdminList()}</div>
 
   const renderByPage = () => {
@@ -640,23 +527,32 @@ function AdminManagementModulePage({ page }) {
         return renderAddEdit('Add Admin')
       case 'Edit Admin':
         return renderAddEdit('Edit Admin')
-      case 'Assign Companies':
-        return renderAssignCompanies()
       case 'Reset Password':
         return renderResetPassword()
-      case 'Admin Access Logs':
-        return renderLogs('access')
       case 'Admin Activity Tracking':
-        return renderLogs('activity')
+        return (
+          <div className="panel">
+            <DataTable
+              columns={activityLogColumns}
+              rows={activityLogs.map((entry) => ({
+                id: entry._id,
+                admin: entry.admin?.name || '-',
+                module: entry.module || '-',
+                action: entry.action,
+                description: entry.description,
+                dateTime: new Date(entry.dateTime).toLocaleString()
+              }))}
+              showViewAction={false}
+              showEditAction={false}
+              showDeleteAction={false}
+            />
+          </div>
+        )
       case 'Account Lock/Unlock':
         return renderLockUnlock()
-      case 'Role Assignment':
-        return renderRoleAssignment()
-      case 'Permission Control':
-        return renderPermissionControl()
       default:
         return renderAdminManagementPage()
-    }
+  }
   }
 
   const pageBreadcrumb = page && page !== 'Admin Management' ? page : null
@@ -665,7 +561,7 @@ function AdminManagementModulePage({ page }) {
     <section className="section-layout admin-management-page">
       <PageHeader
         title="Admin Management"
-        description="Single-page control center for admins, security, logs, role assignment, and permissions."
+        description="Single-page control center for admins, security, logs, and account status."
         breadcrumb={['Super Admin', 'Admin Management', pageBreadcrumb].filter(Boolean)}
         primaryActionLabel="Add Admin"
         onPrimaryAction={openAdd}
@@ -710,25 +606,131 @@ function AdminManagementModulePage({ page }) {
         bodyClassName="admin-form-body"
       >
         <div className="admin-form-modal">
-        <div className="form-grid">
-          <FormInput label="Name" value={addEditForm.name} onChange={(e) => setAddEditForm((prev) => ({ ...prev, name: e.target.value }))} />
-          <FormInput label="Email" value={addEditForm.email} onChange={(e) => setAddEditForm((prev) => ({ ...prev, email: e.target.value }))} disabled={Boolean(selectedAdminId)} />
-          <FormInput label="Phone" value={addEditForm.phone} onChange={(e) => setAddEditForm((prev) => ({ ...prev, phone: e.target.value }))} />
-          {!selectedAdminId ? <FormInput label="Password" type="password" value={addEditForm.password} onChange={(e) => setAddEditForm((prev) => ({ ...prev, password: e.target.value }))} /> : null}
-          {!selectedAdminId ? <FormInput label="Confirm Password" type="password" value={addEditForm.confirmPassword} onChange={(e) => setAddEditForm((prev) => ({ ...prev, confirmPassword: e.target.value }))} /> : null}
-          <FormInput label="Role" value="admin" disabled />
-          <FilterDropdown label="Status" value={addEditForm.status} onChange={(value) => setAddEditForm((prev) => ({ ...prev, status: value }))} options={[{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }, { value: 'suspended', label: 'Suspended' }, { value: 'locked', label: 'Locked' }]} />
-          <FilterDropdown
-            label="Company"
-            value={addEditForm.companyId}
-            onChange={(value) => setAddEditForm((prev) => ({ ...prev, companyId: value }))}
-            options={[{ value: '', label: 'Select Company' }, ...companies.map((company) => ({ value: company._id, label: company.companyName }))]}
-          />
-        </div>
-        <div className="actions-row">
-          <Button variant="ghost" onClick={() => setModalOpen(false)}>Cancel</Button>
-          <Button onClick={saveAddEdit}>Save</Button>
-        </div>
+          {formSubmitError ? (
+            <div className="form-inline-alert form-inline-alert-error" role="alert">
+              {formSubmitError}
+            </div>
+          ) : null}
+          <div className="company-form-section">
+            <div className="company-form-section-head">
+              <h4>Identity</h4>
+              <p>Basic admin identity and login information.</p>
+            </div>
+            <div className="form-grid company-form-grid">
+              <FormInput label="Admin Name *" value={addEditForm.name} error={formErrors.name} onChange={(e) => setAddEditForm((prev) => ({ ...prev, name: e.target.value }))} />
+              <FormInput label="Email *" value={addEditForm.email} error={formErrors.email} onChange={(e) => setAddEditForm((prev) => ({ ...prev, email: e.target.value }))} disabled={Boolean(selectedAdminId)} />
+              <FormInput label="Phone Number *" value={addEditForm.phone} error={formErrors.phone} onChange={(e) => setAddEditForm((prev) => ({ ...prev, phone: e.target.value }))} />
+              <FormInput label="Phone No 2" value={addEditForm.secondaryPhone} onChange={(e) => setAddEditForm((prev) => ({ ...prev, secondaryPhone: e.target.value }))} placeholder="Optional" />
+            </div>
+          </div>
+
+          <div className="company-form-section">
+            <div className="company-form-section-head">
+              <h4>Company & Role</h4>
+              <p>Connect the admin to one company and keep role fixed as admin.</p>
+            </div>
+            <div className="form-grid company-form-grid">
+              <FormInput label="Role" value="admin" disabled />
+              <label className="form-input-wrap">
+                <span>Company *</span>
+                <select
+                  className={`form-input ${formErrors.companyId ? 'form-input-error' : ''}`}
+                  value={addEditForm.companyId}
+                  onChange={(event) => setAddEditForm((prev) => ({ ...prev, companyId: event.target.value }))}
+                >
+                  <option value="">Select Company</option>
+                  {companies.map((company) => (
+                    <option key={company._id} value={company._id}>
+                      {company.companyName}
+                    </option>
+                  ))}
+                </select>
+                {formErrors.companyId ? <small className="field-error">{formErrors.companyId}</small> : null}
+              </label>
+              <FormInput label="Designation" value={addEditForm.designation} onChange={(e) => setAddEditForm((prev) => ({ ...prev, designation: e.target.value }))} placeholder="Admin, Finance Lead, etc." />
+              <FormInput label="Department" value={addEditForm.department} onChange={(e) => setAddEditForm((prev) => ({ ...prev, department: e.target.value }))} placeholder="Operations, Finance, HR" />
+              <FormInput label="Employee Code" value={addEditForm.employeeCode} onChange={(e) => setAddEditForm((prev) => ({ ...prev, employeeCode: e.target.value }))} placeholder="Optional" />
+              <FilterDropdown
+                label="Gender"
+                value={addEditForm.gender}
+                onChange={(value) => setAddEditForm((prev) => ({ ...prev, gender: value }))}
+                options={[
+                  { value: '', label: 'Select Gender' },
+                  { value: 'male', label: 'Male' },
+                  { value: 'female', label: 'Female' },
+                  { value: 'other', label: 'Other' }
+                ]}
+              />
+              <FilterDropdown label="Status" value={addEditForm.status} onChange={(value) => setAddEditForm((prev) => ({ ...prev, status: value }))} options={[{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }, { value: 'suspended', label: 'Suspended' }, { value: 'locked', label: 'Locked' }]} />
+            </div>
+          </div>
+
+          <div className="company-form-section">
+            <div className="company-form-section-head">
+              <h4>Documents</h4>
+              <p>Identity numbers used for record keeping and verification.</p>
+            </div>
+            <div className="form-grid company-form-grid">
+              <FormInput label="Aadhaar Number *" value={addEditForm.aadhaarNumber} error={formErrors.aadhaarNumber} onChange={(e) => setAddEditForm((prev) => ({ ...prev, aadhaarNumber: e.target.value }))} placeholder="12 digits" />
+              <FormInput label="PAN Number *" value={addEditForm.panNumber} error={formErrors.panNumber} onChange={(e) => setAddEditForm((prev) => ({ ...prev, panNumber: e.target.value.toUpperCase() }))} placeholder="ABCDE1234F" />
+              <FormInput label="Date of Birth" type="date" value={addEditForm.dateOfBirth} onChange={(e) => setAddEditForm((prev) => ({ ...prev, dateOfBirth: e.target.value }))} />
+              <FormInput label="Joining Date" type="date" value={addEditForm.joiningDate} onChange={(e) => setAddEditForm((prev) => ({ ...prev, joiningDate: e.target.value }))} />
+            </div>
+          </div>
+
+          <div className="company-form-section">
+            <div className="company-form-section-head">
+              <h4>Address & Emergency Contact</h4>
+              <p>Extra contact details for real-world HR records.</p>
+            </div>
+            <div className="form-grid company-form-grid">
+              <label className="form-input-wrap company-form-field company-form-textarea-field" style={{ gridColumn: '1 / -1' }}>
+                <span>Address *</span>
+                <textarea
+                  className={`form-input ${formErrors.address ? 'form-input-error' : ''}`}
+                  rows="3"
+                  value={addEditForm.address}
+                  onChange={(e) => setAddEditForm((prev) => ({ ...prev, address: e.target.value }))}
+                  placeholder="House no, street, city, state, pincode"
+                />
+                {formErrors.address ? <small className="field-error">{formErrors.address}</small> : null}
+              </label>
+              <FormInput label="Emergency Contact Name" value={addEditForm.emergencyContactName} onChange={(e) => setAddEditForm((prev) => ({ ...prev, emergencyContactName: e.target.value }))} placeholder="Optional" />
+              <FormInput label="Emergency Contact Phone" value={addEditForm.emergencyContactPhone} onChange={(e) => setAddEditForm((prev) => ({ ...prev, emergencyContactPhone: e.target.value }))} placeholder="Optional" />
+              <label className="form-input-wrap company-form-field company-form-textarea-field" style={{ gridColumn: '1 / -1' }}>
+                <span>Notes</span>
+                <textarea
+                  className="form-input"
+                  rows="3"
+                  value={addEditForm.notes}
+                  onChange={(e) => setAddEditForm((prev) => ({ ...prev, notes: e.target.value }))}
+                  placeholder="Internal notes for the super admin team"
+                />
+              </label>
+            </div>
+          </div>
+
+          {!selectedAdminId ? (
+            <div className="company-form-section">
+              <div className="company-form-section-head">
+                <h4>Security</h4>
+                <p>Set the initial password for this admin account.</p>
+              </div>
+              <div className="form-grid company-form-grid">
+                <FormInput label="Password *" type="password" value={addEditForm.password} error={formErrors.password} onChange={(e) => setAddEditForm((prev) => ({ ...prev, password: e.target.value }))} />
+                <FormInput label="Confirm Password *" type="password" value={addEditForm.confirmPassword} error={formErrors.confirmPassword} onChange={(e) => setAddEditForm((prev) => ({ ...prev, confirmPassword: e.target.value }))} />
+              </div>
+            </div>
+          ) : null}
+
+          <div className="company-form-meta-note">
+            <span>* Required fields</span>
+            <span>Saved in MongoDB with admin profile fields, companies, and activity logs.</span>
+          </div>
+          <div className="modal-actions company-form-actions">
+            <Button type="button" variant="ghost" onClick={() => setModalOpen(false)}>Cancel</Button>
+            <Button type="button" onClick={saveAddEdit}>Save Admin</Button>
+          </div>
         </div>
       </Modal>
 
